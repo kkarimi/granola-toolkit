@@ -1,6 +1,6 @@
 # granola-toolkit
 
-General toolkit to do more with Granola notes and transcripts.
+Toolkit for working with Granola meetings, notes, and transcripts.
 
 ## Install
 
@@ -15,6 +15,7 @@ Without a global install:
 
 ```bash
 npx granola-toolkit --help
+npx granola-toolkit meeting --help
 ```
 
 For local development:
@@ -27,7 +28,7 @@ vp install
 
 ## Run
 
-Installed CLI:
+Installed command:
 
 ```bash
 granola --help
@@ -36,6 +37,8 @@ granola meeting --help
 granola notes --help
 granola transcripts --help
 ```
+
+The published package exposes both `granola` and `granola-toolkit` as executable names.
 
 Local build:
 

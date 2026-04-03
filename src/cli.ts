@@ -26,9 +26,9 @@ function rootHelp(): string {
     .map((command) => `  ${command.name.padEnd(commandWidth)}  ${command.description}`)
     .join("\n");
 
-  return `Granola CLI
+  return `Granola Toolkit
 
-Export your Granola notes and transcripts.
+Work with Granola meetings, notes, and transcripts.
 
 Usage:
   granola <command> [options]

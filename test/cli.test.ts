@@ -16,7 +16,7 @@ describe("runCli", () => {
     const exitCode = await runCli(["--help"]);
 
     expect(exitCode).toBe(0);
-    expect(log).toHaveBeenCalledWith(expect.stringContaining("Granola CLI"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("Granola Toolkit"));
     expect(error).not.toHaveBeenCalled();
   });
 

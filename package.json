@@ -1,7 +1,7 @@
 {
   "name": "granola-toolkit",
   "version": "0.14.0",
-  "description": "CLI toolkit for exporting and working with Granola notes and transcripts",
+  "description": "Toolkit for exporting and working with Granola meetings, notes, and transcripts",
   "keywords": [
     "cli",
     "granola",
@@ -18,7 +18,8 @@
     "url": "git+https://github.com/kkarimi/granola-toolkit.git"
   },
   "bin": {
-    "granola": "dist/cli.js"
+    "granola": "dist/cli.js",
+    "granola-toolkit": "dist/cli.js"
   },
   "files": [
     "README.md",
