@@ -9,6 +9,7 @@ import {
   renderMeetingTranscript,
   renderMeetingView,
   resolveMeeting,
+  resolveMeetingQuery,
 } from "../src/meetings.ts";
 import type { CacheData, GranolaDocument } from "../src/types.ts";
 
@@ -85,6 +86,17 @@ describe("listMeetings", () => {
     expect(meetings).toHaveLength(2);
     expect(meetings.map((meeting) => meeting.id)).toEqual(["doc-bravo-2222", "doc-charlie-3333"]);
   });
+
+  test("supports title sorting and updated date filters", () => {
+    const meetings = listMeetings(documents, {
+      limit: 5,
+      sort: "title-desc",
+      updatedFrom: "2024-02-05",
+      updatedTo: "2024-02-05",
+    });
+
+    expect(meetings.map((meeting) => meeting.id)).toEqual(["doc-charlie-3333", "doc-bravo-2222"]);
+  });
 });
 
 describe("resolveMeeting", () => {
@@ -98,6 +110,20 @@ describe("resolveMeeting", () => {
 
   test("throws when the meeting cannot be found", () => {
     expect(() => resolveMeeting(documents, "missing")).toThrow("meeting not found: missing");
+  });
+});
+
+describe("resolveMeetingQuery", () => {
+  test("resolves a meeting by exact title", () => {
+    expect(resolveMeetingQuery(documents, "Bravo Review").id).toBe("doc-bravo-2222");
+  });
+
+  test("resolves a meeting by unique title substring", () => {
+    expect(resolveMeetingQuery(documents, "pipeline").id).toBe("doc-charlie-3333");
+  });
+
+  test("throws when the title query is ambiguous", () => {
+    expect(() => resolveMeetingQuery(documents, "a")).toThrow("ambiguous meeting query: a");
   });
 });
 

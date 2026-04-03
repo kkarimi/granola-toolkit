@@ -192,6 +192,7 @@ The initial server API includes:
 - `GET /state`
 - `GET /events` for server-sent state updates
 - `GET /meetings`
+- `GET /meetings/resolve?q=<query>`
 - `GET /meetings/:id`
 - `POST /exports/notes`
 - `POST /exports/transcripts`
@@ -205,9 +206,12 @@ This is the foundation for the future `granola web` client and any attachable TU
 The initial browser client includes:
 
 - a searchable meeting list
+- sort and updated-date filters
+- quick open by meeting id or title
 - a meeting detail view with notes and transcript panes
 - app-state status from the shared core
 - note and transcript export actions backed by the same local API
+- stronger empty and error states for list/detail failures
 
 ## Auth
 

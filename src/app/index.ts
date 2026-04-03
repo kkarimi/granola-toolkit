@@ -19,6 +19,7 @@ export type {
   GranolaAppCacheState,
   GranolaAppDocumentsState,
   GranolaAppExportRunState,
+  GranolaMeetingSort,
   GranolaAppStateEvent,
   GranolaAppState,
   GranolaAppSurface,

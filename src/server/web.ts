@@ -1,11 +1,17 @@
 export function renderGranolaWebPage(): string {
   const appScript = String.raw`
 const state = {
-  meetings: [],
-  selectedMeetingId: null,
-  selectedMeeting: null,
   appState: null,
+  detailError: "",
+  listError: "",
+  meetings: [],
+  quickOpen: "",
   search: "",
+  selectedMeeting: null,
+  selectedMeetingId: null,
+  sort: "updated-desc",
+  updatedFrom: "",
+  updatedTo: "",
 };
 
 const els = {
@@ -15,10 +21,15 @@ const els = {
   empty: document.querySelector("[data-empty]"),
   list: document.querySelector("[data-meeting-list]"),
   noteButton: document.querySelector("[data-export-notes]"),
+  quickOpen: document.querySelector("[data-quick-open]"),
+  quickOpenButton: document.querySelector("[data-quick-open-button]"),
   refreshButton: document.querySelector("[data-refresh]"),
   search: document.querySelector("[data-search]"),
+  sort: document.querySelector("[data-sort]"),
   stateBadge: document.querySelector("[data-state-badge]"),
   transcriptButton: document.querySelector("[data-export-transcripts]"),
+  updatedFrom: document.querySelector("[data-updated-from]"),
+  updatedTo: document.querySelector("[data-updated-to]"),
 };
 
 function escapeHtml(value) {
@@ -32,6 +43,32 @@ function escapeHtml(value) {
 function setStatus(label, tone = "idle") {
   els.stateBadge.textContent = label;
   els.stateBadge.dataset.tone = tone;
+}
+
+function syncFilterInputs() {
+  els.quickOpen.value = state.quickOpen;
+  els.search.value = state.search;
+  els.sort.value = state.sort;
+  els.updatedFrom.value = state.updatedFrom;
+  els.updatedTo.value = state.updatedTo;
+}
+
+function currentFilterSummary() {
+  const parts = [];
+
+  if (state.search) {
+    parts.push('search "' + state.search + '"');
+  }
+
+  if (state.updatedFrom) {
+    parts.push("from " + state.updatedFrom);
+  }
+
+  if (state.updatedTo) {
+    parts.push("to " + state.updatedTo);
+  }
+
+  return parts.join(", ");
 }
 
 function renderAppState() {
@@ -61,10 +98,20 @@ function renderAppState() {
 }
 
 function renderMeetingList() {
+  if (state.listError) {
+    els.list.innerHTML =
+      '<div class="meeting-empty meeting-empty--error">' + escapeHtml(state.listError) + "</div>";
+    return;
+  }
+
   if (state.meetings.length === 0) {
     state.selectedMeetingId = null;
     state.selectedMeeting = null;
-    els.list.innerHTML = '<div class="meeting-empty">No meetings yet. Try Refresh.</div>';
+    const filterSummary = currentFilterSummary();
+    const message = filterSummary
+      ? "No meetings match " + filterSummary + "."
+      : "No meetings yet. Try Refresh.";
+    els.list.innerHTML = '<div class="meeting-empty">' + escapeHtml(message) + "</div>";
     renderMeetingDetail();
     return;
   }
@@ -90,9 +137,18 @@ function renderMeetingList() {
 }
 
 function renderMeetingDetail() {
+  if (state.detailError) {
+    els.empty.hidden = false;
+    els.empty.textContent = state.detailError;
+    els.detailMeta.innerHTML = "";
+    els.detailBody.innerHTML = "";
+    return;
+  }
+
   const record = state.selectedMeeting;
   if (!record) {
     els.empty.hidden = false;
+    els.empty.textContent = "Select a meeting to inspect its notes and transcript.";
     els.detailMeta.innerHTML = "";
     els.detailBody.innerHTML = "";
     return;
@@ -126,17 +182,51 @@ async function fetchJson(path, init) {
   return payload;
 }
 
-async function loadMeetings() {
-  const query = state.search ? "?search=" + encodeURIComponent(state.search) + "&limit=50" : "?limit=50";
-  const payload = await fetchJson("/meetings" + query);
-  state.meetings = payload.meetings || [];
-  if (!state.selectedMeetingId && state.meetings[0]) {
-    state.selectedMeetingId = state.meetings[0].id;
+function buildMeetingsQuery(limit = 100) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  params.set("sort", state.sort);
+
+  if (state.search) {
+    params.set("search", state.search);
   }
-  renderMeetingList();
-  if (state.selectedMeetingId) {
-    await loadMeeting(state.selectedMeetingId);
-  } else {
+
+  if (state.updatedFrom) {
+    params.set("updatedFrom", state.updatedFrom);
+  }
+
+  if (state.updatedTo) {
+    params.set("updatedTo", state.updatedTo);
+  }
+
+  return "?" + params.toString();
+}
+
+async function loadMeetings(options = {}) {
+  const preferredMeetingId = options.preferredMeetingId || state.selectedMeetingId;
+
+  try {
+    state.listError = "";
+    const payload = await fetchJson("/meetings" + buildMeetingsQuery());
+    state.meetings = payload.meetings || [];
+
+    if (preferredMeetingId && state.meetings.some((meeting) => meeting.id === preferredMeetingId)) {
+      state.selectedMeetingId = preferredMeetingId;
+    }
+
+    renderMeetingList();
+    if (state.selectedMeetingId) {
+      await loadMeeting(state.selectedMeetingId);
+      return;
+    }
+
+    state.detailError = "";
+    renderMeetingDetail();
+  } catch (error) {
+    state.listError = error instanceof Error ? error.message : String(error);
+    state.selectedMeeting = null;
+    state.detailError = state.listError;
+    renderMeetingList();
     renderMeetingDetail();
   }
 }
@@ -144,9 +234,44 @@ async function loadMeetings() {
 async function loadMeeting(id) {
   state.selectedMeetingId = id;
   renderMeetingList();
-  const payload = await fetchJson("/meetings/" + encodeURIComponent(id));
-  state.selectedMeeting = payload.meeting || null;
-  renderMeetingDetail();
+
+  try {
+    state.detailError = "";
+    const payload = await fetchJson("/meetings/" + encodeURIComponent(id));
+    state.selectedMeeting = payload.meeting || null;
+    renderMeetingDetail();
+  } catch (error) {
+    state.selectedMeeting = null;
+    state.detailError = error instanceof Error ? error.message : String(error);
+    renderMeetingDetail();
+  }
+}
+
+async function quickOpenMeeting() {
+  const query = els.quickOpen.value.trim();
+  if (!query) {
+    setStatus("Enter a title or id", "error");
+    return;
+  }
+
+  setStatus("Opening meeting…", "busy");
+
+  try {
+    state.quickOpen = query;
+    const payload = await fetchJson("/meetings/resolve?q=" + encodeURIComponent(query));
+    state.search = "";
+    state.updatedFrom = "";
+    state.updatedTo = "";
+    syncFilterInputs();
+    await loadMeetings({
+      preferredMeetingId: payload.document.id,
+    });
+    setStatus("Connected", "ok");
+  } catch (error) {
+    state.detailError = error instanceof Error ? error.message : String(error);
+    renderMeetingDetail();
+    setStatus("Quick open failed", "error");
+  }
 }
 
 async function refreshAll() {
@@ -208,6 +333,56 @@ els.search.addEventListener("input", (event) => {
   void loadMeetings();
 });
 
+els.sort.addEventListener("change", (event) => {
+  if (!(event.target instanceof HTMLSelectElement)) {
+    return;
+  }
+
+  state.sort = event.target.value;
+  void loadMeetings();
+});
+
+els.updatedFrom.addEventListener("change", (event) => {
+  if (!(event.target instanceof HTMLInputElement)) {
+    return;
+  }
+
+  state.updatedFrom = event.target.value;
+  void loadMeetings();
+});
+
+els.updatedTo.addEventListener("change", (event) => {
+  if (!(event.target instanceof HTMLInputElement)) {
+    return;
+  }
+
+  state.updatedTo = event.target.value;
+  void loadMeetings();
+});
+
+els.quickOpen.addEventListener("input", (event) => {
+  if (!(event.target instanceof HTMLInputElement)) {
+    return;
+  }
+
+  state.quickOpen = event.target.value;
+});
+
+els.quickOpen.addEventListener("keydown", (event) => {
+  if (!(event.target instanceof HTMLInputElement)) {
+    return;
+  }
+
+  if (event.key === "Enter") {
+    event.preventDefault();
+    void quickOpenMeeting();
+  }
+});
+
+els.quickOpenButton.addEventListener("click", () => {
+  void quickOpenMeeting();
+});
+
 const events = new EventSource("/events");
 events.addEventListener("state.updated", (event) => {
   const payload = JSON.parse(event.data);
@@ -217,6 +392,8 @@ events.addEventListener("state.updated", (event) => {
 events.addEventListener("error", () => {
   setStatus("Disconnected", "error");
 });
+
+syncFilterInputs();
 
 void refreshAll().catch((error) => {
   setStatus("Error", "error");
@@ -305,7 +482,9 @@ void refreshAll().catch((error) => {
         line-height: 1.5;
       }
 
-      .search {
+      .search,
+      .select,
+      .field-input {
         width: 100%;
         margin-top: 16px;
         padding: 12px 14px;
@@ -314,6 +493,26 @@ void refreshAll().catch((error) => {
         background: rgba(255, 255, 255, 0.7);
         color: var(--ink);
         font: inherit;
+      }
+
+      .field-row {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .field-row--inline {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .field-label {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
 
       .meeting-list {
@@ -355,6 +554,10 @@ void refreshAll().catch((error) => {
       .meeting-empty {
         padding: 18px;
         color: var(--muted);
+      }
+
+      .meeting-empty--error {
+        color: var(--error);
       }
 
       .detail {
@@ -402,6 +605,13 @@ void refreshAll().catch((error) => {
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
+      }
+
+      .toolbar-form {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        width: min(440px, 100%);
       }
 
       .button {
@@ -496,6 +706,11 @@ void refreshAll().catch((error) => {
         .shell {
           grid-template-columns: 1fr;
         }
+
+        .field-row--inline,
+        .toolbar-form {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
@@ -506,9 +721,34 @@ void refreshAll().catch((error) => {
           <h1>Granola Toolkit</h1>
           <p>Browser workspace for meetings, notes, transcripts, and export flows on top of one local server instance.</p>
           <input class="search" data-search placeholder="Search meetings, ids, or tags" />
+          <div class="field-row field-row--inline">
+            <label>
+              <span class="field-label">Sort</span>
+              <select class="select" data-sort>
+                <option value="updated-desc">Newest first</option>
+                <option value="updated-asc">Oldest first</option>
+                <option value="title-asc">Title A-Z</option>
+                <option value="title-desc">Title Z-A</option>
+              </select>
+            </label>
+            <label>
+              <span class="field-label">Updated From</span>
+              <input class="field-input" data-updated-from type="date" />
+            </label>
+          </div>
+          <label class="field-row">
+            <span class="field-label">Updated To</span>
+            <input class="field-input" data-updated-to type="date" />
+          </label>
         </section>
         <section class="toolbar">
-          <p>Meetings are loaded from the shared server state so this view can later coexist with the terminal UI.</p>
+          <div>
+            <p>Meetings are loaded from the shared server state so this view can later coexist with the terminal UI.</p>
+          </div>
+          <div class="toolbar-form">
+            <input class="field-input" data-quick-open placeholder="Quick open by id or title" />
+            <button class="button button--secondary" data-quick-open-button>Open</button>
+          </div>
         </section>
         <section class="meeting-list" data-meeting-list></section>
       </aside>

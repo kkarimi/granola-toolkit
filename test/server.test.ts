@@ -265,4 +265,76 @@ describe("startGranolaServer", () => {
     expect(html).toContain("Meeting Workspace");
     expect(html).toContain('new EventSource("/events")');
   });
+
+  test("supports meeting filters and quick-open routes", async () => {
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile: "",
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          mode: "supabase-file",
+          storedSessionAvailable: false,
+          supabasePath: "/tmp/supabase.json",
+        },
+        cacheLoader: async () => cacheData,
+        granolaClient: {
+          listDocuments: async () => [
+            ...documents,
+            {
+              content: "Pipeline fallback",
+              createdAt: "2024-02-02T09:00:00Z",
+              id: "doc-charlie-3333",
+              notesPlain: "",
+              tags: ["sales", "ops"],
+              title: "Charlie Pipeline",
+              updatedAt: "2024-02-05T11:00:00Z",
+            },
+          ],
+        },
+        now: () => new Date("2024-03-01T12:00:00Z"),
+      },
+      { surface: "web" },
+    );
+
+    const server = await startGranolaServer(app, {
+      enableWebClient: true,
+    });
+    closeServer = async () => await server.close();
+
+    const filtered = await fetch(
+      new URL(
+        "/meetings?limit=10&sort=title-desc&updatedFrom=2024-02-05&updatedTo=2024-02-05",
+        server.url,
+      ),
+    );
+    expect(filtered.ok).toBe(true);
+    expect(await filtered.json()).toEqual(
+      expect.objectContaining({
+        meetings: [expect.objectContaining({ id: "doc-charlie-3333" })],
+        sort: "title-desc",
+        updatedFrom: "2024-02-05",
+        updatedTo: "2024-02-05",
+      }),
+    );
+
+    const resolved = await fetch(new URL("/meetings/resolve?q=Charlie%20Pipeline", server.url));
+    expect(resolved.ok).toBe(true);
+    expect(await resolved.json()).toEqual(
+      expect.objectContaining({
+        document: expect.objectContaining({
+          id: "doc-charlie-3333",
+        }),
+      }),
+    );
+  });
 });

@@ -7,7 +7,12 @@ import {
   type DefaultGranolaAuthInfo,
 } from "../client/default.ts";
 import type { GranolaApiClient } from "../client/granola.ts";
-import { buildMeetingRecord, listMeetings, resolveMeeting } from "../meetings.ts";
+import {
+  buildMeetingRecord,
+  listMeetings,
+  resolveMeeting,
+  resolveMeetingQuery,
+} from "../meetings.ts";
 import { writeNotes } from "../notes.ts";
 import { writeTranscripts } from "../transcripts.ts";
 import type {
@@ -249,10 +254,16 @@ export class GranolaApp {
       cacheData,
       limit: options.limit,
       search: options.search,
+      sort: options.sort,
+      updatedFrom: options.updatedFrom,
+      updatedTo: options.updatedTo,
     });
 
     this.setUiState({
       meetingSearch: options.search,
+      meetingSort: options.sort,
+      meetingUpdatedFrom: options.updatedFrom,
+      meetingUpdatedTo: options.updatedTo,
       selectedMeetingId: undefined,
       view: "meeting-list",
     });
@@ -267,6 +278,27 @@ export class GranolaApp {
     const documents = await this.listDocuments();
     const cacheData = await this.loadCache({ required: options.requireCache });
     const document = resolveMeeting(documents, id);
+    const meeting = buildMeetingRecord(document, cacheData);
+
+    this.setUiState({
+      selectedMeetingId: document.id,
+      view: "meeting-detail",
+    });
+
+    return {
+      cacheData,
+      document,
+      meeting,
+    };
+  }
+
+  async findMeeting(
+    query: string,
+    options: { requireCache?: boolean } = {},
+  ): Promise<GranolaMeetingBundle> {
+    const documents = await this.listDocuments();
+    const cacheData = await this.loadCache({ required: options.requireCache });
+    const document = resolveMeetingQuery(documents, query);
     const meeting = buildMeetingRecord(document, cacheData);
 
     this.setUiState({

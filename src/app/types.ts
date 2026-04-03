@@ -9,6 +9,7 @@ import type { AppConfig, CacheData, GranolaDocument } from "../types.ts";
 
 export type GranolaAppAuthMode = GranolaSessionMetadata["mode"];
 export type GranolaAppSurface = "cli" | "server" | "tui" | "web";
+export type GranolaMeetingSort = "title-asc" | "title-desc" | "updated-asc" | "updated-desc";
 export type GranolaAppView =
   | "idle"
   | "meeting-detail"
@@ -43,6 +44,9 @@ export interface GranolaAppExportRunState {
 
 export interface GranolaAppUIState {
   meetingSearch?: string;
+  meetingSort?: GranolaMeetingSort;
+  meetingUpdatedFrom?: string;
+  meetingUpdatedTo?: string;
   selectedMeetingId?: string;
   surface: GranolaAppSurface;
   view: GranolaAppView;
@@ -69,6 +73,9 @@ export interface GranolaMeetingBundle {
 export interface GranolaMeetingListOptions {
   limit?: number;
   search?: string;
+  sort?: GranolaMeetingSort;
+  updatedFrom?: string;
+  updatedTo?: string;
 }
 
 export interface GranolaNotesExportResult {

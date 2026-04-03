@@ -146,4 +146,55 @@ describe("GranolaApp", () => {
     );
     expect(state.ui.view).toBe("notes-export");
   });
+
+  test("tracks list filters and quick-open state", async () => {
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile: "",
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          mode: "supabase-file",
+          storedSessionAvailable: false,
+          supabasePath: "/tmp/supabase.json",
+        },
+        cacheLoader: async () => undefined,
+        granolaClient: {
+          listDocuments: async () => documents,
+        },
+        now: () => new Date("2024-03-01T12:00:00Z"),
+      },
+      { surface: "web" },
+    );
+
+    const list = await app.listMeetings({
+      limit: 10,
+      sort: "title-asc",
+      updatedFrom: "2024-01-01",
+      updatedTo: "2024-01-31",
+    });
+    const meeting = await app.findMeeting("Alpha Sync");
+
+    expect(list).toHaveLength(1);
+    expect(meeting.meeting.meeting.id).toBe("doc-alpha-1111");
+    expect(app.getState().ui).toEqual(
+      expect.objectContaining({
+        meetingSort: "title-asc",
+        meetingUpdatedFrom: "2024-01-01",
+        meetingUpdatedTo: "2024-01-31",
+        selectedMeetingId: "doc-alpha-1111",
+        surface: "web",
+        view: "meeting-detail",
+      }),
+    );
+  });
 });

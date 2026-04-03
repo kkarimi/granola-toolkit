@@ -21,6 +21,7 @@ import type {
   TranscriptOutputFormat,
 } from "./types.ts";
 import { compareStrings, formatTimestampForTranscript, latestDocumentTimestamp } from "./utils.ts";
+import type { GranolaMeetingSort } from "./app/types.ts";
 
 export type MeetingListOutputFormat = "json" | "text" | "yaml";
 export type MeetingDetailOutputFormat = "json" | "text" | "yaml";
@@ -63,6 +64,32 @@ function compareMeetingDocuments(left: GranolaDocument, right: GranolaDocument):
     compareStrings(left.title || left.id, right.title || right.id) ||
     compareStrings(left.id, right.id)
   );
+}
+
+function compareMeetingDocumentsByTitle(left: GranolaDocument, right: GranolaDocument): number {
+  return (
+    compareStrings(left.title || left.id, right.title || right.id) ||
+    compareTimestampsDescending(latestDocumentTimestamp(left), latestDocumentTimestamp(right)) ||
+    compareStrings(left.id, right.id)
+  );
+}
+
+function compareMeetingDocumentsBySort(
+  left: GranolaDocument,
+  right: GranolaDocument,
+  sort: GranolaMeetingSort,
+): number {
+  switch (sort) {
+    case "title-asc":
+      return compareMeetingDocumentsByTitle(left, right);
+    case "title-desc":
+      return -compareMeetingDocumentsByTitle(left, right);
+    case "updated-asc":
+      return -compareMeetingDocuments(left, right);
+    case "updated-desc":
+    default:
+      return compareMeetingDocuments(left, right);
+  }
 }
 
 function serialiseNote(note: NoteExportRecord): MeetingNoteRecord {
@@ -156,6 +183,49 @@ function matchesMeetingSearch(document: GranolaDocument, search: string): boolea
   );
 }
 
+function parseDateFilter(
+  value: string | undefined,
+  label: "updatedFrom" | "updatedTo",
+): number | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const candidate = /^\d{4}-\d{2}-\d{2}$/.test(trimmed)
+    ? `${trimmed}T${label === "updatedFrom" ? "00:00:00.000" : "23:59:59.999"}`
+    : trimmed;
+  const timestamp = Date.parse(candidate);
+  if (Number.isNaN(timestamp)) {
+    throw new Error(`invalid ${label}: expected ISO timestamp or YYYY-MM-DD`);
+  }
+
+  return timestamp;
+}
+
+function matchesUpdatedRange(
+  document: GranolaDocument,
+  updatedFrom?: string,
+  updatedTo?: string,
+): boolean {
+  const from = parseDateFilter(updatedFrom, "updatedFrom");
+  const to = parseDateFilter(updatedTo, "updatedTo");
+  const updatedAt = parseTimestamp(latestDocumentTimestamp(document));
+  if (updatedAt == null) {
+    return from == null && to == null;
+  }
+
+  if (from != null && updatedAt < from) {
+    return false;
+  }
+
+  if (to != null && updatedAt > to) {
+    return false;
+  }
+
+  return true;
+}
+
 function truncate(value: string, width: number): string {
   if (value.length <= width) {
     return value.padEnd(width);
@@ -243,15 +313,56 @@ export function listMeetings(
     cacheData?: CacheData;
     limit?: number;
     search?: string;
+    sort?: GranolaMeetingSort;
+    updatedFrom?: string;
+    updatedTo?: string;
   } = {},
 ): MeetingSummaryRecord[] {
   const limit = options.limit ?? 20;
+  const sort = options.sort ?? "updated-desc";
   const filtered = documents
     .filter((document) => (options.search ? matchesMeetingSearch(document, options.search) : true))
-    .sort(compareMeetingDocuments)
+    .filter((document) => matchesUpdatedRange(document, options.updatedFrom, options.updatedTo))
+    .sort((left, right) => compareMeetingDocumentsBySort(left, right, sort))
     .slice(0, limit);
 
   return filtered.map((document) => buildMeetingSummary(document, options.cacheData));
+}
+
+export function resolveMeetingQuery(documents: GranolaDocument[], query: string): GranolaDocument {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    throw new Error("meeting query is required");
+  }
+
+  const lower = trimmed.toLowerCase();
+  const exactId = documents.find((document) => document.id === trimmed);
+  if (exactId) {
+    return exactId;
+  }
+
+  const exactTitleMatches = documents.filter((document) => document.title.toLowerCase() === lower);
+  if (exactTitleMatches.length === 1) {
+    return exactTitleMatches[0]!;
+  }
+
+  const prefixMatches = documents.filter((document) => document.id.startsWith(trimmed));
+  if (prefixMatches.length === 1) {
+    return prefixMatches[0]!;
+  }
+
+  const titleMatches = documents
+    .filter((document) => document.title.toLowerCase().includes(lower))
+    .sort(compareMeetingDocuments);
+  if (titleMatches.length === 1) {
+    return titleMatches[0]!;
+  }
+
+  if (exactTitleMatches.length > 1 || prefixMatches.length > 1 || titleMatches.length > 1) {
+    throw new Error(`ambiguous meeting query: ${trimmed}`);
+  }
+
+  throw new Error(`meeting not found: ${trimmed}`);
 }
 
 export function resolveMeeting(documents: GranolaDocument[], id: string): GranolaDocument {

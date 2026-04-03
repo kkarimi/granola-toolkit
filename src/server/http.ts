@@ -9,6 +9,7 @@ import { type AddressInfo } from "node:net";
 import type { GranolaApp } from "../app/core.ts";
 import type {
   GranolaAppStateEvent,
+  GranolaMeetingSort,
   NoteOutputFormat,
   TranscriptOutputFormat,
 } from "../app/index.ts";
@@ -33,6 +34,21 @@ function parseInteger(value: string | null): number | undefined {
   }
 
   return parsed;
+}
+
+function parseMeetingSort(value: string | null): GranolaMeetingSort | undefined {
+  switch (value) {
+    case null:
+    case "":
+      return undefined;
+    case "title-asc":
+    case "title-desc":
+    case "updated-asc":
+    case "updated-desc":
+      return value;
+    default:
+      throw new Error("invalid sort: expected updated-desc, updated-asc, title-asc, or title-desc");
+  }
 }
 
 function sendJson(response: ServerResponse, body: unknown, init: JsonResponseInit = {}): void {
@@ -188,11 +204,30 @@ export async function startGranolaServer(
       if (method === "GET" && path === "/meetings") {
         const limit = parseInteger(url.searchParams.get("limit"));
         const search = url.searchParams.get("search")?.trim() || undefined;
-        const meetings = await app.listMeetings({ limit, search });
+        const sort = parseMeetingSort(url.searchParams.get("sort"));
+        const updatedFrom = url.searchParams.get("updatedFrom")?.trim() || undefined;
+        const updatedTo = url.searchParams.get("updatedTo")?.trim() || undefined;
+        const meetings = await app.listMeetings({ limit, search, sort, updatedFrom, updatedTo });
         sendJson(response, {
           meetings,
           search,
+          sort,
+          updatedFrom,
+          updatedTo,
         });
+        return;
+      }
+
+      if (method === "GET" && path === "/meetings/resolve") {
+        const query = url.searchParams.get("q")?.trim();
+        if (!query) {
+          throw new Error("meeting query is required");
+        }
+
+        const meeting = await app.findMeeting(query, {
+          requireCache: url.searchParams.get("includeTranscript") === "true",
+        });
+        sendJson(response, meeting);
         return;
       }
 
