@@ -37,6 +37,10 @@ const release = () => {
     throw new Error(`Unsupported release kind: ${kind}. Use patch, minor, or major.`);
   }
 
+  run("vp check");
+  run("vp test");
+  run("vp pack");
+  run("npm pack --dry-run");
   run(`npm version ${kind} --no-git-tag-version`);
 
   const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
