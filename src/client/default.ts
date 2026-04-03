@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 
+import type { GranolaSessionMetadata } from "../app/models.ts";
 import { parseCacheContents } from "../cache.ts";
 import type { AppConfig, CacheData } from "../types.ts";
 import { granolaSupabaseCandidates } from "../utils.ts";
@@ -16,11 +17,7 @@ import {
 import { GranolaApiClient } from "./granola.ts";
 import { AuthenticatedHttpClient } from "./http.ts";
 
-export interface DefaultGranolaAuthInfo {
-  mode: "stored-session" | "supabase-file";
-  storedSessionAvailable: boolean;
-  supabasePath?: string;
-}
+export type DefaultGranolaAuthInfo = GranolaSessionMetadata;
 
 export interface DefaultGranolaRuntime {
   auth: DefaultGranolaAuthInfo;

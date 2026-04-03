@@ -1,3 +1,11 @@
+import type {
+  MeetingNoteRecord,
+  MeetingRecord,
+  MeetingSummaryRecord,
+  MeetingTranscriptRecord,
+  NoteExportRecord,
+  TranscriptExportRecord,
+} from "./app/models.ts";
 import { buildNoteExport, renderNoteExport } from "./notes.ts";
 import { toJson, toYaml } from "./render.ts";
 import {
@@ -9,12 +17,8 @@ import type {
   CacheData,
   CacheDocument,
   GranolaDocument,
-  NoteContentSource,
-  NoteExportRecord,
   NoteOutputFormat,
   TranscriptOutputFormat,
-  TranscriptExportRecord,
-  TranscriptExportSegmentRecord,
 } from "./types.ts";
 import { compareStrings, formatTimestampForTranscript, latestDocumentTimestamp } from "./utils.ts";
 
@@ -23,43 +27,6 @@ export type MeetingDetailOutputFormat = "json" | "text" | "yaml";
 export type MeetingExportOutputFormat = "json" | "yaml";
 export type MeetingNotesOutputFormat = NoteOutputFormat;
 export type MeetingTranscriptOutputFormat = TranscriptOutputFormat;
-
-export interface MeetingSummaryRecord {
-  createdAt: string;
-  id: string;
-  noteContentSource: NoteContentSource;
-  tags: string[];
-  title: string;
-  transcriptLoaded: boolean;
-  transcriptSegmentCount: number;
-  updatedAt: string;
-}
-
-export interface MeetingNoteRecord {
-  content: string;
-  contentSource: NoteContentSource;
-  createdAt: string;
-  id: string;
-  tags: string[];
-  title: string;
-  updatedAt: string;
-}
-
-export interface MeetingTranscriptRecord {
-  createdAt: string;
-  id: string;
-  segments: TranscriptExportSegmentRecord[];
-  title: string;
-  updatedAt: string;
-}
-
-export interface MeetingRecord {
-  meeting: MeetingSummaryRecord;
-  note: MeetingNoteRecord;
-  noteMarkdown: string;
-  transcript: MeetingTranscriptRecord | null;
-  transcriptText: string | null;
-}
 
 function parseTimestamp(value: string): number | undefined {
   if (!value.trim()) {

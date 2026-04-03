@@ -1,11 +1,7 @@
+import type { NoteExportRecord, NoteOutputFormat } from "./app/models.ts";
 import { syncManagedExports } from "./export-state.ts";
 import { toJson, toYaml } from "./render.ts";
-import type {
-  GranolaDocument,
-  NoteContentSource,
-  NoteExportRecord,
-  NoteOutputFormat,
-} from "./types.ts";
+import type { GranolaDocument, NoteContentSource } from "./types.ts";
 import { convertProseMirrorToMarkdown } from "./prosemirror.ts";
 import {
   compareStrings,

@@ -45,25 +45,6 @@ export interface GranolaDocument {
   updatedAt: string;
 }
 
-export type NoteContentSource =
-  | "notes"
-  | "lastViewedPanel.content"
-  | "lastViewedPanel.originalContent"
-  | "content";
-
-export type NoteOutputFormat = "json" | "markdown" | "raw" | "yaml";
-
-export interface NoteExportRecord {
-  content: string;
-  contentSource: NoteContentSource;
-  createdAt: string;
-  id: string;
-  raw: GranolaDocument;
-  tags: string[];
-  title: string;
-  updatedAt: string;
-}
-
 export interface TranscriptSegment {
   documentId: string;
   endTimestamp: string;
@@ -84,30 +65,6 @@ export interface CacheDocument {
 export interface CacheData {
   documents: Record<string, CacheDocument>;
   transcripts: Record<string, TranscriptSegment[]>;
-}
-
-export type TranscriptOutputFormat = "json" | "raw" | "text" | "yaml";
-
-export interface TranscriptExportSegmentRecord {
-  endTimestamp: string;
-  id: string;
-  isFinal: boolean;
-  source: string;
-  speaker: string;
-  startTimestamp: string;
-  text: string;
-}
-
-export interface TranscriptExportRecord {
-  createdAt: string;
-  id: string;
-  raw: {
-    document: CacheDocument;
-    segments: TranscriptSegment[];
-  };
-  segments: TranscriptExportSegmentRecord[];
-  title: string;
-  updatedAt: string;
 }
 
 export type ExportStateKind = "notes" | "transcripts";
@@ -143,3 +100,12 @@ export interface AppConfig {
   supabase?: string;
   transcripts: TranscriptOptions;
 }
+
+export type {
+  NoteContentSource,
+  NoteExportRecord,
+  NoteOutputFormat,
+  TranscriptExportRecord,
+  TranscriptExportSegmentRecord,
+  TranscriptOutputFormat,
+} from "./app/models.ts";

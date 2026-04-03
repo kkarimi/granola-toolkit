@@ -1,5 +1,19 @@
 export { GranolaApp, createGranolaApp } from "./core.ts";
 export type {
+  GranolaSessionMetadata,
+  GranolaSessionMode,
+  MeetingNoteRecord,
+  MeetingRecord,
+  MeetingSummaryRecord,
+  MeetingTranscriptRecord,
+  NoteContentSource,
+  NoteExportRecord,
+  NoteOutputFormat,
+  TranscriptExportRecord,
+  TranscriptExportSegmentRecord,
+  TranscriptOutputFormat,
+} from "./models.ts";
+export type {
   GranolaAppAuthMode,
   GranolaAppAuthState,
   GranolaAppCacheState,

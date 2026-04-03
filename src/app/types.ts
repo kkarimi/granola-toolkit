@@ -1,13 +1,13 @@
-import type { MeetingRecord, MeetingSummaryRecord } from "../meetings.ts";
 import type {
-  AppConfig,
-  CacheData,
-  GranolaDocument,
+  GranolaSessionMetadata,
+  MeetingRecord,
+  MeetingSummaryRecord,
   NoteOutputFormat,
   TranscriptOutputFormat,
-} from "../types.ts";
+} from "./models.ts";
+import type { AppConfig, CacheData, GranolaDocument } from "../types.ts";
 
-export type GranolaAppAuthMode = "stored-session" | "supabase-file";
+export type GranolaAppAuthMode = GranolaSessionMetadata["mode"];
 export type GranolaAppSurface = "cli" | "server" | "tui" | "web";
 export type GranolaAppView =
   | "idle"
@@ -16,11 +16,7 @@ export type GranolaAppView =
   | "notes-export"
   | "transcripts-export";
 
-export interface GranolaAppAuthState {
-  mode: GranolaAppAuthMode;
-  storedSessionAvailable: boolean;
-  supabasePath?: string;
-}
+export interface GranolaAppAuthState extends GranolaSessionMetadata {}
 
 export interface GranolaAppDocumentsState {
   count: number;
