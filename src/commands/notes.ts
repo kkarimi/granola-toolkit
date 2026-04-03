@@ -1,6 +1,13 @@
 import { existsSync } from "node:fs";
 
-import { CachedTokenProvider, NoopTokenStore, SupabaseFileTokenSource } from "../client/auth.ts";
+import {
+  CachedTokenProvider,
+  createDefaultSessionStore,
+  NoopTokenStore,
+  StoredSessionTokenProvider,
+  SupabaseFileSessionSource,
+  SupabaseFileTokenSource,
+} from "../client/auth.ts";
 import { GranolaApiClient } from "../client/granola.ts";
 import { AuthenticatedHttpClient } from "../client/http.ts";
 import { loadConfig } from "../config.ts";
@@ -44,13 +51,16 @@ export const notesCommand: CommandDefinition = {
       subcommandFlags: commandFlags,
     });
 
-    if (!config.supabase) {
+    const sessionStore = createDefaultSessionStore();
+    const storedSession = await sessionStore.readSession();
+
+    if (!storedSession && !config.supabase) {
       throw new Error(
         `supabase.json not found. Pass --supabase or create .granola.toml. Expected locations include: ${granolaSupabaseCandidates().join(", ")}`,
       );
     }
 
-    if (!existsSync(config.supabase)) {
+    if (!storedSession && config.supabase && !existsSync(config.supabase)) {
       throw new Error(`supabase.json not found: ${config.supabase}`);
     }
 
@@ -62,8 +72,17 @@ export const notesCommand: CommandDefinition = {
     debug(config.debug, "format", format);
 
     console.log("Fetching documents from Granola API...");
-    const tokenSource = new SupabaseFileTokenSource(config.supabase);
-    const tokenProvider = new CachedTokenProvider(tokenSource, new NoopTokenStore());
+    const tokenProvider = storedSession
+      ? new StoredSessionTokenProvider(sessionStore, {
+          source:
+            config.supabase && existsSync(config.supabase)
+              ? new SupabaseFileSessionSource(config.supabase)
+              : undefined,
+        })
+      : new CachedTokenProvider(
+          new SupabaseFileTokenSource(config.supabase!),
+          new NoopTokenStore(),
+        );
     const httpClient = new AuthenticatedHttpClient({
       logger: console,
       tokenProvider,

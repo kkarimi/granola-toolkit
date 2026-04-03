@@ -76,6 +76,7 @@ export async function runCli(argv: string[]): Promise<number> {
     }
 
     return await command.run({
+      commandArgs: subcommand.rest,
       commandFlags: subcommand.values,
       globalFlags: global.values,
     });

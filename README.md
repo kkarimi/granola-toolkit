@@ -31,6 +31,7 @@ Installed CLI:
 
 ```bash
 granola --help
+granola auth login
 granola notes --help
 granola transcripts --help
 ```
@@ -57,6 +58,9 @@ npm run transcripts -- --help
 Export notes:
 
 ```bash
+granola auth login
+granola notes
+
 node dist/cli.js notes --supabase "$HOME/Library/Application Support/Granola/supabase.json"
 node dist/cli.js notes --format json --output ./notes-json
 ```
@@ -76,7 +80,7 @@ node dist/cli.js transcripts --format yaml --output ./transcripts-yaml
 
 The flow is:
 
-1. read your local `supabase.json`
+1. read a stored Granola session, or fall back to your local `supabase.json`
 2. extract the WorkOS access token from it
 3. call Granola's paginated documents API
 4. normalise each document into a structured note export
@@ -116,6 +120,17 @@ Speaker labels are currently normalised to:
 - `System` for everything else
 
 Structured output formats are useful when you want to post-process exports in scripts instead of reading the default human-oriented Markdown or text files.
+
+## Auth
+
+If you do not want to keep passing `--supabase`, import the desktop app session once:
+
+```bash
+granola auth login
+granola auth status
+```
+
+That stores a reusable Granola session locally and lets `granola notes` use it directly. `granola auth logout` deletes the stored session.
 
 ### Incremental Writes
 

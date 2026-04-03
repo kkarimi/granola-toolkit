@@ -2,6 +2,7 @@ import type { FlagValues } from "../config.ts";
 import type { ParseSpec } from "../flags.ts";
 
 export interface CommandContext {
+  commandArgs: string[];
   commandFlags: FlagValues;
   globalFlags: FlagValues;
 }
