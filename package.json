@@ -49,6 +49,9 @@
     "typecheck": "vp exec tsc --noEmit",
     "prepare": "vp config"
   },
+  "dependencies": {
+    "node-html-markdown": "^2.0.0"
+  },
   "devDependencies": {
     "@types/node": "^25.5.2",
     "typescript": "^5.9.3",

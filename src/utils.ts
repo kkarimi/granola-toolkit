@@ -3,6 +3,8 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
+import { NodeHtmlMarkdown } from "node-html-markdown";
+
 import type { GranolaDocument, TranscriptSegment } from "./types.ts";
 
 const INVALID_FILENAME_CHARS = /[<>:"/\\|?*]/g;
@@ -10,6 +12,10 @@ const CONTROL_CHARACTERS = /\p{Cc}/gu;
 const MULTIPLE_UNDERSCORES = /_+/g;
 const HTML_TAGS = /<[^>]+>/g;
 const MULTIPLE_BLANK_LINES = /\n{3,}/g;
+const htmlMarkdown = new NodeHtmlMarkdown({
+  bulletMarker: "-",
+  ignore: ["script", "style"],
+});
 
 export function normaliseNewlines(value: string): string {
   return value.replace(/\r\n?/g, "\n");
@@ -201,24 +207,15 @@ export function stripHtml(value: string): string {
     .trim();
 }
 
-export function htmlToMarkdownFallback(value: string): string {
-  let output = normaliseNewlines(decodeHtmlEntities(value));
+export function htmlToMarkdown(value: string): string {
+  if (!value.trim()) {
+    return "";
+  }
 
-  output = output.replace(/<br\s*\/?>/gi, "\n");
-  output = output.replace(/<li\b[^>]*>/gi, "- ");
-  output = output.replace(/<\/li>/gi, "\n");
-  output = output.replace(/<h1\b[^>]*>/gi, "# ");
-  output = output.replace(/<h2\b[^>]*>/gi, "## ");
-  output = output.replace(/<h3\b[^>]*>/gi, "### ");
-  output = output.replace(/<h4\b[^>]*>/gi, "#### ");
-  output = output.replace(/<h5\b[^>]*>/gi, "##### ");
-  output = output.replace(/<h6\b[^>]*>/gi, "###### ");
-  output = output.replace(/<\/(p|div|section|article|ul|ol|blockquote|h[1-6])>/gi, "\n\n");
-  output = output.replace(/<[^>]+>/g, "");
-  output = output.replace(/[ \t]+\n/g, "\n");
-  output = output.replace(MULTIPLE_BLANK_LINES, "\n\n");
-
-  return output.trim();
+  return normaliseNewlines(htmlMarkdown.translate(value))
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(MULTIPLE_BLANK_LINES, "\n\n")
+    .trim();
 }
 
 export function latestDocumentTimestamp(document: GranolaDocument): string {

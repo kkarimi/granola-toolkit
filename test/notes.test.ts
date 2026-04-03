@@ -42,7 +42,8 @@ describe("documentToMarkdown", () => {
       createdAt: "2024-01-01T00:00:00Z",
       id: "doc-2",
       lastViewedPanel: {
-        originalContent: "<h2>Summary</h2><ul><li>Point one</li><li>Point two</li></ul>",
+        originalContent:
+          '<h2>Summary</h2><p>Hello <strong>world</strong> and <a href="https://example.com">link</a></p><ol><li>Point one</li><li>Point two</li></ol>',
       },
       notesPlain: "",
       tags: [],
@@ -51,8 +52,10 @@ describe("documentToMarkdown", () => {
     });
 
     expect(markdown).toContain("## Summary");
-    expect(markdown).toContain("- Point one");
-    expect(markdown).toContain("- Point two");
+    expect(markdown).toContain("Hello **world**");
+    expect(markdown).toContain("[link](https://example.com)");
+    expect(markdown).toContain("1. Point one");
+    expect(markdown).toContain("2. Point two");
   });
 
   test("builds structured note exports with a content source", () => {

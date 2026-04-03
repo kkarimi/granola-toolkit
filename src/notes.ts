@@ -9,7 +9,7 @@ import type {
 import { convertProseMirrorToMarkdown } from "./prosemirror.ts";
 import {
   compareStrings,
-  htmlToMarkdownFallback,
+  htmlToMarkdown,
   latestDocumentTimestamp,
   quoteYamlString,
   sanitiseFilename,
@@ -29,9 +29,7 @@ function selectNoteContent(document: GranolaDocument): {
     return { content: lastViewedPanel, source: "lastViewedPanel.content" };
   }
 
-  const originalContent = htmlToMarkdownFallback(
-    document.lastViewedPanel?.originalContent ?? "",
-  ).trim();
+  const originalContent = htmlToMarkdown(document.lastViewedPanel?.originalContent ?? "").trim();
   if (originalContent) {
     return { content: originalContent, source: "lastViewedPanel.originalContent" };
   }
