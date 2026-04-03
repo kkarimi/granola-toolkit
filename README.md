@@ -32,6 +32,7 @@ Installed CLI:
 ```bash
 granola --help
 granola auth login
+granola meeting --help
 granola notes --help
 granola transcripts --help
 ```
@@ -41,6 +42,7 @@ Local build:
 ```bash
 vp pack
 node dist/cli.js --help
+node dist/cli.js meeting --help
 node dist/cli.js notes --help
 node dist/cli.js transcripts --help
 ```
@@ -49,6 +51,7 @@ You can also use the package scripts:
 
 ```bash
 npm run build
+npm run start -- meeting --help
 npm run notes -- --help
 npm run transcripts -- --help
 ```
@@ -70,6 +73,15 @@ Export transcripts:
 ```bash
 node dist/cli.js transcripts --cache "$HOME/Library/Application Support/Granola/cache-v3.json"
 node dist/cli.js transcripts --format yaml --output ./transcripts-yaml
+```
+
+Inspect individual meetings:
+
+```bash
+granola meeting list --limit 10
+granola meeting list --search planning
+granola meeting view 1234abcd
+granola meeting export 1234abcd --format yaml
 ```
 
 ## How It Works
@@ -120,6 +132,30 @@ Speaker labels are currently normalised to:
 - `System` for everything else
 
 Structured output formats are useful when you want to post-process exports in scripts instead of reading the default human-oriented Markdown or text files.
+
+### Meetings
+
+`meeting` combines the API-backed notes path with the local transcript cache so you can inspect one meeting at a time.
+
+The flow is:
+
+1. read a stored Granola session, or fall back to `supabase.json`
+2. fetch documents from Granola's API
+3. optionally load the local cache for transcript data
+4. resolve a meeting by full id or unique id prefix
+5. render either a list, a human-readable meeting view, or a machine-readable export bundle
+
+The human-readable `view` command shows:
+
+- meeting metadata
+- the selected notes content
+- transcript lines when the local cache is available
+
+The machine-readable `export` command includes:
+
+- a meeting summary
+- structured note data plus rendered Markdown
+- structured transcript data plus rendered transcript text when available
 
 ## Auth
 

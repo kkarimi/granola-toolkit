@@ -1,19 +1,7 @@
-import { existsSync } from "node:fs";
-
-import {
-  CachedTokenProvider,
-  createDefaultSessionStore,
-  NoopTokenStore,
-  StoredSessionTokenProvider,
-  SupabaseFileSessionSource,
-  SupabaseFileTokenSource,
-} from "../client/auth.ts";
-import { GranolaApiClient } from "../client/granola.ts";
-import { AuthenticatedHttpClient } from "../client/http.ts";
+import { createDefaultGranolaApiClient } from "../client/default.ts";
 import { loadConfig } from "../config.ts";
 import type { NoteOutputFormat } from "../types.ts";
 import { writeNotes } from "../notes.ts";
-import { granolaSupabaseCandidates } from "../utils.ts";
 
 import { debug } from "./shared.ts";
 import type { CommandDefinition } from "./types.ts";
@@ -51,19 +39,6 @@ export const notesCommand: CommandDefinition = {
       subcommandFlags: commandFlags,
     });
 
-    const sessionStore = createDefaultSessionStore();
-    const storedSession = await sessionStore.readSession();
-
-    if (!storedSession && !config.supabase) {
-      throw new Error(
-        `supabase.json not found. Pass --supabase or create .granola.toml. Expected locations include: ${granolaSupabaseCandidates().join(", ")}`,
-      );
-    }
-
-    if (!storedSession && config.supabase && !existsSync(config.supabase)) {
-      throw new Error(`supabase.json not found: ${config.supabase}`);
-    }
-
     debug(config.debug, "using config", config.configFileUsed ?? "(none)");
     debug(config.debug, "supabase", config.supabase);
     debug(config.debug, "timeoutMs", config.notes.timeoutMs);
@@ -71,23 +46,8 @@ export const notesCommand: CommandDefinition = {
     const format = resolveNoteFormat(commandFlags.format);
     debug(config.debug, "format", format);
 
+    const granolaClient = await createDefaultGranolaApiClient(config);
     console.log("Fetching documents from Granola API...");
-    const tokenProvider = storedSession
-      ? new StoredSessionTokenProvider(sessionStore, {
-          source:
-            config.supabase && existsSync(config.supabase)
-              ? new SupabaseFileSessionSource(config.supabase)
-              : undefined,
-        })
-      : new CachedTokenProvider(
-          new SupabaseFileTokenSource(config.supabase!),
-          new NoopTokenStore(),
-        );
-    const httpClient = new AuthenticatedHttpClient({
-      logger: console,
-      tokenProvider,
-    });
-    const granolaClient = new GranolaApiClient(httpClient);
     const documents = await granolaClient.listDocuments({
       timeoutMs: config.notes.timeoutMs,
     });

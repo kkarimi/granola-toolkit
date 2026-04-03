@@ -125,6 +125,15 @@ describe("formatTranscript", () => {
         startTimestamp: "2024-01-01T10:00:00Z",
         text: "First",
       },
+      {
+        documentId: "doc-4",
+        endTimestamp: "2024-01-01T10:00:20Z",
+        id: "seg-draft-only",
+        isFinal: false,
+        source: "system",
+        startTimestamp: "2024-01-01T10:00:16Z",
+        text: "Interim only",
+      },
     ]);
 
     expect(segments).toEqual([
@@ -139,6 +148,13 @@ describe("formatTranscript", () => {
         text: "Second",
       }),
     ]);
+    expect(segments).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "seg-draft-only",
+        }),
+      ]),
+    );
   });
 
   test("keeps raw transcript output unfiltered", () => {

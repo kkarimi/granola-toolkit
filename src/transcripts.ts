@@ -77,7 +77,12 @@ export function normaliseTranscriptSegments(segments: TranscriptSegment[]): Tran
     selected.set(key, preferredTranscriptSegment(current, segment));
   }
 
-  return [...selected.values()].sort(compareTranscriptSegments);
+  const resolved = [...selected.values()].sort(compareTranscriptSegments);
+  if (resolved.some((segment) => segment.isFinal)) {
+    return resolved.filter((segment) => segment.isFinal);
+  }
+
+  return resolved;
 }
 
 export function buildTranscriptExport(
