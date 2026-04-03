@@ -12,6 +12,7 @@ import type {
   NoteOutputFormat,
   TranscriptOutputFormat,
 } from "../app/index.ts";
+import { renderGranolaWebPage } from "./web.ts";
 
 interface JsonResponseInit {
   status?: number;
@@ -47,6 +48,14 @@ function sendText(response: ServerResponse, body: string, status = 200): void {
   response.writeHead(status, {
     "content-length": Buffer.byteLength(body),
     "content-type": "text/plain; charset=utf-8",
+  });
+  response.end(body);
+}
+
+function sendHtml(response: ServerResponse, body: string, status = 200): void {
+  response.writeHead(status, {
+    "content-length": Buffer.byteLength(body),
+    "content-type": "text/html; charset=utf-8",
   });
   response.end(body);
 }
@@ -115,6 +124,7 @@ export interface GranolaServer {
 }
 
 export interface GranolaServerOptions {
+  enableWebClient?: boolean;
   hostname?: string;
   port?: number;
 }
@@ -123,6 +133,7 @@ export async function startGranolaServer(
   app: GranolaApp,
   options: GranolaServerOptions = {},
 ): Promise<GranolaServer> {
+  const enableWebClient = options.enableWebClient ?? false;
   const hostname = options.hostname ?? "127.0.0.1";
   const port = options.port ?? 0;
 
@@ -132,6 +143,11 @@ export async function startGranolaServer(
     const path = url.pathname;
 
     try {
+      if (method === "GET" && path === "/" && enableWebClient) {
+        sendHtml(response, renderGranolaWebPage());
+        return;
+      }
+
       if (method === "GET" && path === "/health") {
         sendJson(response, {
           ok: true,

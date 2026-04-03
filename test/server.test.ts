@@ -149,6 +149,9 @@ describe("startGranolaServer", () => {
         }),
       }),
     );
+
+    const root = await fetch(new URL("/", server.url));
+    expect(root.status).toBe(404);
   });
 
   test("streams state updates and handles export requests", async () => {
@@ -217,5 +220,49 @@ describe("startGranolaServer", () => {
     expect(markdown).toContain("# Alpha Sync");
 
     await reader?.cancel();
+  });
+
+  test("serves the browser client when enabled", async () => {
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile: "",
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          mode: "supabase-file",
+          storedSessionAvailable: false,
+          supabasePath: "/tmp/supabase.json",
+        },
+        cacheLoader: async () => cacheData,
+        granolaClient: {
+          listDocuments: async () => documents,
+        },
+        now: () => new Date("2024-03-01T12:00:00Z"),
+      },
+      { surface: "web" },
+    );
+
+    const server = await startGranolaServer(app, {
+      enableWebClient: true,
+    });
+    closeServer = async () => await server.close();
+
+    const response = await fetch(new URL("/", server.url));
+    expect(response.ok).toBe(true);
+    expect(response.headers.get("content-type")).toContain("text/html");
+
+    const html = await response.text();
+    expect(html).toContain("<title>Granola Toolkit</title>");
+    expect(html).toContain("Meeting Workspace");
+    expect(html).toContain('new EventSource("/events")');
   });
 });

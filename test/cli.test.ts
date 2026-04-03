@@ -75,6 +75,17 @@ describe("runCli", () => {
     expect(error).not.toHaveBeenCalled();
   });
 
+  test("shows web help from the command module", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const exitCode = await runCli(["web", "--help"]);
+
+    expect(exitCode).toBe(0);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("Granola web"));
+    expect(error).not.toHaveBeenCalled();
+  });
+
   test("returns an error when no command is provided", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const error = vi.spyOn(console, "error").mockImplementation(() => {});

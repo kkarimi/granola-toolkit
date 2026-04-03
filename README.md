@@ -37,6 +37,7 @@ granola meeting --help
 granola notes --help
 granola serve --help
 granola transcripts --help
+granola web --help
 ```
 
 The published package exposes both `granola` and `granola-toolkit` as executable names.
@@ -50,6 +51,7 @@ node dist/cli.js meeting --help
 node dist/cli.js notes --help
 node dist/cli.js serve --help
 node dist/cli.js transcripts --help
+node dist/cli.js web --help
 ```
 
 You can also use the package scripts:
@@ -97,6 +99,9 @@ Run the local API server:
 granola serve
 granola serve --port 4096
 granola serve --hostname 0.0.0.0 --port 4096
+
+granola web
+granola web --open=false --port 4096
 ```
 
 ## How It Works
@@ -192,6 +197,17 @@ The initial server API includes:
 - `POST /exports/transcripts`
 
 This is the foundation for the future `granola web` client and any attachable TUI flows.
+
+### Web
+
+`web` starts the same local server as `serve`, enables the browser client at `/`, and opens that workspace in your default browser unless you pass `--open=false`.
+
+The initial browser client includes:
+
+- a searchable meeting list
+- a meeting detail view with notes and transcript panes
+- app-state status from the shared core
+- note and transcript export actions backed by the same local API
 
 ## Auth
 
