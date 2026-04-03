@@ -17,7 +17,7 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: 24
@@ -44,7 +44,7 @@ jobs:
       package_version: ${{ steps.package.outputs.package_version }}
       should_publish: ${{ steps.npm.outputs.should_publish }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - id: package
         name: Read package metadata
         run: |
@@ -84,7 +84,7 @@ jobs:
       name: production
       url: https://www.npmjs.com/package/${{ needs.prepare-publish.outputs.package_name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: 24
