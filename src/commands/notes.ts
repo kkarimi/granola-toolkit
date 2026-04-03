@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
-
-import { fetchDocuments } from "../api.ts";
+import { CachedTokenProvider, NoopTokenStore, SupabaseFileTokenSource } from "../client/auth.ts";
+import { GranolaApiClient } from "../client/granola.ts";
+import { AuthenticatedHttpClient } from "../client/http.ts";
 import { loadConfig } from "../config.ts";
 import { writeNotes } from "../notes.ts";
 import { granolaSupabaseCandidates } from "../utils.ts";
@@ -51,9 +51,14 @@ export const notesCommand: CommandDefinition = {
     debug(config.debug, "output", config.notes.output);
 
     console.log("Fetching documents from Granola API...");
-    const supabaseContents = await readFile(config.supabase, "utf8");
-    const documents = await fetchDocuments({
-      supabaseContents,
+    const tokenSource = new SupabaseFileTokenSource(config.supabase);
+    const tokenProvider = new CachedTokenProvider(tokenSource, new NoopTokenStore());
+    const httpClient = new AuthenticatedHttpClient({
+      logger: console,
+      tokenProvider,
+    });
+    const granolaClient = new GranolaApiClient(httpClient);
+    const documents = await granolaClient.listDocuments({
       timeoutMs: config.notes.timeoutMs,
     });
 
