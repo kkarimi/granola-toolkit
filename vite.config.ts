@@ -1,5 +1,15 @@
 import { defineConfig } from "vite-plus";
 
+function assertSupportedVpCommand(): void {
+  if (process.argv[2] === "build") {
+    throw new Error(
+      "This repo is a CLI package, not a web app. Use `vp pack` or `npm run build` instead of `vp build`.",
+    );
+  }
+}
+
+assertSupportedVpCommand();
+
 export default defineConfig({
   pack: {
     clean: true,
