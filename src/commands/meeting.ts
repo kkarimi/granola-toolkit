@@ -1,23 +1,17 @@
-import { existsSync } from "node:fs";
-
-import { createDefaultGranolaApiClient, loadOptionalGranolaCache } from "../client/default.ts";
+import { createGranolaApp } from "../app/index.ts";
 import { loadConfig } from "../config.ts";
 import {
-  buildMeetingRecord,
-  listMeetings,
   renderMeetingExport,
   renderMeetingList,
   renderMeetingNotes,
   renderMeetingTranscript,
   renderMeetingView,
-  resolveMeeting,
   type MeetingDetailOutputFormat,
   type MeetingExportOutputFormat,
   type MeetingListOutputFormat,
   type MeetingNotesOutputFormat,
   type MeetingTranscriptOutputFormat,
 } from "../meetings.ts";
-import { granolaCacheCandidates } from "../utils.ts";
 
 import { debug } from "./shared.ts";
 import type { CommandDefinition } from "./types.ts";
@@ -182,58 +176,6 @@ export const meetingCommand: CommandDefinition = {
   },
 };
 
-async function loadMeetingData(
-  commandFlags: Record<string, string | boolean | undefined>,
-  globalFlags: Record<string, string | boolean | undefined>,
-  options: { requireCache?: boolean } = {},
-) {
-  const config = await loadConfig({
-    globalFlags,
-    subcommandFlags: commandFlags,
-  });
-
-  if (options.requireCache && !config.transcripts.cacheFile) {
-    throw new Error(
-      `Granola cache file not found. Pass --cache or create .granola.toml. Expected locations include: ${granolaCacheCandidates().join(", ")}`,
-    );
-  }
-
-  if (config.transcripts.cacheFile && !existsSync(config.transcripts.cacheFile)) {
-    throw new Error(`Granola cache file not found: ${config.transcripts.cacheFile}`);
-  }
-
-  debug(config.debug, "using config", config.configFileUsed ?? "(none)");
-  debug(config.debug, "supabase", config.supabase);
-  debug(config.debug, "cacheFile", config.transcripts.cacheFile || "(none)");
-  debug(config.debug, "timeoutMs", config.notes.timeoutMs);
-
-  const granolaClient = await createDefaultGranolaApiClient(config);
-  const cacheData = await loadOptionalGranolaCache(config.transcripts.cacheFile);
-
-  return { cacheData, config, granolaClient };
-}
-
-async function loadResolvedMeeting(
-  id: string,
-  commandFlags: Record<string, string | boolean | undefined>,
-  globalFlags: Record<string, string | boolean | undefined>,
-  options: { requireCache?: boolean } = {},
-) {
-  const { cacheData, config, granolaClient } = await loadMeetingData(
-    commandFlags,
-    globalFlags,
-    options,
-  );
-  console.log("Fetching meeting from Granola API...");
-  const documents = await granolaClient.listDocuments({ timeoutMs: config.notes.timeoutMs });
-
-  return {
-    cacheData,
-    config,
-    document: resolveMeeting(documents, id),
-  };
-}
-
 async function list(
   commandFlags: Record<string, string | boolean | undefined>,
   globalFlags: Record<string, string | boolean | undefined>,
@@ -242,14 +184,19 @@ async function list(
   const limit = parseLimit(commandFlags.limit);
   const search = typeof commandFlags.search === "string" ? commandFlags.search : undefined;
 
-  const { cacheData, config, granolaClient } = await loadMeetingData(commandFlags, globalFlags);
-  console.log("Fetching meetings from Granola API...");
-  const documents = await granolaClient.listDocuments({ timeoutMs: config.notes.timeoutMs });
-  const meetings = listMeetings(documents, {
-    cacheData,
-    limit,
-    search,
+  const config = await loadConfig({
+    globalFlags,
+    subcommandFlags: commandFlags,
   });
+  debug(config.debug, "using config", config.configFileUsed ?? "(none)");
+  debug(config.debug, "supabase", config.supabase);
+  debug(config.debug, "cacheFile", config.transcripts.cacheFile || "(none)");
+  debug(config.debug, "timeoutMs", config.notes.timeoutMs);
+  const app = await createGranolaApp(config);
+  debug(config.debug, "authMode", app.getState().auth.mode);
+
+  console.log("Fetching meetings from Granola API...");
+  const meetings = await app.listMeetings({ limit, search });
 
   console.log(renderMeetingList(meetings, format).trimEnd());
   return 0;
@@ -261,11 +208,21 @@ async function view(
   globalFlags: Record<string, string | boolean | undefined>,
 ): Promise<number> {
   const format = resolveViewFormat(commandFlags.format);
+  const config = await loadConfig({
+    globalFlags,
+    subcommandFlags: commandFlags,
+  });
+  debug(config.debug, "using config", config.configFileUsed ?? "(none)");
+  debug(config.debug, "supabase", config.supabase);
+  debug(config.debug, "cacheFile", config.transcripts.cacheFile || "(none)");
+  debug(config.debug, "timeoutMs", config.notes.timeoutMs);
+  const app = await createGranolaApp(config);
+  debug(config.debug, "authMode", app.getState().auth.mode);
 
-  const { cacheData, document } = await loadResolvedMeeting(id, commandFlags, globalFlags);
-  const meeting = buildMeetingRecord(document, cacheData);
+  console.log("Fetching meeting from Granola API...");
+  const result = await app.getMeeting(id);
 
-  console.log(renderMeetingView(meeting, format).trimEnd());
+  console.log(renderMeetingView(result.meeting, format).trimEnd());
   return 0;
 }
 
@@ -275,11 +232,21 @@ async function exportMeeting(
   globalFlags: Record<string, string | boolean | undefined>,
 ): Promise<number> {
   const format = resolveExportFormat(commandFlags.format);
+  const config = await loadConfig({
+    globalFlags,
+    subcommandFlags: commandFlags,
+  });
+  debug(config.debug, "using config", config.configFileUsed ?? "(none)");
+  debug(config.debug, "supabase", config.supabase);
+  debug(config.debug, "cacheFile", config.transcripts.cacheFile || "(none)");
+  debug(config.debug, "timeoutMs", config.notes.timeoutMs);
+  const app = await createGranolaApp(config);
+  debug(config.debug, "authMode", app.getState().auth.mode);
 
-  const { cacheData, document } = await loadResolvedMeeting(id, commandFlags, globalFlags);
-  const meeting = buildMeetingRecord(document, cacheData);
+  console.log("Fetching meeting from Granola API...");
+  const result = await app.getMeeting(id);
 
-  console.log(renderMeetingExport(meeting, format).trimEnd());
+  console.log(renderMeetingExport(result.meeting, format).trimEnd());
   return 0;
 }
 
@@ -289,9 +256,21 @@ async function notes(
   globalFlags: Record<string, string | boolean | undefined>,
 ): Promise<number> {
   const format = resolveNotesFormat(commandFlags.format);
-  const { document } = await loadResolvedMeeting(id, commandFlags, globalFlags);
+  const config = await loadConfig({
+    globalFlags,
+    subcommandFlags: commandFlags,
+  });
+  debug(config.debug, "using config", config.configFileUsed ?? "(none)");
+  debug(config.debug, "supabase", config.supabase);
+  debug(config.debug, "cacheFile", config.transcripts.cacheFile || "(none)");
+  debug(config.debug, "timeoutMs", config.notes.timeoutMs);
+  const app = await createGranolaApp(config);
+  debug(config.debug, "authMode", app.getState().auth.mode);
 
-  console.log(renderMeetingNotes(document, format).trimEnd());
+  console.log("Fetching meeting from Granola API...");
+  const result = await app.getMeeting(id);
+
+  console.log(renderMeetingNotes(result.document, format).trimEnd());
   return 0;
 }
 
@@ -301,12 +280,24 @@ async function transcript(
   globalFlags: Record<string, string | boolean | undefined>,
 ): Promise<number> {
   const format = resolveTranscriptFormat(commandFlags.format);
-  const { cacheData, document } = await loadResolvedMeeting(id, commandFlags, globalFlags, {
+  const config = await loadConfig({
+    globalFlags,
+    subcommandFlags: commandFlags,
+  });
+  debug(config.debug, "using config", config.configFileUsed ?? "(none)");
+  debug(config.debug, "supabase", config.supabase);
+  debug(config.debug, "cacheFile", config.transcripts.cacheFile || "(none)");
+  debug(config.debug, "timeoutMs", config.notes.timeoutMs);
+  const app = await createGranolaApp(config);
+  debug(config.debug, "authMode", app.getState().auth.mode);
+
+  console.log("Fetching meeting from Granola API...");
+  const result = await app.getMeeting(id, {
     requireCache: true,
   });
-  const output = renderMeetingTranscript(document, cacheData, format);
+  const output = renderMeetingTranscript(result.document, result.cacheData, format);
   if (!output.trim()) {
-    throw new Error(`no transcript found for meeting: ${document.id}`);
+    throw new Error(`no transcript found for meeting: ${result.document.id}`);
   }
 
   console.log(output.trimEnd());

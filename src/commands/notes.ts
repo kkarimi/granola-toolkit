@@ -1,7 +1,6 @@
-import { createDefaultGranolaApiClient } from "../client/default.ts";
+import { createGranolaApp } from "../app/index.ts";
 import { loadConfig } from "../config.ts";
 import type { NoteOutputFormat } from "../types.ts";
-import { writeNotes } from "../notes.ts";
 
 import { debug } from "./shared.ts";
 import type { CommandDefinition } from "./types.ts";
@@ -45,17 +44,12 @@ export const notesCommand: CommandDefinition = {
     debug(config.debug, "output", config.notes.output);
     const format = resolveNoteFormat(commandFlags.format);
     debug(config.debug, "format", format);
+    const app = await createGranolaApp(config);
+    debug(config.debug, "authMode", app.getState().auth.mode);
 
-    const granolaClient = await createDefaultGranolaApiClient(config);
-    console.log("Fetching documents from Granola API...");
-    const documents = await granolaClient.listDocuments({
-      timeoutMs: config.notes.timeoutMs,
-    });
-
-    console.log(`Exporting ${documents.length} notes to ${config.notes.output}...`);
-    const written = await writeNotes(documents, config.notes.output, format);
-    console.log("✓ Export completed successfully");
-    debug(config.debug, "notes written", written);
+    const result = await app.exportNotes(format);
+    console.log(`✓ Exported ${result.documentCount} notes to ${result.outputDir}`);
+    debug(config.debug, "notes written", result.written);
     return 0;
   },
 };

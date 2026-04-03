@@ -1,11 +1,6 @@
-import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-
-import { parseCacheContents } from "../cache.ts";
+import { createGranolaApp } from "../app/index.ts";
 import { loadConfig } from "../config.ts";
 import type { TranscriptOutputFormat } from "../types.ts";
-import { writeTranscripts } from "../transcripts.ts";
-import { granolaCacheCandidates } from "../utils.ts";
 
 import { debug } from "./shared.ts";
 import type { CommandDefinition } from "./types.ts";
@@ -42,33 +37,17 @@ export const transcriptsCommand: CommandDefinition = {
       subcommandFlags: commandFlags,
     });
 
-    if (!config.transcripts.cacheFile) {
-      throw new Error(
-        `Granola cache file not found. Pass --cache or create .granola.toml. Expected locations include: ${granolaCacheCandidates().join(", ")}`,
-      );
-    }
-
-    if (!existsSync(config.transcripts.cacheFile)) {
-      throw new Error(`Granola cache file not found: ${config.transcripts.cacheFile}`);
-    }
-
     debug(config.debug, "using config", config.configFileUsed ?? "(none)");
     debug(config.debug, "cacheFile", config.transcripts.cacheFile);
     debug(config.debug, "output", config.transcripts.output);
     const format = resolveTranscriptFormat(commandFlags.format);
     debug(config.debug, "format", format);
+    const app = await createGranolaApp(config);
+    debug(config.debug, "authMode", app.getState().auth.mode);
 
-    console.log("Reading Granola cache file...");
-    const cacheContents = await readFile(config.transcripts.cacheFile, "utf8");
-    const cacheData = parseCacheContents(cacheContents);
-    const transcriptCount = Object.values(cacheData.transcripts).filter(
-      (segments) => segments.length > 0,
-    ).length;
-
-    console.log(`Exporting ${transcriptCount} transcripts to ${config.transcripts.output}...`);
-    const written = await writeTranscripts(cacheData, config.transcripts.output, format);
-    console.log("✓ Export completed successfully");
-    debug(config.debug, "transcripts written", written);
+    const result = await app.exportTranscripts(format);
+    console.log(`✓ Exported ${result.transcriptCount} transcripts to ${result.outputDir}`);
+    debug(config.debug, "transcripts written", result.written);
     return 0;
   },
 };

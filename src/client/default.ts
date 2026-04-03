@@ -16,24 +16,50 @@ import {
 import { GranolaApiClient } from "./granola.ts";
 import { AuthenticatedHttpClient } from "./http.ts";
 
-export async function createDefaultGranolaApiClient(
+export interface DefaultGranolaAuthInfo {
+  mode: "stored-session" | "supabase-file";
+  storedSessionAvailable: boolean;
+  supabasePath?: string;
+}
+
+export interface DefaultGranolaRuntime {
+  auth: DefaultGranolaAuthInfo;
+  client: GranolaApiClient;
+}
+
+export async function inspectDefaultGranolaAuth(
   config: AppConfig,
-  logger: Pick<Console, "warn"> = console,
-): Promise<GranolaApiClient> {
+): Promise<DefaultGranolaAuthInfo> {
   const sessionStore = createDefaultSessionStore();
   const storedSession = await sessionStore.readSession();
+  const hasStoredSession = Boolean(storedSession?.accessToken.trim());
 
-  if (!storedSession && !config.supabase) {
+  return {
+    mode: hasStoredSession ? "stored-session" : "supabase-file",
+    storedSessionAvailable: hasStoredSession,
+    supabasePath: config.supabase || undefined,
+  };
+}
+
+export async function createDefaultGranolaRuntime(
+  config: AppConfig,
+  logger: Pick<Console, "warn"> = console,
+): Promise<DefaultGranolaRuntime> {
+  const sessionStore = createDefaultSessionStore();
+  const auth = await inspectDefaultGranolaAuth(config);
+  const hasStoredSession = auth.storedSessionAvailable;
+
+  if (!hasStoredSession && !config.supabase) {
     throw new Error(
       `supabase.json not found. Pass --supabase or create .granola.toml. Expected locations include: ${granolaSupabaseCandidates().join(", ")}`,
     );
   }
 
-  if (!storedSession && config.supabase && !existsSync(config.supabase)) {
+  if (!hasStoredSession && config.supabase && !existsSync(config.supabase)) {
     throw new Error(`supabase.json not found: ${config.supabase}`);
   }
 
-  const tokenProvider = storedSession
+  const tokenProvider = hasStoredSession
     ? new StoredSessionTokenProvider(sessionStore, {
         source:
           config.supabase && existsSync(config.supabase)
@@ -42,12 +68,22 @@ export async function createDefaultGranolaApiClient(
       })
     : new CachedTokenProvider(new SupabaseFileTokenSource(config.supabase!), new NoopTokenStore());
 
-  return new GranolaApiClient(
-    new AuthenticatedHttpClient({
-      logger,
-      tokenProvider,
-    }),
-  );
+  return {
+    auth,
+    client: new GranolaApiClient(
+      new AuthenticatedHttpClient({
+        logger,
+        tokenProvider,
+      }),
+    ),
+  };
+}
+
+export async function createDefaultGranolaApiClient(
+  config: AppConfig,
+  logger: Pick<Console, "warn"> = console,
+): Promise<GranolaApiClient> {
+  return (await createDefaultGranolaRuntime(config, logger)).client;
 }
 
 export async function loadOptionalGranolaCache(cacheFile?: string): Promise<CacheData | undefined> {
