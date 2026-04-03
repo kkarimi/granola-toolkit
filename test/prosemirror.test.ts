@@ -71,4 +71,105 @@ describe("convertProseMirrorToMarkdown", () => {
     expect(markdown).toContain("**Bold**");
     expect(markdown).toContain("[Link](https://example.com)");
   });
+
+  test("renders ordered lists with a custom start index and task lists", () => {
+    const markdown = convertProseMirrorToMarkdown({
+      content: [
+        {
+          attrs: { start: 3 },
+          content: [
+            {
+              content: [
+                {
+                  content: [{ text: "Third item", type: "text" }],
+                  type: "paragraph",
+                },
+              ],
+              type: "listItem",
+            },
+          ],
+          type: "orderedList",
+        },
+        {
+          content: [
+            {
+              attrs: { checked: true },
+              content: [
+                {
+                  content: [{ text: "Done task", type: "text" }],
+                  type: "paragraph",
+                },
+              ],
+              type: "taskItem",
+            },
+            {
+              attrs: { checked: false },
+              content: [
+                {
+                  content: [{ text: "Todo task", type: "text" }],
+                  type: "paragraph",
+                },
+              ],
+              type: "taskItem",
+            },
+          ],
+          type: "taskList",
+        },
+      ],
+      type: "doc",
+    });
+
+    expect(markdown).toContain("3. Third item");
+    expect(markdown).toContain("[x] Done task");
+    expect(markdown).toContain("[ ] Todo task");
+  });
+
+  test("renders tables, mentions, code block languages, and escapes inline markdown", () => {
+    const markdown = convertProseMirrorToMarkdown({
+      content: [
+        {
+          content: [
+            {
+              content: [
+                { content: [{ text: "Name", type: "text" }], type: "tableHeader" },
+                { content: [{ text: "Value", type: "text" }], type: "tableHeader" },
+              ],
+              type: "tableRow",
+            },
+            {
+              content: [
+                {
+                  content: [{ attrs: { label: "@nima" }, type: "mention" }],
+                  type: "tableCell",
+                },
+                {
+                  content: [{ text: "a|b", type: "text" }],
+                  type: "tableCell",
+                },
+              ],
+              type: "tableRow",
+            },
+          ],
+          type: "table",
+        },
+        {
+          content: [{ text: "literal *stars* [link]", type: "text" }],
+          type: "paragraph",
+        },
+        {
+          attrs: { language: "ts" },
+          content: [{ text: "const value = 1;", type: "text" }],
+          type: "codeBlock",
+        },
+      ],
+      type: "doc",
+    });
+
+    expect(markdown).toContain("| Name | Value |");
+    expect(markdown).toContain("| --- | --- |");
+    expect(markdown).toContain("| @nima | a\\|b |");
+    expect(markdown).toContain("literal \\*stars\\* \\[link\\]");
+    expect(markdown).toContain("```ts");
+    expect(markdown).toContain("const value = 1;");
+  });
 });

@@ -4,6 +4,10 @@ function repeatIndent(level: number): string {
   return "  ".repeat(level);
 }
 
+function escapeMarkdownText(text: string): string {
+  return text.replace(/\\/g, "\\\\").replace(/([*_`[\]])/g, "\\$1");
+}
+
 function renderInline(nodes: ProseMirrorNode[] = []): string {
   return nodes.map((node) => renderInlineNode(node)).join("");
 }
@@ -19,6 +23,12 @@ function applyMarks(text: string, marks: ProseMirrorMark[] = []): string {
         return `\`${current}\``;
       case "strike":
         return `~~${current}~~`;
+      case "underline":
+        return `<u>${current}</u>`;
+      case "subscript":
+        return `<sub>${current}</sub>`;
+      case "superscript":
+        return `<sup>${current}</sup>`;
       case "link": {
         const href = typeof mark.attrs?.href === "string" ? mark.attrs.href : undefined;
         return href ? `[${current}](${href})` : current;
@@ -32,9 +42,20 @@ function applyMarks(text: string, marks: ProseMirrorMark[] = []): string {
 function renderInlineNode(node: ProseMirrorNode): string {
   switch (node.type) {
     case "text":
-      return applyMarks(node.text ?? "", node.marks);
+      return applyMarks(escapeMarkdownText(node.text ?? ""), node.marks);
     case "hardBreak":
       return "  \n";
+    case "mention": {
+      const label =
+        typeof node.attrs?.label === "string"
+          ? node.attrs.label
+          : typeof node.attrs?.text === "string"
+            ? node.attrs.text
+            : typeof node.attrs?.name === "string"
+              ? node.attrs.name
+              : renderInline(node.content);
+      return applyMarks(escapeMarkdownText(label), node.marks);
+    }
     default:
       return applyMarks(renderInline(node.content), node.marks);
   }
@@ -48,9 +69,14 @@ function indentLines(value: string, level: number): string {
     .join("\n");
 }
 
-function renderList(items: ProseMirrorNode[], ordered: boolean, indentLevel: number): string {
+function renderList(
+  items: ProseMirrorNode[],
+  ordered: boolean,
+  indentLevel: number,
+  start = 1,
+): string {
   return items
-    .map((item, index) => renderListItem(item, ordered ? `${index + 1}.` : "-", indentLevel))
+    .map((item, index) => renderListItem(item, ordered ? `${start + index}.` : "-", indentLevel))
     .join("\n");
 }
 
@@ -70,7 +96,12 @@ function renderListItem(node: ProseMirrorNode, marker: string, indentLevel: numb
     .trim();
 
   const prefix = `${repeatIndent(indentLevel)}${marker} `;
-  let output = `${prefix}${mainText || ""}`.trimEnd();
+  const continuationIndent = `${repeatIndent(indentLevel)}${" ".repeat(marker.length + 1)}`;
+  const formattedMainText = mainText
+    .split("\n")
+    .map((line, index) => (index === 0 ? line : `${continuationIndent}${line}`))
+    .join("\n");
+  let output = `${prefix}${formattedMainText || ""}`.trimEnd();
 
   if (nestedLists.length > 0) {
     const nestedText = nestedLists
@@ -85,6 +116,47 @@ function renderListItem(node: ProseMirrorNode, marker: string, indentLevel: numb
   return output;
 }
 
+function renderTaskList(items: ProseMirrorNode[], indentLevel: number): string {
+  return items.map((item) => renderTaskItem(item, indentLevel)).join("\n");
+}
+
+function renderTaskItem(node: ProseMirrorNode, indentLevel: number): string {
+  const checked = node.attrs?.checked === true;
+  return renderListItem(node, checked ? "[x]" : "[ ]", indentLevel);
+}
+
+function renderTableCell(node: ProseMirrorNode): string {
+  return renderBlocks(node.content ?? [], 0)
+    .replace(/\n+/g, " <br> ")
+    .replace(/\|/g, "\\|")
+    .trim();
+}
+
+function renderTable(node: ProseMirrorNode): string {
+  const rows = (node.content ?? [])
+    .map((row) => (row.content ?? []).map((cell) => renderTableCell(cell)))
+    .filter((row) => row.length > 0);
+
+  if (rows.length === 0) {
+    return "";
+  }
+
+  const header = rows[0]!;
+  const body = rows.slice(1);
+  const separator = header.map(() => "---");
+  const lines = [
+    `| ${header.map((cell) => cell || " ").join(" | ")} |`,
+    `| ${separator.join(" | ")} |`,
+  ];
+
+  for (const row of body) {
+    const padded = header.map((_, index) => row[index] ?? " ");
+    lines.push(`| ${padded.join(" | ")} |`);
+  }
+
+  return lines.join("\n");
+}
+
 function renderBlock(node: ProseMirrorNode, indentLevel: number): string {
   switch (node.type) {
     case "heading": {
@@ -95,10 +167,23 @@ function renderBlock(node: ProseMirrorNode, indentLevel: number): string {
       return renderInline(node.content).trim();
     case "bulletList":
       return renderList(node.content ?? [], false, indentLevel);
-    case "orderedList":
-      return renderList(node.content ?? [], true, indentLevel);
+    case "orderedList": {
+      const start = typeof node.attrs?.start === "number" ? node.attrs.start : 1;
+      return renderList(node.content ?? [], true, indentLevel, start);
+    }
     case "listItem":
       return renderListItem(node, "-", indentLevel);
+    case "taskList":
+      return renderTaskList(node.content ?? [], indentLevel);
+    case "taskItem":
+      return renderTaskItem(node, indentLevel);
+    case "table":
+      return renderTable(node);
+    case "tableRow":
+      return (node.content ?? []).map((cell) => renderTableCell(cell)).join(" | ");
+    case "tableCell":
+    case "tableHeader":
+      return renderTableCell(node);
     case "blockquote": {
       const value = renderBlocks(node.content ?? [], indentLevel)
         .split("\n")
@@ -107,8 +192,14 @@ function renderBlock(node: ProseMirrorNode, indentLevel: number): string {
       return value.trim();
     }
     case "codeBlock": {
-      const text = extractPlainText(node).trimEnd();
-      return `\`\`\`\n${text}\n\`\`\``;
+      const text = extractPlainText({ type: "doc", content: node.content }).trimEnd();
+      const language =
+        typeof node.attrs?.language === "string"
+          ? node.attrs.language.trim()
+          : typeof node.attrs?.params === "string"
+            ? node.attrs.params.trim()
+            : "";
+      return `\`\`\`${language}\n${text}\n\`\`\``;
     }
     case "horizontalRule":
       return "---";
