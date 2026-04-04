@@ -1,0 +1,589 @@
+import type { Component, OverlayHandle } from "@mariozechner/pi-tui";
+import { afterEach, describe, expect, test, vi } from "vite-plus/test";
+
+import type {
+  FolderSummaryRecord,
+  GranolaAppAuthState,
+  GranolaAppState,
+  GranolaAppStateEvent,
+  GranolaMeetingBundle,
+  MeetingSummaryRecord,
+} from "../src/app/index.ts";
+import type { CacheData, GranolaDocument } from "../src/types.ts";
+import { GranolaTuiQuickOpenPalette } from "../src/tui/palette.ts";
+import {
+  GranolaTuiWorkspace,
+  type GranolaTuiApp,
+  type GranolaTuiHost,
+} from "../src/tui/workspace.ts";
+
+const folders: FolderSummaryRecord[] = [
+  {
+    createdAt: "2024-01-01T08:00:00Z",
+    documentCount: 1,
+    id: "folder-team-1111",
+    isFavourite: true,
+    name: "Team",
+    updatedAt: "2024-01-04T10:00:00Z",
+  },
+  {
+    createdAt: "2024-01-02T08:00:00Z",
+    documentCount: 1,
+    id: "folder-sales-2222",
+    isFavourite: false,
+    name: "Sales",
+    updatedAt: "2024-02-05T10:00:00Z",
+  },
+];
+
+const meetings: MeetingSummaryRecord[] = [
+  {
+    createdAt: "2024-01-01T09:00:00Z",
+    folders: [folders[0]!],
+    id: "doc-alpha-1111",
+    noteContentSource: "notes",
+    tags: ["team", "alpha"],
+    title: "Alpha Sync",
+    transcriptLoaded: true,
+    transcriptSegmentCount: 1,
+    updatedAt: "2024-01-03T10:00:00Z",
+  },
+  {
+    createdAt: "2024-02-01T09:00:00Z",
+    folders: [folders[1]!],
+    id: "doc-bravo-2222",
+    noteContentSource: "content",
+    tags: ["sales"],
+    title: "Bravo Review",
+    transcriptLoaded: true,
+    transcriptSegmentCount: 1,
+    updatedAt: "2024-02-05T12:00:00Z",
+  },
+];
+
+const documents: Record<string, GranolaDocument> = {
+  "doc-alpha-1111": {
+    content: "Fallback alpha body",
+    createdAt: "2024-01-01T09:00:00Z",
+    id: "doc-alpha-1111",
+    notes: {
+      content: [
+        {
+          content: [{ text: "Alpha notes", type: "text" }],
+          type: "paragraph",
+        },
+      ],
+      type: "doc",
+    },
+    notesPlain: "",
+    tags: ["team", "alpha"],
+    title: "Alpha Sync",
+    updatedAt: "2024-01-03T10:00:00Z",
+  },
+  "doc-bravo-2222": {
+    content: "Fallback bravo body",
+    createdAt: "2024-02-01T09:00:00Z",
+    id: "doc-bravo-2222",
+    notes: {
+      content: [
+        {
+          content: [{ text: "Bravo notes", type: "text" }],
+          type: "paragraph",
+        },
+      ],
+      type: "doc",
+    },
+    notesPlain: "",
+    tags: ["sales"],
+    title: "Bravo Review",
+    updatedAt: "2024-02-05T12:00:00Z",
+  },
+};
+
+const cacheByMeeting: Record<string, CacheData> = {
+  "doc-alpha-1111": {
+    documents: {
+      "doc-alpha-1111": {
+        createdAt: "2024-01-01T09:00:00Z",
+        id: "doc-alpha-1111",
+        title: "Alpha Sync",
+        updatedAt: "2024-01-03T10:00:00Z",
+      },
+    },
+    transcripts: {
+      "doc-alpha-1111": [
+        {
+          documentId: "doc-alpha-1111",
+          endTimestamp: "2024-01-01T09:00:03Z",
+          id: "segment-alpha",
+          isFinal: true,
+          source: "microphone",
+          startTimestamp: "2024-01-01T09:00:01Z",
+          text: "Hello team",
+        },
+      ],
+    },
+  },
+  "doc-bravo-2222": {
+    documents: {
+      "doc-bravo-2222": {
+        createdAt: "2024-02-01T09:00:00Z",
+        id: "doc-bravo-2222",
+        title: "Bravo Review",
+        updatedAt: "2024-02-05T12:00:00Z",
+      },
+    },
+    transcripts: {
+      "doc-bravo-2222": [
+        {
+          documentId: "doc-bravo-2222",
+          endTimestamp: "2024-02-01T09:00:03Z",
+          id: "segment-bravo",
+          isFinal: true,
+          source: "system",
+          startTimestamp: "2024-02-01T09:00:01Z",
+          text: "Quarterly numbers look good",
+        },
+      ],
+    },
+  },
+};
+
+const authState: GranolaAppAuthState = {
+  mode: "stored-session",
+  refreshAvailable: true,
+  storedSessionAvailable: true,
+  supabaseAvailable: true,
+  supabasePath: "/tmp/supabase.json",
+};
+
+class FakeOverlayHandle implements OverlayHandle {
+  #focused = false;
+  #hidden = false;
+
+  constructor(private readonly onHide: () => void) {}
+
+  hide(): void {
+    this.onHide();
+  }
+
+  setHidden(hidden: boolean): void {
+    this.#hidden = hidden;
+  }
+
+  isHidden(): boolean {
+    return this.#hidden;
+  }
+
+  focus(): void {
+    this.#focused = true;
+  }
+
+  unfocus(): void {
+    this.#focused = false;
+  }
+
+  isFocused(): boolean {
+    return this.#focused;
+  }
+}
+
+class FakeTuiHost implements GranolaTuiHost {
+  readonly terminal = {
+    columns: 100,
+    rows: 24,
+  };
+
+  overlayComponent?: Component;
+  focusedComponent?: Component;
+  readonly requestRender = vi.fn();
+  readonly setFocus = vi.fn((component: Component | null) => {
+    if (!component) {
+      this.focusedComponent = undefined;
+      return;
+    }
+
+    this.focusedComponent = component;
+    if ("focused" in component) {
+      component.focused = true;
+    }
+  });
+  readonly showOverlay = vi.fn((component: Component) => {
+    this.overlayComponent = component;
+    if ("focused" in component) {
+      component.focused = true;
+    }
+    return new FakeOverlayHandle(() => {
+      this.overlayComponent = undefined;
+    });
+  });
+}
+
+function createMeetingBundle(meeting: MeetingSummaryRecord): GranolaMeetingBundle {
+  const document = documents[meeting.id];
+  if (!document) {
+    throw new Error(`missing fixture document for ${meeting.id}`);
+  }
+
+  const cacheData = cacheByMeeting[meeting.id];
+  const transcriptText =
+    meeting.id === "doc-alpha-1111"
+      ? "[09:00:01] You: Hello team"
+      : "[09:00:01] System: Quarterly numbers look good";
+
+  return {
+    cacheData,
+    document,
+    meeting: {
+      meeting,
+      note: {
+        content: meeting.id === "doc-alpha-1111" ? "Alpha notes" : "Bravo notes",
+        contentSource: meeting.noteContentSource,
+        createdAt: document.createdAt,
+        id: document.id,
+        tags: document.tags,
+        title: document.title,
+        updatedAt: document.updatedAt,
+      },
+      noteMarkdown: `# ${document.title}\n\n${
+        meeting.id === "doc-alpha-1111" ? "Alpha notes" : "Bravo notes"
+      }`,
+      transcript: {
+        createdAt: document.createdAt,
+        id: document.id,
+        segments:
+          meeting.id === "doc-alpha-1111"
+            ? [
+                {
+                  endTimestamp: "2024-01-01T09:00:03Z",
+                  id: "segment-alpha",
+                  isFinal: true,
+                  source: "microphone",
+                  speaker: "You",
+                  startTimestamp: "2024-01-01T09:00:01Z",
+                  text: "Hello team",
+                },
+              ]
+            : [
+                {
+                  endTimestamp: "2024-02-01T09:00:03Z",
+                  id: "segment-bravo",
+                  isFinal: true,
+                  source: "system",
+                  speaker: "System",
+                  startTimestamp: "2024-02-01T09:00:01Z",
+                  text: "Quarterly numbers look good",
+                },
+              ],
+        title: document.title,
+        updatedAt: document.updatedAt,
+      },
+      transcriptText,
+    },
+  };
+}
+
+function createAppState(): GranolaAppState {
+  return {
+    auth: authState,
+    cache: {
+      configured: true,
+      documentCount: 2,
+      filePath: "/tmp/cache.json",
+      loaded: true,
+      loadedAt: "2024-03-01T12:00:00Z",
+      transcriptCount: 2,
+    },
+    config: {
+      debug: false,
+      notes: {
+        output: "/tmp/notes",
+        timeoutMs: 120_000,
+      },
+      supabase: "/tmp/supabase.json",
+      transcripts: {
+        cacheFile: "/tmp/cache.json",
+        output: "/tmp/transcripts",
+      },
+    },
+    documents: {
+      count: 2,
+      loaded: true,
+      loadedAt: "2024-03-01T12:00:00Z",
+    },
+    exports: {
+      jobs: [],
+    },
+    folders: {
+      count: 2,
+      loaded: true,
+      loadedAt: "2024-03-01T12:00:00Z",
+    },
+    index: {
+      available: true,
+      filePath: "/tmp/index.json",
+      loaded: true,
+      loadedAt: "2024-03-01T12:00:00Z",
+      meetingCount: 2,
+    },
+    ui: {
+      surface: "tui",
+      view: "meeting-list",
+    },
+  };
+}
+
+function createWorkspaceHarness(options: { failNextRefresh?: boolean } = {}) {
+  const host = new FakeTuiHost();
+  const state = createAppState();
+  const listeners = new Set<(event: GranolaAppStateEvent) => void>();
+  let failNextRefresh = options.failNextRefresh ?? false;
+
+  const listFolders = vi.fn(async () => ({
+    folders: [folders[1]!, folders[0]!],
+  }));
+
+  const listMeetings = vi.fn(
+    async (
+      input: {
+        folderId?: string;
+        forceRefresh?: boolean;
+        limit?: number;
+        preferIndex?: boolean;
+      } = {},
+    ) => {
+      if (input.forceRefresh && failNextRefresh) {
+        failNextRefresh = false;
+        throw new Error("live refresh failed");
+      }
+
+      const scopedMeetings =
+        input.folderId === "folder-team-1111"
+          ? [meetings[0]!]
+          : input.folderId === "folder-sales-2222"
+            ? [meetings[1]!]
+            : meetings;
+
+      return {
+        meetings: scopedMeetings,
+        source: "live" as const,
+      };
+    },
+  );
+
+  const getMeeting = vi.fn(async (id: string) => {
+    const meeting =
+      meetings.find((candidate) => candidate.id === id) ??
+      meetings.find((candidate) => candidate.id.startsWith(id));
+    if (!meeting) {
+      throw new Error(`meeting not found: ${id}`);
+    }
+
+    return createMeetingBundle(meeting);
+  });
+
+  const findMeeting = vi.fn(async (query: string) => {
+    const lower = query.toLowerCase();
+    const meeting =
+      meetings.find(
+        (candidate) => candidate.id === query || candidate.title.toLowerCase() === lower,
+      ) ?? (query === "bravox" ? meetings[1] : undefined);
+
+    if (!meeting) {
+      throw new Error(`meeting not found: ${query}`);
+    }
+
+    return createMeetingBundle(meeting);
+  });
+
+  const app: GranolaTuiApp = {
+    exportNotes: vi.fn(),
+    exportTranscripts: vi.fn(),
+    findFolder: vi.fn(),
+    findMeeting,
+    getFolder: vi.fn(),
+    getMeeting,
+    getState: () => state,
+    inspectAuth: vi.fn(async () => state.auth),
+    listExportJobs: vi.fn(async () => ({ jobs: [] })),
+    listFolders,
+    listMeetings,
+    loginAuth: vi.fn(async () => state.auth),
+    logoutAuth: vi.fn(async () => state.auth),
+    refreshAuth: vi.fn(async () => state.auth),
+    rerunExportJob: vi.fn(),
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    switchAuthMode: vi.fn(async () => state.auth),
+  };
+
+  const workspace = new GranolaTuiWorkspace(host, app, {
+    initialMeetingId: "doc-alpha-1111",
+    onExit: vi.fn(),
+  });
+
+  const flush = async () => {
+    for (let index = 0; index < 4; index += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  };
+
+  const waitFor = async (predicate: () => boolean) => {
+    for (let index = 0; index < 40; index += 1) {
+      if (predicate()) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    throw new Error("timed out waiting for the TUI workspace to settle");
+  };
+
+  return {
+    app,
+    emitState(nextState: GranolaAppState) {
+      for (const listener of listeners) {
+        listener({
+          state: nextState,
+          timestamp: "2024-03-01T12:00:00Z",
+          type: "state.updated",
+        });
+      }
+    },
+    flush,
+    findMeeting,
+    getMeeting,
+    host,
+    listFolders,
+    listMeetings,
+    state,
+    waitFor,
+    workspace,
+  };
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe("GranolaTuiWorkspace", () => {
+  test("moves between folders and loads the scoped meeting list", async () => {
+    const harness = createWorkspaceHarness();
+
+    await harness.workspace.initialise();
+    harness.workspace.handleInput("h");
+    harness.workspace.handleInput("j");
+    await harness.waitFor(() => harness.getMeeting.mock.lastCall?.[0] === "doc-bravo-2222");
+
+    expect(harness.listMeetings).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        folderId: "folder-sales-2222",
+        limit: 200,
+        preferIndex: true,
+      }),
+    );
+    expect(harness.getMeeting).toHaveBeenLastCalledWith("doc-bravo-2222");
+
+    const rendered = harness.workspace.render(100).join("\n");
+    expect(rendered).toContain("Opened Bravo Review");
+    expect(rendered).toContain("Bravo Review");
+    expect(rendered).toContain("Sales");
+  });
+
+  test("opens quick open and jumps to a picked meeting", async () => {
+    const harness = createWorkspaceHarness();
+
+    await harness.workspace.initialise();
+    harness.workspace.handleInput("/");
+
+    const palette = harness.host.overlayComponent;
+    expect(palette).toBeInstanceOf(GranolaTuiQuickOpenPalette);
+    if (!(palette instanceof GranolaTuiQuickOpenPalette)) {
+      throw new Error("expected quick-open palette overlay");
+    }
+
+    palette.handleInput("b");
+    palette.handleInput("\n");
+    await harness.flush();
+
+    expect(harness.host.overlayComponent).toBeUndefined();
+    expect(harness.getMeeting).toHaveBeenLastCalledWith("doc-bravo-2222");
+    expect(harness.workspace.render(100).join("\n")).toContain("Bravo Review");
+  });
+
+  test("uses quick open query resolution when no local match exists", async () => {
+    const harness = createWorkspaceHarness();
+
+    await harness.workspace.initialise();
+    harness.workspace.handleInput("/");
+
+    const palette = harness.host.overlayComponent;
+    expect(palette).toBeInstanceOf(GranolaTuiQuickOpenPalette);
+    if (!(palette instanceof GranolaTuiQuickOpenPalette)) {
+      throw new Error("expected quick-open palette overlay");
+    }
+
+    for (const character of "bravox") {
+      palette.handleInput(character);
+    }
+    palette.handleInput("\n");
+    await harness.flush();
+
+    expect(harness.findMeeting).toHaveBeenCalledWith("bravox");
+    expect(harness.workspace.render(100).join("\n")).toContain("Bravo Review");
+  });
+
+  test("switches detail tabs with hotkeys and cycling", async () => {
+    const harness = createWorkspaceHarness();
+
+    await harness.workspace.initialise();
+
+    expect(harness.workspace.render(100).join("\n")).toContain("# Alpha Sync");
+
+    harness.workspace.handleInput("2");
+    expect(harness.workspace.render(100).join("\n")).toContain("[09:00:01] You: Hello team");
+
+    harness.workspace.handleInput("]");
+    expect(harness.workspace.render(100).join("\n")).toContain("Notes source: notes");
+
+    harness.workspace.handleInput("4");
+    expect(harness.workspace.render(100).join("\n")).toContain('"cacheData"');
+
+    harness.workspace.handleInput("[");
+    expect(harness.workspace.render(100).join("\n")).toContain("Notes source: notes");
+  });
+
+  test("surfaces refresh failures and recovers on the next refresh", async () => {
+    const harness = createWorkspaceHarness({ failNextRefresh: true });
+
+    await harness.workspace.initialise();
+
+    harness.workspace.handleInput("r");
+    await harness.flush();
+
+    expect(harness.workspace.render(100).join("\n")).toContain("live refresh failed");
+    expect(harness.listFolders).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        forceRefresh: true,
+      }),
+    );
+
+    harness.workspace.handleInput("r");
+    await harness.flush();
+
+    expect(harness.listMeetings).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        forceRefresh: true,
+        limit: 200,
+        preferIndex: true,
+      }),
+    );
+    const rendered = harness.workspace.render(100).join("\n");
+    expect(rendered).toContain("Opened Alpha Sync");
+    expect(rendered).not.toContain("live refresh failed");
+  });
+});

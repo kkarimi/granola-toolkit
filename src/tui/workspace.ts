@@ -1,6 +1,7 @@
 import {
   type Component,
   matchesKey,
+  type OverlayOptions,
   ProcessTerminal,
   TUI,
   truncateToWidth,
@@ -26,13 +27,23 @@ import { GranolaTuiQuickOpenPalette } from "./palette.ts";
 import { granolaTuiTheme } from "./theme.ts";
 import type { GranolaTuiWorkspaceTab } from "./types.ts";
 
-interface GranolaTuiWorkspaceOptions {
+export interface GranolaTuiHost {
+  readonly terminal: {
+    columns: number;
+    rows: number;
+  };
+  requestRender(force?: boolean): void;
+  setFocus(component: Component | null): void;
+  showOverlay(component: Component, options?: OverlayOptions): OverlayHandle;
+}
+
+export interface GranolaTuiWorkspaceOptions {
   initialMeetingId?: string;
   maxMeetings?: number;
   onExit: () => void;
 }
 
-interface GranolaTuiApp extends GranolaAppApi {
+export interface GranolaTuiApp extends GranolaAppApi {
   close?: () => Promise<void> | void;
 }
 
@@ -69,7 +80,7 @@ function toneText(tone: GranolaTuiStatusTone, text: string): string {
   }
 }
 
-class GranolaTuiWorkspace implements Component {
+export class GranolaTuiWorkspace implements Component {
   focused = false;
 
   readonly #maxMeetings: number;
@@ -98,7 +109,7 @@ class GranolaTuiWorkspace implements Component {
   #unsubscribe?: () => void;
 
   constructor(
-    private readonly tui: TUI,
+    private readonly tui: GranolaTuiHost,
     private readonly app: GranolaTuiApp,
     private readonly options: GranolaTuiWorkspaceOptions,
   ) {
@@ -225,7 +236,7 @@ class GranolaTuiWorkspace implements Component {
         return;
       }
 
-      this.#folders = result.folders;
+      this.#folders = [...result.folders];
       if (
         this.#selectedFolderId &&
         !this.#folders.some((folder) => folder.id === this.#selectedFolderId)
@@ -276,16 +287,23 @@ class GranolaTuiWorkspace implements Component {
         return;
       }
 
-      this.#meetings = result.meetings;
+      this.#meetings = [...result.meetings];
       this.#meetingSource = result.source;
-      this.#selectedMeetingId =
+      let nextSelectedMeetingId: string | undefined;
+      if (
         options.preferredMeetingId &&
         this.#meetings.some((meeting) => meeting.id === options.preferredMeetingId)
-          ? options.preferredMeetingId
-          : this.#selectedMeetingId &&
-              this.#meetings.some((meeting) => meeting.id === this.#selectedMeetingId)
-            ? this.#selectedMeetingId
-            : this.#meetings[0]?.id;
+      ) {
+        nextSelectedMeetingId = options.preferredMeetingId;
+      } else if (
+        this.#selectedMeetingId &&
+        this.#meetings.some((meeting) => meeting.id === this.#selectedMeetingId)
+      ) {
+        nextSelectedMeetingId = this.#selectedMeetingId;
+      } else {
+        nextSelectedMeetingId = this.#meetings[0]?.id;
+      }
+      this.#selectedMeetingId = nextSelectedMeetingId;
       if (!this.#selectedMeetingId) {
         this.#selectedMeeting = undefined;
         this.#detailError = "";
@@ -408,18 +426,26 @@ class GranolaTuiWorkspace implements Component {
     this.#selectedMeeting = undefined;
     this.#detailError = "";
     this.#detailScroll = 0;
+    this.#selectedMeetingId = undefined;
     await this.loadMeetings({
-      preferredMeetingId: this.#selectedMeetingId,
       setStatus: false,
     });
 
-    if (this.#selectedMeetingId) {
-      await this.loadMeeting(this.#selectedMeetingId, {
+    const visibleMeetingId =
+      this.#selectedMeetingId &&
+      this.#meetings.some((meeting) => meeting.id === this.#selectedMeetingId)
+        ? this.#selectedMeetingId
+        : this.#meetings[0]?.id;
+
+    if (visibleMeetingId) {
+      this.#selectedMeetingId = visibleMeetingId;
+      await this.loadMeeting(visibleMeetingId, {
         ensureMeetingVisible: true,
       });
       return;
     }
 
+    this.#selectedMeetingId = undefined;
     this.tui.requestRender();
   }
 
