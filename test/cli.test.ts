@@ -86,6 +86,17 @@ describe("runCli", () => {
     expect(error).not.toHaveBeenCalled();
   });
 
+  test("shows tui help from the command module", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const exitCode = await runCli(["tui", "--help"]);
+
+    expect(exitCode).toBe(0);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("Granola tui"));
+    expect(error).not.toHaveBeenCalled();
+  });
+
   test("shows web help from the command module", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const error = vi.spyOn(console, "error").mockImplementation(() => {});

@@ -37,6 +37,7 @@ granola exports --help
 granola meeting --help
 granola notes --help
 granola serve --help
+granola tui --help
 granola transcripts --help
 granola web --help
 ```
@@ -52,6 +53,7 @@ node dist/cli.js exports --help
 node dist/cli.js meeting --help
 node dist/cli.js notes --help
 node dist/cli.js serve --help
+node dist/cli.js tui --help
 node dist/cli.js transcripts --help
 node dist/cli.js web --help
 ```
@@ -62,6 +64,7 @@ You can also use the package scripts:
 npm run build
 npm run start -- meeting --help
 npm run notes -- --help
+npm run tui -- --help
 npm run transcripts -- --help
 ```
 
@@ -95,6 +98,8 @@ granola meeting view 1234abcd
 granola meeting notes 1234abcd
 granola meeting transcript 1234abcd --format json
 granola meeting export 1234abcd --format yaml
+granola tui
+granola tui --meeting 1234abcd
 ```
 
 Run the local API server:
@@ -241,6 +246,26 @@ The initial browser client includes:
 - a recent export-jobs panel with rerun actions
 - stronger empty and error states for list/detail failures
 - a server-access panel that can unlock or lock a password-protected local server
+
+### TUI
+
+`tui` starts a full-screen terminal workspace on the shared app core, without requiring the local server or browser client.
+
+The initial terminal workspace includes:
+
+- a meeting list pane with keyboard navigation
+- a detail pane with notes, transcript, metadata, and raw views
+- a footer with app state and key hints
+- a quick-open overlay for jumping by title, id, or tag
+
+The main keyboard controls are:
+
+- `j` / `k` or arrow keys to move between meetings
+- `/` or `Ctrl+P` to open quick open
+- `1`-`4` to switch detail tabs
+- `PageUp` / `PageDown` to scroll the detail pane
+- `r` to refresh from live Granola data
+- `q` to quit
 
 ### Local Meeting Index
 

@@ -1,0 +1,139 @@
+import { describe, expect, test } from "vite-plus/test";
+
+import type { GranolaMeetingBundle, MeetingSummaryRecord } from "../src/app/index.ts";
+import { buildGranolaTuiQuickOpenItems, renderGranolaTuiMeetingTab } from "../src/tui/helpers.ts";
+import type { CacheData, GranolaDocument } from "../src/types.ts";
+
+const meetings: MeetingSummaryRecord[] = [
+  {
+    createdAt: "2024-01-01T09:00:00Z",
+    id: "doc-alpha-1111",
+    noteContentSource: "notes",
+    tags: ["team", "alpha"],
+    title: "Alpha Sync",
+    transcriptLoaded: true,
+    transcriptSegmentCount: 2,
+    updatedAt: "2024-01-03T10:00:00Z",
+  },
+  {
+    createdAt: "2024-02-01T09:00:00Z",
+    id: "doc-bravo-2222",
+    noteContentSource: "content",
+    tags: ["sales"],
+    title: "Bravo Review",
+    transcriptLoaded: false,
+    transcriptSegmentCount: 0,
+    updatedAt: "2024-02-05T12:00:00Z",
+  },
+];
+
+const document: GranolaDocument = {
+  content: "Fallback note body",
+  createdAt: "2024-01-01T09:00:00Z",
+  id: "doc-alpha-1111",
+  notes: {
+    content: [
+      {
+        content: [{ text: "Alpha notes", type: "text" }],
+        type: "paragraph",
+      },
+    ],
+    type: "doc",
+  },
+  notesPlain: "",
+  tags: ["team", "alpha"],
+  title: "Alpha Sync",
+  updatedAt: "2024-01-03T10:00:00Z",
+};
+
+const cacheData: CacheData = {
+  documents: {
+    "doc-alpha-1111": {
+      createdAt: "2024-01-01T09:00:00Z",
+      id: "doc-alpha-1111",
+      title: "Alpha Sync",
+      updatedAt: "2024-01-03T10:00:00Z",
+    },
+  },
+  transcripts: {
+    "doc-alpha-1111": [
+      {
+        documentId: "doc-alpha-1111",
+        endTimestamp: "2024-01-01T09:00:03Z",
+        id: "segment-1",
+        isFinal: true,
+        source: "microphone",
+        startTimestamp: "2024-01-01T09:00:01Z",
+        text: "Hello team",
+      },
+    ],
+  },
+};
+
+const bundle: GranolaMeetingBundle = {
+  cacheData,
+  document,
+  meeting: {
+    meeting: meetings[0]!,
+    note: {
+      content: "Alpha notes",
+      contentSource: "notes",
+      createdAt: document.createdAt,
+      id: document.id,
+      tags: document.tags,
+      title: document.title,
+      updatedAt: document.updatedAt,
+    },
+    noteMarkdown: "# Alpha Sync\n\nAlpha notes",
+    transcript: {
+      createdAt: document.createdAt,
+      id: document.id,
+      segments: [
+        {
+          endTimestamp: "2024-01-01T09:00:03Z",
+          id: "segment-1",
+          isFinal: true,
+          source: "microphone",
+          speaker: "You",
+          startTimestamp: "2024-01-01T09:00:01Z",
+          text: "Hello team",
+        },
+      ],
+      title: document.title,
+      updatedAt: document.updatedAt,
+    },
+    transcriptText: "[09:00:01] You: Hello team",
+  },
+};
+
+describe("buildGranolaTuiQuickOpenItems", () => {
+  test("prioritises exact and prefix id matches ahead of broad title matches", () => {
+    const items = buildGranolaTuiQuickOpenItems(meetings, "doc-alpha");
+
+    expect(items[0]).toEqual(
+      expect.objectContaining({
+        id: "doc-alpha-1111",
+        label: "Alpha Sync",
+      }),
+    );
+  });
+
+  test("matches tags and returns descriptions with ids", () => {
+    const items = buildGranolaTuiQuickOpenItems(meetings, "sales");
+
+    expect(items).toHaveLength(1);
+    expect(items[0]?.description).toContain("doc-bravo-2222");
+  });
+});
+
+describe("renderGranolaTuiMeetingTab", () => {
+  test("renders metadata and transcript views for the TUI detail pane", () => {
+    expect(renderGranolaTuiMeetingTab(bundle, "metadata")).toContain("Notes source: notes");
+    expect(renderGranolaTuiMeetingTab(bundle, "transcript")).toContain("Hello team");
+  });
+
+  test("renders note and raw views", () => {
+    expect(renderGranolaTuiMeetingTab(bundle, "notes")).toContain("# Alpha Sync");
+    expect(renderGranolaTuiMeetingTab(bundle, "raw")).toContain('"meeting"');
+  });
+});

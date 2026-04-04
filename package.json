@@ -45,12 +45,14 @@
     "release:patch": "node scripts/release.mjs patch",
     "start": "node dist/cli.js",
     "notes": "node dist/cli.js notes",
+    "tui": "node dist/cli.js tui",
     "transcripts": "node dist/cli.js transcripts",
     "test": "vp test",
     "typecheck": "vp exec tsc --noEmit",
     "prepare": "vp config"
   },
   "dependencies": {
+    "@mariozechner/pi-tui": "^0.65.0",
     "node-html-markdown": "^2.0.0"
   },
   "devDependencies": {
