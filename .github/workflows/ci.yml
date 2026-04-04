@@ -102,6 +102,38 @@ jobs:
       - name: Publish
         run: npm publish --provenance --access public
 
+  github-release:
+    if: needs.prepare-publish.outputs.should_publish == 'true'
+    needs:
+      - verify
+      - prepare-publish
+      - publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_NAME: ${{ needs.prepare-publish.outputs.package_name }}
+          PACKAGE_VERSION: ${{ needs.prepare-publish.outputs.package_version }}
+        run: |
+          tag="v${PACKAGE_VERSION}"
+          title="${PACKAGE_NAME} v${PACKAGE_VERSION}"
+
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            echo "GitHub Release ${tag} already exists."
+            exit 0
+          fi
+
+          notes="$(node scripts/release-notes.mjs)"
+          gh release create "${tag}" \
+            --latest \
+            --notes "${notes}" \
+            --generate-notes \
+            --title "${title}"
+
   auto-approve-publish:
     if: needs.prepare-publish.outputs.should_publish == 'true'
     needs:

@@ -45,6 +45,7 @@ Normal release flow:
 2. Run toolkit QA plus `npm run docs:check`.
 3. Run `npm run release:patch`, `release:minor`, or `release:major`.
 4. Let GitHub Actions publish the already-bumped version.
+5. GitHub Actions then creates the matching GitHub Release with generated notes plus package metadata.
 
 ## Repo Shape
 
