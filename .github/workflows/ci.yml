@@ -40,6 +40,10 @@ jobs:
         run: vp pack
       - name: Build Docs
         run: npm run docs:check
+      - name: Install Playwright Browser
+        run: npx playwright install --with-deps chromium
+      - name: Browser E2E
+        run: npm run browser:e2e
       - name: Pack Dry Run
         run: npm pack --dry-run
 

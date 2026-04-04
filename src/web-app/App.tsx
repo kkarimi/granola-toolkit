@@ -130,10 +130,24 @@ export function App() {
       return;
     }
 
-    setState("appState", {
-      ...client.getState(),
-      auth: authState ?? (await client.inspectAuth()),
-    });
+    const nextState = client.getState();
+
+    if (authState) {
+      setState("appState", {
+        ...nextState,
+        auth: authState,
+      });
+      return;
+    }
+
+    try {
+      setState("appState", {
+        ...nextState,
+        auth: await client.inspectAuth(),
+      });
+    } catch {
+      setState("appState", nextState);
+    }
   };
 
   const detachClient = async () => {
@@ -149,6 +163,7 @@ export function App() {
   const attachClient = async () => {
     await detachClient();
     client = await createGranolaServerClient(window.location.origin);
+    setState("appState", client.getState());
     unsubscribe = client.subscribe((event) => {
       setState("appState", event.state);
     });

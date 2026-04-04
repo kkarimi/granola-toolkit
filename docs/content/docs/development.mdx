@@ -25,6 +25,7 @@ What those do:
 - `npm run coverage`: unit tests plus a local coverage report in `coverage/coverage-summary.json`
 - `npm run standalone:smoke`: builds the current-platform standalone binary and runs `--help`
 - `vp pack`: builds the CLI bundle into `dist/cli.js`
+- `npm run browser:e2e`: runs Chromium smoke coverage against the toolkit web workspace and docs site
 - `npm pack --dry-run`: shows the exact npm package contents without publishing
 
 `vp build` is for web apps. This repo is a CLI package, so the build step here is `vp pack`.
@@ -40,6 +41,13 @@ npm run docs:check
 
 `docs:check` runs the Fumadocs content build, Next.js type generation, TypeScript checking, and the
 Next production build.
+
+Install the Chromium browser once before running the browser smoke suite locally:
+
+```bash
+npm run browser:install
+npm run browser:e2e
+```
 
 ## Release Flow
 

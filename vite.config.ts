@@ -40,7 +40,9 @@ export default defineConfig({
   staged: {
     "*": "vp check --fix",
   },
-  fmt: {},
+  fmt: {
+    ignorePatterns: ["src/web/generated.ts"],
+  },
   lint: {
     ignorePatterns: ["dist/**"],
     options: {

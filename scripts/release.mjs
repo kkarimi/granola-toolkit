@@ -72,6 +72,7 @@ const release = () => {
   run("npm run standalone:smoke");
   run("vp pack");
   run("npm run docs:check");
+  run("npm run browser:e2e");
   run("npm pack --dry-run");
   run(`npm version ${kind} --no-git-tag-version`);
 
