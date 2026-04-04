@@ -1,6 +1,4 @@
-import { granolaWebClientScript } from "../web/client-script.ts";
-import { granolaWebMarkup } from "../web/markup.ts";
-import { granolaWebStyles } from "../web/styles.ts";
+import { granolaWebAssetPaths } from "../web/assets.ts";
 
 export function renderGranolaWebPage(options: { serverPasswordRequired?: boolean } = {}): string {
   return `<!doctype html>
@@ -9,18 +7,16 @@ export function renderGranolaWebPage(options: { serverPasswordRequired?: boolean
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Granola Toolkit</title>
-    <style>
-${granolaWebStyles}
-    </style>
+    <link rel="stylesheet" href="${granolaWebAssetPaths.stylesheet}" />
   </head>
   <body>
-${granolaWebMarkup}
-    <script type="module">
+    <div id="granola-web-root"></div>
+    <script>
 window.__GRANOLA_SERVER__ = ${JSON.stringify({
     passwordRequired: options.serverPasswordRequired ?? false,
   })};
-${granolaWebClientScript}
     </script>
+    <script type="module" src="${granolaWebAssetPaths.script}"></script>
   </body>
 </html>`;
 }

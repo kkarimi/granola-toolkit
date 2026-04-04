@@ -11,6 +11,7 @@ import { MemoryMeetingIndexStore } from "../src/meeting-index.ts";
 import { MemorySyncEventStore } from "../src/sync-events.ts";
 import { startGranolaServer } from "../src/server/http.ts";
 import { GRANOLA_TRANSPORT_PROTOCOL_VERSION } from "../src/transport.ts";
+import { granolaWebAssetPaths } from "../src/web/assets.ts";
 import type { CacheData, GranolaDocument, GranolaFolder } from "../src/types.ts";
 
 const documents: GranolaDocument[] = [
@@ -436,16 +437,20 @@ describe("startGranolaServer", () => {
 
     const html = await response.text();
     expect(html).toContain("<title>Granola Toolkit</title>");
-    expect(html).toContain("Auth Session");
-    expect(html).toContain(">Folders<");
+    expect(html).toContain('<div id="granola-web-root"></div>');
     expect(html).toContain('"passwordRequired":false');
-    expect(html).toContain("Meeting Workspace");
-    expect(html).toContain("Recent Export Jobs");
-    expect(html).toContain('new EventSource("/events")');
-    expect(html).toContain("data-auth-panel");
-    expect(html).toContain("data-folder-list");
-    expect(html).toContain('data-workspace-tab="notes"');
-    expect(html).toContain("1-4 switch tabs");
+    expect(html).toContain(`href="${granolaWebAssetPaths.stylesheet}"`);
+    expect(html).toContain(`src="${granolaWebAssetPaths.script}"`);
+
+    const stylesheet = await fetch(new URL(granolaWebAssetPaths.stylesheet, server.url));
+    expect(stylesheet.ok).toBe(true);
+    expect(stylesheet.headers.get("content-type")).toContain("text/css");
+    expect(await stylesheet.text()).toContain(".shell");
+
+    const script = await fetch(new URL(granolaWebAssetPaths.script, server.url));
+    expect(script.ok).toBe(true);
+    expect(script.headers.get("content-type")).toContain("text/javascript");
+    expect(await script.text()).toContain("Granola Toolkit");
   });
 
   test("supports meeting filters and quick-open routes", async () => {

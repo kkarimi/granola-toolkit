@@ -20,6 +20,7 @@ import type {
   NoteOutputFormat,
   TranscriptOutputFormat,
 } from "../app/index.ts";
+import { granolaWebAssetForPath } from "../web/assets.ts";
 import { renderGranolaWebPage } from "./web.ts";
 
 interface JsonResponseInit {
@@ -260,7 +261,8 @@ function publicRoute(path: string, enableWebClient: boolean): boolean {
     path === granolaTransportPaths.health ||
     path === granolaTransportPaths.serverInfo ||
     path === granolaTransportPaths.authUnlock ||
-    (enableWebClient && path === granolaTransportPaths.root)
+    (enableWebClient &&
+      (path === granolaTransportPaths.root || Boolean(granolaWebAssetForPath(path))))
   );
 }
 
@@ -359,6 +361,19 @@ export async function startGranolaServer(
           originHeaders,
         );
         return;
+      }
+
+      if (method === "GET" && enableWebClient) {
+        const asset = granolaWebAssetForPath(path);
+        if (asset) {
+          response.writeHead(200, {
+            "content-length": Buffer.byteLength(asset.body),
+            "content-type": asset.contentType,
+            ...originHeaders,
+          });
+          response.end(asset.body);
+          return;
+        }
       }
 
       if (method === "GET" && path === granolaTransportPaths.health) {

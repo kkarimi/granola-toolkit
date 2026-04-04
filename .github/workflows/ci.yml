@@ -26,6 +26,8 @@ jobs:
         run: vp install --frozen-lockfile
       - name: Install Docs Dependencies
         run: npm ci --prefix docs
+      - name: Check Web Bundle
+        run: npm run web:check
       - name: Check
         run: vp check
       - name: Test

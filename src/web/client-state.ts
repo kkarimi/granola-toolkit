@@ -1,4 +1,4 @@
-type WorkspaceTab = "metadata" | "notes" | "raw" | "transcript";
+export type WorkspaceTab = "metadata" | "notes" | "raw" | "transcript";
 
 interface FolderLike {
   id: string;

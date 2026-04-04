@@ -13,4 +13,4 @@ if (!isGitHubActions && !allowLocalPublish) {
   process.exit(1);
 }
 
-execSync("vp pack", { stdio: "inherit" });
+execSync("npm run build", { stdio: "inherit" });

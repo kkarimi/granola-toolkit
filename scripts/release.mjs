@@ -65,6 +65,7 @@ const release = () => {
     throw new Error(`Unsupported release kind: ${kind}. Use patch, minor, or major.`);
   }
 
+  run("npm run web:check");
   run("vp check");
   run("vp test");
   run("npm run coverage");

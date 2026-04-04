@@ -60,6 +60,7 @@ Key docs entry points:
 ```bash
 curl -fsSL https://vite.plus | bash
 vp install
+npm run web:check
 vp pack
 node dist/cli.js --help
 ```
