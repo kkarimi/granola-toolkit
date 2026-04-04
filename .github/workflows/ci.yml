@@ -35,7 +35,9 @@ jobs:
 
   prepare-publish:
     if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' &&
+       github.ref == 'refs/heads/main' &&
+       startsWith(github.event.head_commit.message, 'chore: release v')) ||
       (github.event_name == 'workflow_dispatch' && inputs.publish)
     needs: verify
     runs-on: ubuntu-latest
