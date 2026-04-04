@@ -29,6 +29,12 @@ export default defineConfig({
     target: "node20",
   },
   test: {
+    coverage: {
+      exclude: ["dist/**", "test/**"],
+      provider: "v8",
+      reporter: ["text", "json-summary"],
+      reportsDirectory: "coverage",
+    },
     include: ["test/**/*.test.ts"],
   },
   staged: {

@@ -95,3 +95,63 @@ jobs:
         run: vp install --frozen-lockfile
       - name: Publish
         run: npm publish --provenance --access public
+
+  auto-approve-publish:
+    if: |
+      needs.prepare-publish.outputs.should_publish == 'true' &&
+      secrets.GH_RELEASE_APPROVER_TOKEN != ''
+    needs:
+      - verify
+      - prepare-publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v8
+        env:
+          TARGET_ENVIRONMENT: production
+        with:
+          github-token: ${{ secrets.GH_RELEASE_APPROVER_TOKEN }}
+          script: |
+            const runId = context.runId;
+            const environmentName = process.env.TARGET_ENVIRONMENT;
+
+            for (let attempt = 1; attempt <= 60; attempt += 1) {
+              const { data: pending } = await github.request(
+                "GET /repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments",
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: runId,
+                },
+              );
+
+              const deployment = pending.find(
+                (candidate) => candidate.environment?.name === environmentName,
+              );
+
+              if (deployment) {
+                await github.request(
+                  "POST /repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments",
+                  {
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    run_id: runId,
+                    environment_ids: [deployment.environment.id],
+                    state: "approved",
+                    comment: `Automatically approved ${environmentName} publish candidate`,
+                  },
+                );
+                core.info(
+                  `Approved pending deployment for ${environmentName} on run ${runId}.`,
+                );
+                return;
+              }
+
+              core.info(
+                `No pending deployment for ${environmentName} yet (attempt ${attempt}/60). Waiting 5 seconds...`,
+              );
+              await new Promise((resolve) => setTimeout(resolve, 5_000));
+            }
+
+            core.setFailed(
+              `Timed out waiting for a pending ${environmentName} deployment on run ${runId}.`,
+            );

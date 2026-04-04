@@ -449,6 +449,7 @@ Before pushing changes, run:
 ```bash
 vp check
 vp test
+npm run coverage
 vp pack
 npm pack --dry-run
 ```
@@ -457,6 +458,7 @@ What those do:
 
 - `vp check`: formatting, linting, and type checks
 - `vp test`: unit tests
+- `npm run coverage`: unit tests plus a local coverage report in `coverage/coverage-summary.json`
 - `vp pack`: builds the CLI bundle into `dist/cli.js`
 - `npm pack --dry-run`: shows the exact npm package contents without publishing
 
