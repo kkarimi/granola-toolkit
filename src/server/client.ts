@@ -8,6 +8,7 @@ import type {
   GranolaAppStateEvent,
   GranolaExportJobsListOptions,
   GranolaExportJobsResult,
+  GranolaExportRunOptions,
   GranolaFolderListOptions,
   GranolaFolderListResult,
   GranolaMeetingBundle,
@@ -274,9 +275,15 @@ export class GranolaServerClient implements GranolaAppApi {
     return await this.requestJson(granolaExportJobsPath(options));
   }
 
-  async exportNotes(format: NoteOutputFormat = "markdown"): Promise<GranolaNotesExportResult> {
+  async exportNotes(
+    format: NoteOutputFormat = "markdown",
+    options: GranolaExportRunOptions = {},
+  ): Promise<GranolaNotesExportResult> {
     return await this.requestJson(granolaTransportPaths.exportNotes, {
-      body: JSON.stringify({ format }),
+      body: JSON.stringify({
+        folderId: options.folderId,
+        format,
+      }),
       headers: {
         "content-type": "application/json",
       },
@@ -286,9 +293,13 @@ export class GranolaServerClient implements GranolaAppApi {
 
   async exportTranscripts(
     format: TranscriptOutputFormat = "text",
+    options: GranolaExportRunOptions = {},
   ): Promise<GranolaTranscriptsExportResult> {
     return await this.requestJson(granolaTransportPaths.exportTranscripts, {
-      body: JSON.stringify({ format }),
+      body: JSON.stringify({
+        folderId: options.folderId,
+        format,
+      }),
       headers: {
         "content-type": "application/json",
       },

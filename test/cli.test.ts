@@ -27,7 +27,7 @@ describe("runCli", () => {
     const exitCode = await runCli(["notes", "--help"]);
 
     expect(exitCode).toBe(0);
-    expect(log).toHaveBeenCalledWith(expect.stringContaining("Granola notes"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("--folder <query>"));
     expect(error).not.toHaveBeenCalled();
   });
 
@@ -38,7 +38,7 @@ describe("runCli", () => {
     const exitCode = await runCli(["transcripts", "--help"]);
 
     expect(exitCode).toBe(0);
-    expect(log).toHaveBeenCalledWith(expect.stringContaining("Granola transcripts"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("--folder <query>"));
     expect(error).not.toHaveBeenCalled();
   });
 

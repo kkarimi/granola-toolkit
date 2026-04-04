@@ -241,6 +241,7 @@ describe("startGranolaServer", () => {
         exportJobStore: jobStore,
         granolaClient: {
           listDocuments: async () => documents,
+          listFolders: async () => folders,
         },
         now: () => new Date("2024-03-01T12:00:00Z"),
       },
@@ -265,7 +266,10 @@ describe("startGranolaServer", () => {
     expect(secondChunk).toContain('"view":"meeting-list"');
 
     const exportResponse = await fetch(new URL("/exports/notes", server.url), {
-      body: JSON.stringify({ format: "markdown" }),
+      body: JSON.stringify({
+        folderId: "folder-team-1111",
+        format: "markdown",
+      }),
       headers: {
         "content-type": "application/json",
       },
@@ -277,13 +281,27 @@ describe("startGranolaServer", () => {
         documentCount: 1,
         job: expect.objectContaining({
           kind: "notes",
+          scope: {
+            folderId: "folder-team-1111",
+            folderName: "Team",
+            mode: "folder",
+          },
           status: "completed",
         }),
+        outputDir: expect.stringContaining("_folders/folder-team-1111"),
+        scope: {
+          folderId: "folder-team-1111",
+          folderName: "Team",
+          mode: "folder",
+        },
         written: 1,
       }),
     );
 
-    const markdown = await readFile(join(outputDir, "Alpha Sync.md"), "utf8");
+    const markdown = await readFile(
+      join(outputDir, "_folders", "folder-team-1111", "Alpha Sync.md"),
+      "utf8",
+    );
     expect(markdown).toContain("# Alpha Sync");
 
     const jobsResponse = await fetch(new URL("/exports/jobs?limit=10", server.url));
@@ -294,6 +312,11 @@ describe("startGranolaServer", () => {
     expect(jobsPayload.jobs[0]).toEqual(
       expect.objectContaining({
         kind: "notes",
+        scope: {
+          folderId: "folder-team-1111",
+          folderName: "Team",
+          mode: "folder",
+        },
       }),
     );
 

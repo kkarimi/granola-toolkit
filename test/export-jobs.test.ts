@@ -20,6 +20,7 @@ describe("FileExportJobStore", () => {
         itemCount: 1,
         kind: "notes",
         outputDir: "/tmp/notes",
+        scope: { mode: "all" },
         startedAt: "2024-03-01T12:00:00Z",
         status: "completed",
         written: 1,
@@ -31,6 +32,7 @@ describe("FileExportJobStore", () => {
         completedCount: 1,
         id: "notes-1",
         kind: "notes",
+        scope: { mode: "all" },
         status: "completed",
       }),
     ]);

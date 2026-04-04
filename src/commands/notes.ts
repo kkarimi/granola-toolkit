@@ -1,4 +1,5 @@
 import { createGranolaApp } from "../app/index.ts";
+import { renderExportScopeLabel } from "../export-scope.ts";
 import { loadConfig } from "../config.ts";
 import type { NoteOutputFormat } from "../types.ts";
 
@@ -12,6 +13,7 @@ Usage:
   granola notes [options]
 
 Options:
+  --folder <query>    Export only meetings inside one folder id or name
   --format <value>    Output format: markdown, json, yaml, raw (default: markdown)
   --output <path>     Output directory for note files (default: ./notes)
   --timeout <value>   Request timeout, e.g. 2m, 30s, 120000 (default: 2m)
@@ -25,6 +27,7 @@ Options:
 export const notesCommand: CommandDefinition = {
   description: "Export Granola notes",
   flags: {
+    folder: { type: "string" },
     format: { type: "string" },
     help: { type: "boolean" },
     output: { type: "string" },
@@ -46,10 +49,16 @@ export const notesCommand: CommandDefinition = {
     debug(config.debug, "format", format);
     const app = await createGranolaApp(config);
     debug(config.debug, "authMode", app.getState().auth.mode);
+    const folderQuery = typeof commandFlags.folder === "string" ? commandFlags.folder : undefined;
+    const folder = folderQuery ? await app.findFolder(folderQuery) : undefined;
+    debug(config.debug, "folder", folder?.id ?? "(all)");
 
-    const result = await app.exportNotes(format);
+    const result = await app.exportNotes(format, {
+      folderId: folder?.id,
+      scopedOutput: typeof commandFlags.output !== "string",
+    });
     console.log(
-      `✓ Exported ${result.documentCount} notes to ${result.outputDir} (job ${result.job.id})`,
+      `✓ Exported ${result.documentCount} notes from ${renderExportScopeLabel(result.scope)} to ${result.outputDir} (job ${result.job.id})`,
     );
     debug(config.debug, "notes written", result.written);
     return 0;

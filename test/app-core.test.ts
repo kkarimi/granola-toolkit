@@ -208,6 +208,7 @@ describe("GranolaApp", () => {
 
     expect(result.documentCount).toBe(1);
     expect(result.job.status).toBe("completed");
+    expect(result.scope).toEqual({ mode: "all" });
     expect(result.written).toBe(1);
     expect(markdown).toContain("# Alpha Sync");
     expect(state.exports.notes).toEqual(
@@ -216,6 +217,7 @@ describe("GranolaApp", () => {
         itemCount: 1,
         jobId: result.job.id,
         outputDir,
+        scope: { mode: "all" },
         written: 1,
       }),
     );
@@ -224,11 +226,216 @@ describe("GranolaApp", () => {
         completedCount: 1,
         id: result.job.id,
         kind: "notes",
+        scope: { mode: "all" },
         status: "completed",
       }),
     );
     expect(await jobStore.readJobs()).toHaveLength(1);
     expect(state.ui.view).toBe("notes-export");
+  });
+
+  test("exports folder-scoped notes into a stable folder output and reruns with the same scope", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "granola-app-folder-notes-"));
+    const jobStore = new MemoryExportJobStore();
+    const scopedDocuments: GranolaDocument[] = [
+      documents[0]!,
+      {
+        content: "Other note body",
+        createdAt: "2024-01-02T09:00:00Z",
+        id: "doc-beta-2222",
+        notes: {
+          content: [
+            {
+              content: [{ text: "Beta notes", type: "text" }],
+              type: "paragraph",
+            },
+          ],
+          type: "doc",
+        },
+        notesPlain: "",
+        tags: ["beta"],
+        title: "Beta Review",
+        updatedAt: "2024-01-04T10:00:00Z",
+      },
+    ];
+    const scopedFolders: GranolaFolder[] = [
+      folders[0]!,
+      {
+        createdAt: "2024-01-02T08:00:00Z",
+        documentIds: ["doc-beta-2222"],
+        id: "folder-ops-2222",
+        isFavourite: false,
+        name: "Ops",
+        updatedAt: "2024-01-05T10:00:00Z",
+        workspaceId: "workspace-1",
+      },
+    ];
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: outputDir,
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile: "",
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          mode: "supabase-file",
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: true,
+          supabasePath: "/tmp/supabase.json",
+        },
+        cacheLoader: async () => undefined,
+        exportJobStore: jobStore,
+        granolaClient: {
+          listDocuments: async () => scopedDocuments,
+          listFolders: async () => scopedFolders,
+        },
+        now: () => new Date("2024-03-01T12:00:00Z"),
+      },
+    );
+
+    const first = await app.exportNotes("markdown", {
+      folderId: "folder-team-1111",
+    });
+    const scopedOutputDir = join(outputDir, "_folders", "folder-team-1111");
+
+    expect(first.scope).toEqual({
+      folderId: "folder-team-1111",
+      folderName: "Team",
+      mode: "folder",
+    });
+    expect(first.outputDir).toBe(scopedOutputDir);
+    expect(first.documentCount).toBe(1);
+    expect(await readFile(join(scopedOutputDir, "Alpha Sync.md"), "utf8")).toContain(
+      "# Alpha Sync",
+    );
+
+    const rerun = await app.rerunExportJob(first.job.id);
+    expect("documentCount" in rerun).toBe(true);
+    if ("documentCount" in rerun) {
+      expect(rerun.scope).toEqual(first.scope);
+      expect(rerun.outputDir).toBe(scopedOutputDir);
+    }
+
+    const jobs = await jobStore.readJobs();
+    expect(jobs[0]).toEqual(
+      expect.objectContaining({
+        outputDir: scopedOutputDir,
+        scope: {
+          folderId: "folder-team-1111",
+          folderName: "Team",
+          mode: "folder",
+        },
+      }),
+    );
+  });
+
+  test("exports folder-scoped transcripts into a stable folder output", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "granola-app-folder-transcripts-"));
+    const cacheFile = join(
+      await mkdtemp(join(tmpdir(), "granola-app-folder-cache-")),
+      "cache.json",
+    );
+    await writeFile(cacheFile, "{}\n", "utf8");
+    const jobStore = new MemoryExportJobStore();
+    const scopedCacheData: CacheData = {
+      documents: {
+        ...cacheData.documents,
+        "doc-beta-2222": {
+          createdAt: "2024-01-02T09:00:00Z",
+          id: "doc-beta-2222",
+          title: "Beta Review",
+          updatedAt: "2024-01-04T10:00:00Z",
+        },
+      },
+      transcripts: {
+        ...cacheData.transcripts,
+        "doc-beta-2222": [
+          {
+            documentId: "doc-beta-2222",
+            endTimestamp: "2024-01-02T09:10:00Z",
+            id: "segment-2",
+            isFinal: true,
+            source: "microphone",
+            startTimestamp: "2024-01-02T09:09:00Z",
+            text: "Hello ops",
+          },
+        ],
+      },
+    };
+    const scopedFolders: GranolaFolder[] = [
+      folders[0]!,
+      {
+        createdAt: "2024-01-02T08:00:00Z",
+        documentIds: ["doc-beta-2222"],
+        id: "folder-ops-2222",
+        isFavourite: false,
+        name: "Ops",
+        updatedAt: "2024-01-05T10:00:00Z",
+        workspaceId: "workspace-1",
+      },
+    ];
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile,
+          output: outputDir,
+        },
+      },
+      {
+        auth: {
+          mode: "supabase-file",
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: true,
+          supabasePath: "/tmp/supabase.json",
+        },
+        cacheLoader: async () => scopedCacheData,
+        exportJobStore: jobStore,
+        granolaClient: {
+          listDocuments: async () => documents,
+          listFolders: async () => scopedFolders,
+        },
+        now: () => new Date("2024-03-01T12:00:00Z"),
+      },
+    );
+
+    const result = await app.exportTranscripts("text", {
+      folderId: "folder-team-1111",
+    });
+    const scopedOutputDir = join(outputDir, "_folders", "folder-team-1111");
+
+    expect(result.scope).toEqual({
+      folderId: "folder-team-1111",
+      folderName: "Team",
+      mode: "folder",
+    });
+    expect(result.outputDir).toBe(scopedOutputDir);
+    expect(result.transcriptCount).toBe(1);
+    expect(await readFile(join(scopedOutputDir, "Alpha Sync.txt"), "utf8")).toContain("Hello team");
+    expect(await jobStore.readJobs()).toEqual([
+      expect.objectContaining({
+        outputDir: scopedOutputDir,
+        scope: {
+          folderId: "folder-team-1111",
+          folderName: "Team",
+          mode: "folder",
+        },
+      }),
+    ]);
   });
 
   test("lists and reruns persisted export jobs", async () => {

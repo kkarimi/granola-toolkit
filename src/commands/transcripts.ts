@@ -1,4 +1,5 @@
 import { createGranolaApp } from "../app/index.ts";
+import { renderExportScopeLabel } from "../export-scope.ts";
 import { loadConfig } from "../config.ts";
 import type { TranscriptOutputFormat } from "../types.ts";
 
@@ -13,6 +14,7 @@ Usage:
 
 Options:
   --cache <path>      Path to Granola cache JSON
+  --folder <query>    Export only meetings inside one folder id or name
   --format <value>    Output format: text, json, yaml, raw (default: text)
   --output <path>     Output directory for transcript files (default: ./transcripts)
   --debug             Enable debug logging
@@ -25,6 +27,7 @@ export const transcriptsCommand: CommandDefinition = {
   description: "Export Granola transcripts",
   flags: {
     cache: { type: "string" },
+    folder: { type: "string" },
     format: { type: "string" },
     help: { type: "boolean" },
     output: { type: "string" },
@@ -44,10 +47,16 @@ export const transcriptsCommand: CommandDefinition = {
     debug(config.debug, "format", format);
     const app = await createGranolaApp(config);
     debug(config.debug, "authMode", app.getState().auth.mode);
+    const folderQuery = typeof commandFlags.folder === "string" ? commandFlags.folder : undefined;
+    const folder = folderQuery ? await app.findFolder(folderQuery) : undefined;
+    debug(config.debug, "folder", folder?.id ?? "(all)");
 
-    const result = await app.exportTranscripts(format);
+    const result = await app.exportTranscripts(format, {
+      folderId: folder?.id,
+      scopedOutput: typeof commandFlags.output !== "string",
+    });
     console.log(
-      `✓ Exported ${result.transcriptCount} transcripts to ${result.outputDir} (job ${result.job.id})`,
+      `✓ Exported ${result.transcriptCount} transcripts from ${renderExportScopeLabel(result.scope)} to ${result.outputDir} (job ${result.job.id})`,
     );
     debug(config.debug, "transcripts written", result.written);
     return 0;

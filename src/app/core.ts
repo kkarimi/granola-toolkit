@@ -15,6 +15,12 @@ import {
   type ExportJobStore,
 } from "../export-jobs.ts";
 import {
+  allExportScope,
+  cloneExportScope,
+  folderExportScope,
+  resolveExportOutputDir,
+} from "../export-scope.ts";
+import {
   buildMeetingRecord,
   filterMeetingSummaries,
   listMeetings,
@@ -51,6 +57,8 @@ import type {
   GranolaAppAuthState,
   GranolaAppExportJobState,
   GranolaAppExportRunState,
+  GranolaExportRunOptions,
+  GranolaExportScope,
   GranolaExportJobsListOptions,
   GranolaExportJobsResult,
   GranolaAppStateEvent,
@@ -90,11 +98,19 @@ function transcriptCount(cacheData: CacheData): number {
 }
 
 function cloneExportState(state?: GranolaAppExportRunState): GranolaAppExportRunState | undefined {
-  return state ? { ...state } : undefined;
+  return state
+    ? {
+        ...state,
+        scope: cloneExportScope(state.scope),
+      }
+    : undefined;
 }
 
 function cloneExportJob(job: GranolaAppExportJobState): GranolaAppExportJobState {
-  return { ...job };
+  return {
+    ...job,
+    scope: cloneExportScope(job.scope),
+  };
 }
 
 function cloneFolderSummary(folder: FolderSummaryRecord): FolderSummaryRecord {
@@ -456,6 +472,7 @@ export class GranolaApp implements GranolaAppApi {
     format: string,
     itemCount: number,
     outputDir: string,
+    scope: GranolaExportScope,
   ): Promise<GranolaAppExportJobState> {
     return await this.updateExportJob({
       completedCount: 0,
@@ -464,6 +481,7 @@ export class GranolaApp implements GranolaAppApi {
       itemCount,
       kind,
       outputDir,
+      scope: cloneExportScope(scope),
       startedAt: this.nowIso(),
       status: "running",
       written: 0,
@@ -852,28 +870,47 @@ export class GranolaApp implements GranolaAppApi {
     };
   }
 
-  async exportNotes(format: NoteOutputFormat = "markdown"): Promise<GranolaNotesExportResult> {
+  async exportNotes(
+    format: NoteOutputFormat = "markdown",
+    options: GranolaExportRunOptions = {},
+  ): Promise<GranolaNotesExportResult> {
+    const documents = await this.listDocuments();
+    const exportContext = await this.resolveExportContext(options.folderId);
+    const filteredDocuments = exportContext.documentIds
+      ? documents.filter((document) => exportContext.documentIds!.has(document.id))
+      : documents;
+
     return await this.runNotesExport({
+      documents: filteredDocuments,
       format,
-      outputDir: this.config.notes.output,
+      outputDir: resolveExportOutputDir(
+        options.outputDir ?? this.config.notes.output,
+        exportContext.scope,
+        {
+          scopedDirectory: options.scopedOutput,
+        },
+      ),
+      scope: exportContext.scope,
     });
   }
 
   private async runNotesExport(options: {
+    documents: GranolaDocument[];
     format: NoteOutputFormat;
     outputDir: string;
+    scope: GranolaExportScope;
   }): Promise<GranolaNotesExportResult> {
-    const documents = await this.listDocuments();
     let job = await this.startExportJob(
       "notes",
       options.format,
-      documents.length,
+      options.documents.length,
       options.outputDir,
+      options.scope,
     );
     let written = 0;
 
     try {
-      written = await writeNotes(documents, options.outputDir, options.format, {
+      written = await writeNotes(options.documents, options.outputDir, options.format, {
         onProgress: async (progress) => {
           job = await this.setExportJobProgress(job, {
             completedCount: progress.completed,
@@ -882,7 +919,7 @@ export class GranolaApp implements GranolaAppApi {
         },
       });
       job = await this.completeExportJob(job, {
-        completedCount: documents.length,
+        completedCount: options.documents.length,
         written,
       });
     } catch (error) {
@@ -892,51 +929,87 @@ export class GranolaApp implements GranolaAppApi {
 
     this.#state.exports.notes = {
       format: options.format,
-      itemCount: documents.length,
+      itemCount: options.documents.length,
       jobId: job.id,
       outputDir: options.outputDir,
       ranAt: this.nowIso(),
+      scope: cloneExportScope(options.scope),
       written,
     };
     this.emitStateUpdate();
     this.setUiState({
+      selectedFolderId: options.scope.mode === "folder" ? options.scope.folderId : undefined,
       view: "notes-export",
     });
 
     return {
-      documentCount: documents.length,
-      documents,
+      documentCount: options.documents.length,
+      documents: options.documents,
       format: options.format,
       job,
       outputDir: options.outputDir,
+      scope: cloneExportScope(options.scope),
       written,
     };
   }
 
   async exportTranscripts(
     format: TranscriptOutputFormat = "text",
+    options: GranolaExportRunOptions = {},
   ): Promise<GranolaTranscriptsExportResult> {
-    return await this.runTranscriptsExport({
-      format,
-      outputDir: this.config.transcripts.output,
-    });
-  }
-
-  private async runTranscriptsExport(options: {
-    format: TranscriptOutputFormat;
-    outputDir: string;
-  }): Promise<GranolaTranscriptsExportResult> {
     const cacheData = await this.loadCache({ required: true });
     if (!cacheData) {
       throw this.missingCacheError();
     }
 
-    const count = transcriptCount(cacheData);
-    let job = await this.startExportJob("transcripts", options.format, count, options.outputDir);
+    const exportContext = await this.resolveExportContext(options.folderId);
+    const scopedCacheData = exportContext.documentIds
+      ? {
+          documents: Object.fromEntries(
+            Object.entries(cacheData.documents).filter(([id]) =>
+              exportContext.documentIds!.has(id),
+            ),
+          ),
+          transcripts: Object.fromEntries(
+            Object.entries(cacheData.transcripts).filter(([id]) =>
+              exportContext.documentIds!.has(id),
+            ),
+          ),
+        }
+      : cacheData;
+
+    return await this.runTranscriptsExport({
+      cacheData: scopedCacheData,
+      format,
+      outputDir: resolveExportOutputDir(
+        options.outputDir ?? this.config.transcripts.output,
+        exportContext.scope,
+        {
+          scopedDirectory: options.scopedOutput,
+        },
+      ),
+      scope: exportContext.scope,
+    });
+  }
+
+  private async runTranscriptsExport(options: {
+    cacheData: CacheData;
+    format: TranscriptOutputFormat;
+    outputDir: string;
+    scope: GranolaExportScope;
+  }): Promise<GranolaTranscriptsExportResult> {
+    const count = transcriptCount(options.cacheData);
+    let job = await this.startExportJob(
+      "transcripts",
+      options.format,
+      count,
+      options.outputDir,
+      options.scope,
+    );
     let written = 0;
 
     try {
-      written = await writeTranscripts(cacheData, options.outputDir, options.format, {
+      written = await writeTranscripts(options.cacheData, options.outputDir, options.format, {
         onProgress: async (progress) => {
           job = await this.setExportJobProgress(job, {
             completedCount: progress.completed,
@@ -959,18 +1032,21 @@ export class GranolaApp implements GranolaAppApi {
       jobId: job.id,
       outputDir: options.outputDir,
       ranAt: this.nowIso(),
+      scope: cloneExportScope(options.scope),
       written,
     };
     this.emitStateUpdate();
     this.setUiState({
+      selectedFolderId: options.scope.mode === "folder" ? options.scope.folderId : undefined,
       view: "transcripts-export",
     });
 
     return {
-      cacheData,
+      cacheData: options.cacheData,
       format: options.format,
       job,
       outputDir: options.outputDir,
+      scope: cloneExportScope(options.scope),
       transcriptCount: count,
       written,
     };
@@ -985,16 +1061,44 @@ export class GranolaApp implements GranolaAppApi {
     }
 
     if (job.kind === "notes") {
-      return await this.runNotesExport({
-        format: job.format as NoteOutputFormat,
+      return await this.exportNotes(job.format as NoteOutputFormat, {
+        folderId: job.scope.mode === "folder" ? job.scope.folderId : undefined,
         outputDir: job.outputDir,
+        scopedOutput: false,
       });
     }
 
-    return await this.runTranscriptsExport({
-      format: job.format as TranscriptOutputFormat,
+    return await this.exportTranscripts(job.format as TranscriptOutputFormat, {
+      folderId: job.scope.mode === "folder" ? job.scope.folderId : undefined,
       outputDir: job.outputDir,
+      scopedOutput: false,
     });
+  }
+
+  private async resolveExportContext(folderId?: string): Promise<{
+    documentIds?: Set<string>;
+    scope: GranolaExportScope;
+  }> {
+    if (!folderId) {
+      return {
+        scope: allExportScope(),
+      };
+    }
+
+    const folders = await this.loadFolders({
+      required: true,
+    });
+    const summaries = (folders ?? []).map((folder) => buildFolderSummary(folder));
+    const summary = resolveFolder(summaries, folderId);
+    const rawFolder = (folders ?? []).find((candidate) => candidate.id === summary.id);
+    if (!rawFolder) {
+      throw new Error(`folder not found: ${folderId}`);
+    }
+
+    return {
+      documentIds: new Set(rawFolder.documentIds),
+      scope: folderExportScope(summary),
+    };
   }
 }
 

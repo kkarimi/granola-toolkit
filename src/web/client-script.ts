@@ -98,6 +98,12 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
+function exportScopeLabel(scope) {
+  return scope && scope.mode === "folder"
+    ? "Folder: " + (scope.folderName || scope.folderId)
+    : "Scope: All meetings";
+}
+
 function setStatus(label, tone = "idle") {
   els.stateBadge.textContent = label;
   els.stateBadge.dataset.tone = tone;
@@ -436,8 +442,9 @@ function renderExportJobs() {
         "</div>",
         '<div class="job-card__status" data-status="' + escapeHtml(job.status) + '">' + escapeHtml(job.status) + "</div>",
         "</div>",
-        '<div class="job-card__meta">Format: ' + escapeHtml(job.format) + " • " + escapeHtml(progress) + " • Written: " + escapeHtml(String(job.written)) + "</div>",
+        '<div class="job-card__meta">Format: ' + escapeHtml(job.format) + " • " + escapeHtml(exportScopeLabel(job.scope)) + " • " + escapeHtml(progress) + " • Written: " + escapeHtml(String(job.written)) + "</div>",
         '<div class="job-card__meta">Started: ' + escapeHtml(job.startedAt.slice(0, 19)) + "</div>",
+        '<div class="job-card__meta">Output: ' + escapeHtml(job.outputDir) + "</div>",
         error,
         '<div class="job-card__actions">' + rerunButton + "</div>",
         "</article>",
@@ -637,9 +644,12 @@ async function syncAuthState() {
 }
 
 async function exportNotes() {
-  setStatus("Exporting notes…", "busy");
+  setStatus(state.selectedFolderId ? "Exporting folder notes…" : "Exporting notes…", "busy");
   await fetchJson("/exports/notes", {
-    body: JSON.stringify({ format: "markdown" }),
+    body: JSON.stringify({
+      folderId: state.selectedFolderId || undefined,
+      format: "markdown",
+    }),
     headers: { "content-type": "application/json" },
     method: "POST",
   });
@@ -647,9 +657,15 @@ async function exportNotes() {
 }
 
 async function exportTranscripts() {
-  setStatus("Exporting transcripts…", "busy");
+  setStatus(
+    state.selectedFolderId ? "Exporting folder transcripts…" : "Exporting transcripts…",
+    "busy",
+  );
   await fetchJson("/exports/transcripts", {
-    body: JSON.stringify({ format: "text" }),
+    body: JSON.stringify({
+      folderId: state.selectedFolderId || undefined,
+      format: "text",
+    }),
     headers: { "content-type": "application/json" },
     method: "POST",
   });

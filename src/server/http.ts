@@ -76,6 +76,10 @@ function parseAuthMode(value: unknown): GranolaAppAuthMode {
   }
 }
 
+function folderIdFromBody(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
 function sendJson(response: ServerResponse, body: unknown, init: JsonResponseInit = {}): void {
   const payload = `${JSON.stringify(body, null, 2)}\n`;
   response.writeHead(init.status ?? 200, {
@@ -613,7 +617,9 @@ export async function startGranolaServer(
 
       if (method === "POST" && path === granolaTransportPaths.exportNotes) {
         const body = await readJsonBody(request);
-        const result = await app.exportNotes(noteFormatFromBody(body.format));
+        const result = await app.exportNotes(noteFormatFromBody(body.format), {
+          folderId: folderIdFromBody(body.folderId),
+        });
         sendJson(response, result, { headers: originHeaders, status: 202 });
         return;
       }
@@ -644,7 +650,9 @@ export async function startGranolaServer(
 
       if (method === "POST" && path === granolaTransportPaths.exportTranscripts) {
         const body = await readJsonBody(request);
-        const result = await app.exportTranscripts(transcriptFormatFromBody(body.format));
+        const result = await app.exportTranscripts(transcriptFormatFromBody(body.format), {
+          folderId: folderIdFromBody(body.folderId),
+        });
         sendJson(response, result, { headers: originHeaders, status: 202 });
         return;
       }

@@ -22,6 +22,8 @@ export type {
   GranolaAppAuthState,
   GranolaAppCacheState,
   GranolaAppExportJobState,
+  GranolaExportScope,
+  GranolaExportRunOptions,
   GranolaExportJobRunResult,
   GranolaAppDocumentsState,
   GranolaAppExportRunState,

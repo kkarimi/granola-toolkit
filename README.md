@@ -79,6 +79,7 @@ Export notes:
 ```bash
 granola auth login
 granola notes
+granola notes --folder Team
 
 node dist/cli.js notes --supabase "$HOME/Library/Application Support/Granola/supabase.json"
 node dist/cli.js notes --format json --output ./notes-json
@@ -91,6 +92,7 @@ Export transcripts:
 ```bash
 node dist/cli.js transcripts --cache "$HOME/Library/Application Support/Granola/cache-v3.json"
 node dist/cli.js transcripts --format yaml --output ./transcripts-yaml
+granola transcripts --folder Team
 ```
 
 Inspect individual meetings:
@@ -143,6 +145,8 @@ The flow is:
 6. render that export as Markdown, JSON, YAML, or raw JSON
 7. write one file per document into the output directory
 
+When you pass `--folder <id|name>`, the export is filtered to that folder and, by default, written into a stable per-folder subdirectory under the notes output root.
+
 Content is chosen in this order:
 
 1. `notes`
@@ -168,6 +172,8 @@ The flow is:
 4. match transcript segments to documents by document id
 5. render each export as text, JSON, YAML, or raw JSON
 6. write one file per document into the output directory
+
+When you pass `--folder <id|name>`, the export is filtered to that folder and, by default, written into a stable per-folder subdirectory under the transcripts output root.
 
 Speaker labels are currently normalised to:
 
@@ -223,6 +229,8 @@ The current CLI surface includes:
 - `folder list`
 - `folder view <id|name>`
 - `meeting list --folder <id|name>`
+- `notes --folder <id|name>`
+- `transcripts --folder <id|name>`
 
 ### Server
 
@@ -250,9 +258,9 @@ The initial server API includes:
 - `POST /auth/logout`
 - `POST /auth/mode`
 - `POST /auth/refresh`
-- `POST /exports/notes`
+- `POST /exports/notes` with optional `folderId`
 - `POST /exports/jobs/:id/rerun`
-- `POST /exports/transcripts`
+- `POST /exports/transcripts` with optional `folderId`
 
 This is the shared runtime for `granola web` and `granola attach`.
 
@@ -287,6 +295,7 @@ The initial browser client includes:
 - app-state status from the shared core
 - an auth session panel for login, refresh, source switching, and sign-out
 - note and transcript export actions backed by the same local API
+- folder-scoped export actions that follow the currently selected folder
 - a recent export-jobs panel with rerun actions
 - stronger empty and error states for list/detail failures
 - a server-access panel that can unlock or lock a password-protected local server
@@ -354,6 +363,7 @@ The web client uses the index as a fast path and upgrades to live data automatic
 Exports are now tracked as jobs with:
 
 - persistent local history across CLI and web runs
+- explicit scope metadata for all-meetings and folder-scoped runs
 - running, completed, and failed status
 - per-export progress counters
 - rerun support from `granola exports rerun <job-id>` or the web client

@@ -15,6 +15,15 @@ export type GranolaAppSurface = "cli" | "server" | "tui" | "web";
 export type GranolaMeetingSort = "title-asc" | "title-desc" | "updated-asc" | "updated-desc";
 export type GranolaExportJobKind = "notes" | "transcripts";
 export type GranolaExportJobStatus = "completed" | "failed" | "running";
+export type GranolaExportScope =
+  | {
+      mode: "all";
+    }
+  | {
+      folderId: string;
+      folderName: string;
+      mode: "folder";
+    };
 export type GranolaAppView =
   | "auth"
   | "folder-detail"
@@ -63,6 +72,7 @@ export interface GranolaAppExportRunState {
   jobId: string;
   outputDir: string;
   ranAt: string;
+  scope: GranolaExportScope;
   written: number;
 }
 
@@ -75,6 +85,7 @@ export interface GranolaAppExportJobState {
   itemCount: number;
   kind: GranolaExportJobKind;
   outputDir: string;
+  scope: GranolaExportScope;
   startedAt: string;
   status: GranolaExportJobStatus;
   written: number;
@@ -137,6 +148,7 @@ export interface GranolaNotesExportResult {
   format: NoteOutputFormat;
   job: GranolaAppExportJobState;
   outputDir: string;
+  scope: GranolaExportScope;
   written: number;
 }
 
@@ -145,8 +157,15 @@ export interface GranolaTranscriptsExportResult {
   format: TranscriptOutputFormat;
   job: GranolaAppExportJobState;
   outputDir: string;
+  scope: GranolaExportScope;
   transcriptCount: number;
   written: number;
+}
+
+export interface GranolaExportRunOptions {
+  folderId?: string;
+  outputDir?: string;
+  scopedOutput?: boolean;
 }
 
 export interface GranolaMeetingListResult {
@@ -189,7 +208,13 @@ export interface GranolaAppApi {
   getMeeting(id: string, options?: { requireCache?: boolean }): Promise<GranolaMeetingBundle>;
   findMeeting(query: string, options?: { requireCache?: boolean }): Promise<GranolaMeetingBundle>;
   listExportJobs(options?: GranolaExportJobsListOptions): Promise<GranolaExportJobsResult>;
-  exportNotes(format?: NoteOutputFormat): Promise<GranolaNotesExportResult>;
-  exportTranscripts(format?: TranscriptOutputFormat): Promise<GranolaTranscriptsExportResult>;
+  exportNotes(
+    format?: NoteOutputFormat,
+    options?: GranolaExportRunOptions,
+  ): Promise<GranolaNotesExportResult>;
+  exportTranscripts(
+    format?: TranscriptOutputFormat,
+    options?: GranolaExportRunOptions,
+  ): Promise<GranolaTranscriptsExportResult>;
   rerunExportJob(id: string): Promise<GranolaExportJobRunResult>;
 }

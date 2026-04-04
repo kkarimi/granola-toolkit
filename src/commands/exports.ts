@@ -1,5 +1,6 @@
 import { createGranolaApp } from "../app/index.ts";
 import { loadConfig } from "../config.ts";
+import { renderExportScopeLabel } from "../export-scope.ts";
 import { toJson, toYaml } from "../render.ts";
 
 import { debug } from "./shared.ts";
@@ -76,16 +77,17 @@ function renderExportJobs(
   }
 
   const header =
-    "ID                           KIND         STATUS      FORMAT      ITEMS   WRITTEN  STARTED";
+    "ID                           KIND         STATUS      FORMAT      SCOPE                ITEMS   WRITTEN  STARTED";
   const lines = jobs.map((job) => {
     const id = job.id.padEnd(28).slice(0, 28);
     const kind = job.kind.padEnd(12);
     const status = job.status.padEnd(11);
     const formatValue = job.format.padEnd(11);
+    const scope = renderExportScopeLabel(job.scope).padEnd(20).slice(0, 20);
     const items = String(job.itemCount).padEnd(7);
     const written = String(job.written).padEnd(8);
     const started = job.startedAt.slice(0, 19);
-    return `${id} ${kind} ${status} ${formatValue} ${items} ${written} ${started}`;
+    return `${id} ${kind} ${status} ${formatValue} ${scope} ${items} ${written} ${started}`;
   });
 
   return `${[header, ...lines].join("\n")}\n`;
@@ -158,13 +160,13 @@ async function rerun(
 
   if ("documentCount" in result) {
     console.log(
-      `✓ Reran notes export job ${result.job.id} to ${result.outputDir} (${result.written}/${result.documentCount} written)`,
+      `✓ Reran notes export job ${result.job.id} from ${renderExportScopeLabel(result.scope)} to ${result.outputDir} (${result.written}/${result.documentCount} written)`,
     );
     return 0;
   }
 
   console.log(
-    `✓ Reran transcripts export job ${result.job.id} to ${result.outputDir} (${result.written}/${result.transcriptCount} written)`,
+    `✓ Reran transcripts export job ${result.job.id} from ${renderExportScopeLabel(result.scope)} to ${result.outputDir} (${result.written}/${result.transcriptCount} written)`,
   );
   return 0;
 }

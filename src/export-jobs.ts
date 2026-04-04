@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 
 import type { GranolaAppExportJobState } from "./app/types.ts";
+import { cloneExportScope, normaliseExportScope } from "./export-scope.ts";
 import { defaultGranolaToolkitPersistenceLayout } from "./persistence/layout.ts";
 import { asRecord, parseJsonString, stringValue } from "./utils.ts";
 
@@ -62,6 +63,7 @@ function normaliseJob(value: unknown): GranolaAppExportJobState | undefined {
     itemCount,
     kind,
     outputDir,
+    scope: normaliseExportScope(record.scope),
     startedAt,
     status,
     written,
@@ -125,11 +127,17 @@ export class MemoryExportJobStore implements ExportJobStore {
   #jobs: GranolaAppExportJobState[] = [];
 
   async readJobs(): Promise<GranolaAppExportJobState[]> {
-    return this.#jobs.map((job) => ({ ...job }));
+    return this.#jobs.map((job) => ({
+      ...job,
+      scope: cloneExportScope(job.scope),
+    }));
   }
 
   async writeJobs(jobs: GranolaAppExportJobState[]): Promise<void> {
-    this.#jobs = jobs.map((job) => ({ ...job }));
+    this.#jobs = jobs.map((job) => ({
+      ...job,
+      scope: cloneExportScope(job.scope),
+    }));
   }
 }
 
