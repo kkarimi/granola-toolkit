@@ -1,6 +1,29 @@
+import {
+  buildBrowserUrlPath,
+  buildMeetingsQuery,
+  buildNotesExportRequest,
+  buildTranscriptsExportRequest,
+  currentFilterSummary,
+  exportScopeLabel,
+  nextWorkspaceTab,
+  parseWorkspaceTab,
+  selectMeetingId,
+  startupSelectionFromSearch,
+} from "./client-state.ts";
+
 export const granolaWebClientScript = String.raw`
 const serverConfig = window.__GRANOLA_SERVER__ || { passwordRequired: false };
 const workspaceTabs = ["notes", "transcript", "metadata", "raw"];
+${parseWorkspaceTab.toString()}
+${startupSelectionFromSearch.toString()}
+${buildBrowserUrlPath.toString()}
+${exportScopeLabel.toString()}
+${currentFilterSummary.toString()}
+${selectMeetingId.toString()}
+${buildMeetingsQuery.toString()}
+${buildNotesExportRequest.toString()}
+${buildTranscriptsExportRequest.toString()}
+${nextWorkspaceTab.toString()}
 
 const state = {
   appState: null,
@@ -49,41 +72,12 @@ const els = {
   workspaceTabs: document.querySelectorAll("[data-workspace-tab]"),
 };
 
-function parseWorkspaceTab(value) {
-  return workspaceTabs.includes(value) ? value : "notes";
-}
-
-function startupSelection() {
-  const params = new URLSearchParams(window.location.search);
-  return {
-    folderId: params.get("folder")?.trim() || "",
-    meetingId: params.get("meeting")?.trim() || "",
-    workspaceTab: parseWorkspaceTab(params.get("tab")),
-  };
-}
-
 function syncBrowserUrl() {
-  const url = new URL(window.location.href);
-
-  if (state.selectedFolderId) {
-    url.searchParams.set("folder", state.selectedFolderId);
-  } else {
-    url.searchParams.delete("folder");
-  }
-
-  if (state.selectedMeetingId) {
-    url.searchParams.set("meeting", state.selectedMeetingId);
-  } else {
-    url.searchParams.delete("meeting");
-  }
-
-  if (state.workspaceTab !== "notes") {
-    url.searchParams.set("tab", state.workspaceTab);
-  } else {
-    url.searchParams.delete("tab");
-  }
-
-  const nextPath = url.pathname + url.search + url.hash;
+  const nextPath = buildBrowserUrlPath(window.location.href, {
+    selectedFolderId: state.selectedFolderId,
+    selectedMeetingId: state.selectedMeetingId,
+    workspaceTab: state.workspaceTab,
+  });
   const currentPath = window.location.pathname + window.location.search + window.location.hash;
   if (nextPath !== currentPath) {
     history.replaceState(null, "", nextPath);
@@ -98,12 +92,6 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
-function exportScopeLabel(scope) {
-  return scope && scope.mode === "folder"
-    ? "Folder: " + (scope.folderName || scope.folderId)
-    : "Scope: All meetings";
-}
-
 function setStatus(label, tone = "idle") {
   els.stateBadge.textContent = label;
   els.stateBadge.dataset.tone = tone;
@@ -115,29 +103,6 @@ function syncFilterInputs() {
   els.sort.value = state.sort;
   els.updatedFrom.value = state.updatedFrom;
   els.updatedTo.value = state.updatedTo;
-}
-
-function currentFilterSummary() {
-  const parts = [];
-
-  if (state.selectedFolderId) {
-    const folder = state.folders.find((candidate) => candidate.id === state.selectedFolderId);
-    parts.push("folder " + (folder ? '"' + folder.name + '"' : '"' + state.selectedFolderId + '"'));
-  }
-
-  if (state.search) {
-    parts.push('search "' + state.search + '"');
-  }
-
-  if (state.updatedFrom) {
-    parts.push("from " + state.updatedFrom);
-  }
-
-  if (state.updatedTo) {
-    parts.push("to " + state.updatedTo);
-  }
-
-  return parts.join(", ");
 }
 
 function renderWorkspaceTabs() {
@@ -313,7 +278,13 @@ function renderMeetingList() {
     state.selectedMeeting = null;
     state.selectedMeetingBundle = null;
     syncBrowserUrl();
-    const filterSummary = currentFilterSummary();
+    const filterSummary = currentFilterSummary({
+      folders: state.folders,
+      search: state.search,
+      selectedFolderId: state.selectedFolderId,
+      updatedFrom: state.updatedFrom,
+      updatedTo: state.updatedTo,
+    });
     const message = filterSummary
       ? "No meetings match " + filterSummary + "."
       : "No meetings yet. Try Refresh.";
@@ -322,10 +293,7 @@ function renderMeetingList() {
     return;
   }
 
-  const visibleIds = new Set(state.meetings.map((meeting) => meeting.id));
-  if (!state.selectedMeetingId || !visibleIds.has(state.selectedMeetingId)) {
-    state.selectedMeetingId = state.meetings[0]?.id || null;
-  }
+  state.selectedMeetingId = selectMeetingId(state.meetings, state.selectedMeetingId);
   syncBrowserUrl();
 
   els.list.innerHTML = state.meetings
@@ -469,34 +437,6 @@ async function fetchJson(path, init) {
   return payload;
 }
 
-function buildMeetingsQuery(limit = 100, refresh = false) {
-  const params = new URLSearchParams();
-  params.set("limit", String(limit));
-  params.set("sort", state.sort);
-
-  if (state.search) {
-    params.set("search", state.search);
-  }
-
-  if (state.updatedFrom) {
-    params.set("updatedFrom", state.updatedFrom);
-  }
-
-  if (state.updatedTo) {
-    params.set("updatedTo", state.updatedTo);
-  }
-
-  if (state.selectedFolderId) {
-    params.set("folderId", state.selectedFolderId);
-  }
-
-  if (refresh) {
-    params.set("refresh", "true");
-  }
-
-  return "?" + params.toString();
-}
-
 async function loadFolders(options = {}) {
   const refresh = options.refresh === true;
 
@@ -536,7 +476,22 @@ async function loadMeetings(options = {}) {
 
   try {
     state.listError = "";
-    const payload = await fetchJson("/meetings" + buildMeetingsQuery(100, refresh));
+    const payload = await fetchJson(
+      "/meetings" +
+        buildMeetingsQuery(
+          {
+            search: state.search,
+            selectedFolderId: state.selectedFolderId,
+            sort: state.sort,
+            updatedFrom: state.updatedFrom,
+            updatedTo: state.updatedTo,
+          },
+          {
+            limit: 100,
+            refresh,
+          },
+        ),
+    );
     state.meetings = payload.meetings || [];
     state.meetingSource = payload.source || "live";
 
@@ -646,10 +601,7 @@ async function syncAuthState() {
 async function exportNotes() {
   setStatus(state.selectedFolderId ? "Exporting folder notes…" : "Exporting notes…", "busy");
   await fetchJson("/exports/notes", {
-    body: JSON.stringify({
-      folderId: state.selectedFolderId || undefined,
-      format: "markdown",
-    }),
+    body: JSON.stringify(buildNotesExportRequest(state.selectedFolderId)),
     headers: { "content-type": "application/json" },
     method: "POST",
   });
@@ -662,10 +614,7 @@ async function exportTranscripts() {
     "busy",
   );
   await fetchJson("/exports/transcripts", {
-    body: JSON.stringify({
-      folderId: state.selectedFolderId || undefined,
-      format: "text",
-    }),
+    body: JSON.stringify(buildTranscriptsExportRequest(state.selectedFolderId)),
     headers: { "content-type": "application/json" },
     method: "POST",
   });
@@ -969,50 +918,15 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
-  const tabs = ["notes", "transcript", "metadata", "raw"];
-  if (event.key === "1") {
-    state.workspaceTab = "notes";
-    syncBrowserUrl();
-    renderMeetingDetail();
-    return;
-  }
-
-  if (event.key === "2") {
-    state.workspaceTab = "transcript";
-    syncBrowserUrl();
-    renderMeetingDetail();
-    return;
-  }
-
-  if (event.key === "3") {
-    state.workspaceTab = "metadata";
-    syncBrowserUrl();
-    renderMeetingDetail();
-    return;
-  }
-
-  if (event.key === "4") {
-    state.workspaceTab = "raw";
-    syncBrowserUrl();
-    renderMeetingDetail();
-    return;
-  }
-
-  const currentIndex = tabs.indexOf(state.workspaceTab);
-  if (event.key === "]") {
-    state.workspaceTab = tabs[(currentIndex + 1) % tabs.length];
-    syncBrowserUrl();
-    renderMeetingDetail();
-  }
-
-  if (event.key === "[") {
-    state.workspaceTab = tabs[(currentIndex + tabs.length - 1) % tabs.length];
+  const nextTab = nextWorkspaceTab(state.workspaceTab, event.key);
+  if (nextTab) {
+    state.workspaceTab = nextTab;
     syncBrowserUrl();
     renderMeetingDetail();
   }
 });
 
-const initialSelection = startupSelection();
+const initialSelection = startupSelectionFromSearch(window.location.search);
 state.selectedFolderId = initialSelection.folderId || null;
 state.selectedMeetingId = initialSelection.meetingId || null;
 state.workspaceTab = initialSelection.workspaceTab;
