@@ -1,0 +1,78 @@
+---
+title: Automation
+description: Match durable sync events against local rules before actions are added on top.
+---
+
+## Rule Files
+
+The toolkit reads automation rules from a JSON file. By default it uses the shared toolkit data
+directory:
+
+- macOS: `~/Library/Application Support/granola-toolkit/automation-rules.json`
+- Linux: `~/.config/granola-toolkit/automation-rules.json`
+
+Override that path with either:
+
+- `--rules /path/to/rules.json`
+- `GRANOLA_AUTOMATION_RULES_FILE`
+- `automation-rules-file = "/path/to/rules.json"` in `.granola.toml`
+
+## Rule Shape
+
+```json
+{
+  "rules": [
+    {
+      "id": "team-transcript",
+      "name": "Team transcript ready",
+      "when": {
+        "eventKinds": ["transcript.ready"],
+        "folderNames": ["Team"],
+        "tags": ["customer"],
+        "transcriptLoaded": true
+      }
+    }
+  ]
+}
+```
+
+Available match fields today:
+
+- `eventKinds`
+- `folderIds`
+- `folderNames`
+- `meetingIds`
+- `tags`
+- `titleIncludes`
+- `titleMatches`
+- `transcriptLoaded`
+
+Fields are combined with `AND`, while multiple values inside one field are treated as `OR`.
+
+## Commands
+
+Inspect the configured rules:
+
+```bash
+granola automation rules
+granola automation rules --format json
+```
+
+Inspect recent rule matches produced by sync runs:
+
+```bash
+granola automation matches
+granola automation matches --limit 50
+```
+
+## How Matching Works
+
+`granola sync` and `granola sync --watch` now enrich each durable sync event with the meeting title,
+folders, tags, and transcript readiness. The rule engine evaluates those event records and stores
+rule matches separately from the raw sync event log.
+
+That separation matters:
+
+- sync remains responsible for discovering change
+- rules remain responsible for deciding whether a change is interesting
+- actions can be added later without rewriting sync or event persistence

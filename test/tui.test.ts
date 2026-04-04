@@ -183,6 +183,13 @@ describe("buildGranolaTuiSummary", () => {
     const summary = buildGranolaTuiSummary(
       {
         auth: storedAuthState,
+        automation: {
+          loaded: true,
+          matchCount: 0,
+          matchesFile: "/tmp/automation-matches.jsonl",
+          ruleCount: 0,
+          rulesFile: "/tmp/automation-rules.json",
+        },
         cache: {
           configured: true,
           documentCount: 1,

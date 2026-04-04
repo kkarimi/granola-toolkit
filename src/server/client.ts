@@ -204,6 +204,19 @@ export class GranolaServerClient implements GranolaAppApi {
     return await this.requestJson(granolaTransportPaths.authStatus);
   }
 
+  async listAutomationRules(): Promise<import("../app/index.ts").GranolaAutomationRulesResult> {
+    return await this.requestJson(granolaTransportPaths.automationRules);
+  }
+
+  async listAutomationMatches(
+    options: { limit?: number } = {},
+  ): Promise<import("../app/index.ts").GranolaAutomationMatchesResult> {
+    const path = options.limit
+      ? `${granolaTransportPaths.automationMatches}?limit=${encodeURIComponent(String(options.limit))}`
+      : granolaTransportPaths.automationMatches;
+    return await this.requestJson(path);
+  }
+
   async inspectSync(): Promise<GranolaAppSyncState> {
     return cloneValue(this.#state.sync);
   }

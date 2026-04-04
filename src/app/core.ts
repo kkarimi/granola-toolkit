@@ -1,6 +1,17 @@
 import { existsSync } from "node:fs";
 
 import {
+  createDefaultAutomationMatchStore,
+  defaultAutomationMatchesFilePath,
+  type AutomationMatchStore,
+} from "../automation-matches.ts";
+import {
+  createDefaultAutomationRuleStore,
+  defaultAutomationRulesFilePath,
+  matchAutomationRules,
+  type AutomationRuleStore,
+} from "../automation-rules.ts";
+import {
   createDefaultGranolaAuthController,
   createDefaultGranolaRuntime,
   inspectDefaultGranolaAuth,
@@ -61,6 +72,10 @@ import { granolaCacheCandidates } from "../utils.ts";
 
 import type {
   GranolaAppApi,
+  GranolaAutomationMatch,
+  GranolaAutomationRule,
+  GranolaAutomationMatchesResult,
+  GranolaAutomationRulesResult,
   GranolaAppAuthMode,
   GranolaAppAuthState,
   GranolaAppExportJobState,
@@ -93,6 +108,10 @@ type GranolaRemoteClient = Pick<GranolaApiClient, "listDocuments"> &
 interface GranolaAppDependencies {
   auth: GranolaAppAuthState;
   authController?: DefaultGranolaAuthController;
+  automationMatchStore?: AutomationMatchStore;
+  automationMatches?: GranolaAutomationMatch[];
+  automationRuleStore?: AutomationRuleStore;
+  automationRules?: GranolaAutomationRule[];
   cacheLoader: (cacheFile?: string) => Promise<CacheData | undefined>;
   createGranolaClient?: (mode?: GranolaAppAuthMode) => Promise<{
     auth: GranolaAppAuthState;
@@ -162,9 +181,11 @@ function cloneMeetingSummary(meeting: MeetingSummaryRecord): MeetingSummaryRecor
 function cloneState(state: GranolaAppState): GranolaAppState {
   return {
     auth: { ...state.auth },
+    automation: { ...state.automation },
     cache: { ...state.cache },
     config: {
       ...state.config,
+      automation: state.config.automation ? { ...state.config.automation } : undefined,
       notes: { ...state.config.notes },
       transcripts: { ...state.config.transcripts },
     },
@@ -188,6 +209,13 @@ function defaultState(
 ): GranolaAppState {
   return {
     auth: { ...auth },
+    automation: {
+      loaded: false,
+      matchCount: 0,
+      matchesFile: defaultAutomationMatchesFilePath(),
+      ruleCount: 0,
+      rulesFile: config.automation?.rulesFile ?? defaultAutomationRulesFilePath(),
+    },
     cache: {
       configured: Boolean(config.transcripts.cacheFile),
       documentCount: 0,
@@ -232,6 +260,8 @@ function defaultState(
 }
 
 export class GranolaApp implements GranolaAppApi {
+  #automationMatches: GranolaAutomationMatch[];
+  #automationRules: GranolaAutomationRule[];
   #cacheData?: CacheData;
   #cacheResolved = false;
   #folders?: GranolaFolder[];
@@ -248,7 +278,32 @@ export class GranolaApp implements GranolaAppApi {
     options: { surface?: GranolaAppSurface } = {},
   ) {
     this.#state = defaultState(config, deps.auth, options.surface ?? "cli");
+    this.#automationMatches = (deps.automationMatches ?? []).map((match) => ({
+      ...match,
+      folders: match.folders.map((folder) => ({ ...folder })),
+      tags: [...match.tags],
+    }));
+    this.#automationRules = (deps.automationRules ?? []).map((rule) => ({
+      ...rule,
+      when: {
+        ...rule.when,
+        eventKinds: rule.when.eventKinds ? [...rule.when.eventKinds] : undefined,
+        folderIds: rule.when.folderIds ? [...rule.when.folderIds] : undefined,
+        folderNames: rule.when.folderNames ? [...rule.when.folderNames] : undefined,
+        meetingIds: rule.when.meetingIds ? [...rule.when.meetingIds] : undefined,
+        tags: rule.when.tags ? [...rule.when.tags] : undefined,
+        titleIncludes: rule.when.titleIncludes ? [...rule.when.titleIncludes] : undefined,
+      },
+    }));
     this.#state.exports.jobs = (deps.exportJobs ?? []).map((job) => cloneExportJob(job));
+    this.#state.automation = {
+      lastMatchedAt: this.#automationMatches[0]?.matchedAt,
+      loaded: true,
+      matchCount: this.#automationMatches.length,
+      matchesFile: defaultAutomationMatchesFilePath(),
+      ruleCount: this.#automationRules.length,
+      rulesFile: config.automation?.rulesFile ?? defaultAutomationRulesFilePath(),
+    };
     this.#meetingIndex = (deps.meetingIndex ?? []).map((meeting) => cloneMeetingSummary(meeting));
     this.#state.index = {
       available: this.#meetingIndex.length > 0,
@@ -333,6 +388,71 @@ export class GranolaApp implements GranolaAppApi {
     }
 
     await this.deps.syncStateStore.writeState(this.#state.sync);
+  }
+
+  private cloneAutomationRule(rule: GranolaAutomationRule): GranolaAutomationRule {
+    return {
+      ...rule,
+      when: {
+        ...rule.when,
+        eventKinds: rule.when.eventKinds ? [...rule.when.eventKinds] : undefined,
+        folderIds: rule.when.folderIds ? [...rule.when.folderIds] : undefined,
+        folderNames: rule.when.folderNames ? [...rule.when.folderNames] : undefined,
+        meetingIds: rule.when.meetingIds ? [...rule.when.meetingIds] : undefined,
+        tags: rule.when.tags ? [...rule.when.tags] : undefined,
+        titleIncludes: rule.when.titleIncludes ? [...rule.when.titleIncludes] : undefined,
+      },
+    };
+  }
+
+  private cloneAutomationMatch(match: GranolaAutomationMatch): GranolaAutomationMatch {
+    return {
+      ...match,
+      folders: match.folders.map((folder) => ({ ...folder })),
+      tags: [...match.tags],
+    };
+  }
+
+  private async loadAutomationRules(
+    options: { forceRefresh?: boolean } = {},
+  ): Promise<GranolaAutomationRule[]> {
+    if (this.#automationRules.length > 0 && !options.forceRefresh) {
+      return this.#automationRules.map((rule) => this.cloneAutomationRule(rule));
+    }
+
+    if (!this.deps.automationRuleStore) {
+      return [];
+    }
+
+    this.#automationRules = (await this.deps.automationRuleStore.readRules()).map((rule) =>
+      this.cloneAutomationRule(rule),
+    );
+    this.#state.automation = {
+      ...this.#state.automation,
+      loaded: true,
+      ruleCount: this.#automationRules.length,
+      rulesFile: this.config.automation?.rulesFile ?? defaultAutomationRulesFilePath(),
+    };
+    this.emitStateUpdate();
+    return this.#automationRules.map((rule) => this.cloneAutomationRule(rule));
+  }
+
+  private async appendAutomationMatches(matches: GranolaAutomationMatch[]): Promise<void> {
+    if (matches.length === 0) {
+      return;
+    }
+
+    if (this.deps.automationMatchStore) {
+      await this.deps.automationMatchStore.appendMatches(matches);
+    }
+
+    this.#automationMatches.push(...matches.map((match) => this.cloneAutomationMatch(match)));
+    this.#state.automation = {
+      ...this.#state.automation,
+      lastMatchedAt: matches.at(-1)?.matchedAt ?? this.#state.automation.lastMatchedAt,
+      loaded: true,
+      matchCount: this.#automationMatches.length,
+    };
   }
 
   private createSyncRunId(): string {
@@ -724,6 +844,31 @@ export class GranolaApp implements GranolaAppApi {
     };
   }
 
+  async listAutomationRules(): Promise<GranolaAutomationRulesResult> {
+    const rules = await this.loadAutomationRules({ forceRefresh: true });
+    this.setUiState({
+      view: "idle",
+    });
+    return {
+      rules: rules.map((rule) => this.cloneAutomationRule(rule)),
+    };
+  }
+
+  async listAutomationMatches(
+    options: { limit?: number } = {},
+  ): Promise<GranolaAutomationMatchesResult> {
+    const limit = options.limit ?? 20;
+    const matches = this.deps.automationMatchStore
+      ? await this.deps.automationMatchStore.readMatches(limit)
+      : this.#automationMatches.slice(-limit).reverse();
+    this.setUiState({
+      view: "idle",
+    });
+    return {
+      matches: matches.map((match) => this.cloneAutomationMatch(match)),
+    };
+  }
+
   async loginAuth(
     options: { apiKey?: string; supabasePath?: string } = {},
   ): Promise<GranolaAppAuthState> {
@@ -811,10 +956,19 @@ export class GranolaApp implements GranolaAppApi {
       );
       const completedAt = this.nowIso();
       const runId = this.createSyncRunId();
-      const events = buildSyncEvents(runId, completedAt, changes);
+      const events = buildSyncEvents(
+        runId,
+        completedAt,
+        changes,
+        previousMeetings,
+        snapshot.meetings,
+      );
       if (events.length > 0 && this.deps.syncEventStore) {
         await this.deps.syncEventStore.appendEvents(events);
       }
+      const rules = await this.loadAutomationRules();
+      const automationMatches = matchAutomationRules(rules, events, completedAt);
+      await this.appendAutomationMatches(automationMatches);
       this.#state.sync = {
         ...this.#state.sync,
         eventCount: this.#state.sync.eventCount + events.length,
@@ -1363,6 +1517,12 @@ export async function createGranolaApp(
   } = {},
 ): Promise<GranolaApp> {
   const auth = await inspectDefaultGranolaAuth(config);
+  const automationMatchStore = createDefaultAutomationMatchStore();
+  const automationMatches = await automationMatchStore.readMatches(0);
+  const automationRuleStore = createDefaultAutomationRuleStore(
+    config.automation?.rulesFile ?? defaultAutomationRulesFilePath(),
+  );
+  const automationRules = await automationRuleStore.readRules();
   const authController = createDefaultGranolaAuthController(config);
   const exportJobStore = createDefaultExportJobStore();
   const exportJobs = await exportJobStore.readJobs();
@@ -1377,6 +1537,10 @@ export async function createGranolaApp(
     {
       auth,
       authController,
+      automationMatches,
+      automationMatchStore,
+      automationRules,
+      automationRuleStore,
       cacheLoader: loadOptionalGranolaCache,
       createGranolaClient: async (mode) =>
         await createDefaultGranolaRuntime(config, options.logger, {

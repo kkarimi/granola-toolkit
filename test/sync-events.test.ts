@@ -13,21 +13,27 @@ describe("FileSyncEventStore", () => {
 
     await store.appendEvents([
       {
+        folders: [],
         id: "sync-1:1",
         kind: "meeting.created",
         meetingId: "doc-alpha-1111",
         occurredAt: "2024-03-01T12:00:00.000Z",
         runId: "sync-1",
+        tags: ["team"],
         title: "Alpha Sync",
+        transcriptLoaded: false,
         updatedAt: "2024-01-03T10:00:00Z",
       },
       {
+        folders: [],
         id: "sync-1:2",
         kind: "transcript.ready",
         meetingId: "doc-alpha-1111",
         occurredAt: "2024-03-01T12:00:00.000Z",
         runId: "sync-1",
+        tags: ["team"],
         title: "Alpha Sync",
+        transcriptLoaded: true,
         updatedAt: "2024-01-03T10:00:00Z",
       },
     ]);

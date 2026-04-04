@@ -105,14 +105,58 @@ export interface GranolaAppSyncState {
 }
 
 export interface GranolaAppSyncEvent {
+  folders: FolderSummaryRecord[];
   id: string;
   kind: GranolaSyncEventKind;
   meetingId: string;
   occurredAt: string;
   previousUpdatedAt?: string;
   runId: string;
+  tags: string[];
   title: string;
+  transcriptLoaded: boolean;
   updatedAt?: string;
+}
+
+export interface GranolaAutomationRuleWhen {
+  eventKinds?: GranolaSyncEventKind[];
+  folderIds?: string[];
+  folderNames?: string[];
+  meetingIds?: string[];
+  tags?: string[];
+  titleIncludes?: string[];
+  titleMatches?: string;
+  transcriptLoaded?: boolean;
+}
+
+export interface GranolaAutomationRule {
+  enabled?: boolean;
+  id: string;
+  name: string;
+  when: GranolaAutomationRuleWhen;
+}
+
+export interface GranolaAutomationMatch {
+  eventId: string;
+  eventKind: GranolaSyncEventKind;
+  folders: FolderSummaryRecord[];
+  id: string;
+  matchedAt: string;
+  meetingId: string;
+  ruleId: string;
+  ruleName: string;
+  tags: string[];
+  title: string;
+  transcriptLoaded: boolean;
+}
+
+export interface GranolaAppAutomationState {
+  lastMatchedAt?: string;
+  loaded: boolean;
+  matchCount: number;
+  matchesFile?: string;
+  ruleCount: number;
+  rulesFile?: string;
 }
 
 export interface GranolaAppExportRunState {
@@ -155,6 +199,7 @@ export interface GranolaAppUIState {
 
 export interface GranolaAppState {
   auth: GranolaAppAuthState;
+  automation: GranolaAppAutomationState;
   cache: GranolaAppCacheState;
   config: AppConfig;
   documents: GranolaAppDocumentsState;
@@ -245,6 +290,14 @@ export interface GranolaAppSyncEventsResult {
   events: GranolaAppSyncEvent[];
 }
 
+export interface GranolaAutomationRulesResult {
+  rules: GranolaAutomationRule[];
+}
+
+export interface GranolaAutomationMatchesResult {
+  matches: GranolaAutomationMatch[];
+}
+
 export interface GranolaAppStateEvent {
   state: GranolaAppState;
   timestamp: string;
@@ -257,6 +310,8 @@ export interface GranolaAppApi {
   getState(): GranolaAppState;
   subscribe(listener: (event: GranolaAppStateEvent) => void): () => void;
   inspectAuth(): Promise<GranolaAppAuthState>;
+  listAutomationMatches(options?: { limit?: number }): Promise<GranolaAutomationMatchesResult>;
+  listAutomationRules(): Promise<GranolaAutomationRulesResult>;
   listSyncEvents(options?: { limit?: number }): Promise<GranolaAppSyncEventsResult>;
   inspectSync(): Promise<GranolaAppSyncState>;
   loginAuth(options?: { apiKey?: string; supabasePath?: string }): Promise<GranolaAppAuthState>;

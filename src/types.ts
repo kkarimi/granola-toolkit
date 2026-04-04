@@ -112,6 +112,9 @@ export interface TranscriptOptions {
 }
 
 export interface AppConfig {
+  automation?: {
+    rulesFile: string;
+  };
   apiKey?: string;
   configFileUsed?: string;
   debug: boolean;

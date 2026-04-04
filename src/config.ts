@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import type { AppConfig } from "./types.ts";
+import { defaultGranolaToolkitPersistenceLayout } from "./persistence/layout.ts";
 import {
   firstExistingPath,
   granolaCacheCandidates,
@@ -138,6 +139,14 @@ export async function loadConfig(options: {
     "2m";
 
   return {
+    automation: {
+      rulesFile:
+        pickString(options.globalFlags.rules) ??
+        pickString(env.GRANOLA_AUTOMATION_RULES_FILE) ??
+        pickString(configValues["automation-rules-file"]) ??
+        pickString(configValues.automationRulesFile) ??
+        defaultGranolaToolkitPersistenceLayout().automationRulesFile,
+    },
     apiKey:
       pickString(options.globalFlags["api-key"]) ??
       pickString(env.GRANOLA_API_KEY) ??

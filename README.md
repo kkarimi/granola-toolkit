@@ -23,6 +23,7 @@ The published package exposes both `granola` and `granola-toolkit` as executable
 granola auth login --api-key grn_...
 granola sync
 granola sync --watch
+granola automation rules
 granola folder list
 granola meeting list --limit 10
 granola notes --folder Team

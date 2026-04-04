@@ -1,4 +1,4 @@
-import type { MeetingSummaryRecord } from "./app/models.ts";
+import type { FolderSummaryRecord, MeetingSummaryRecord } from "./app/models.ts";
 import type {
   GranolaAppSyncChange,
   GranolaAppSyncEvent,
@@ -31,6 +31,18 @@ function normaliseMeeting(meeting: MeetingSummaryRecord): Record<string, unknown
 
 function meetingChanged(previous: MeetingSummaryRecord, next: MeetingSummaryRecord): boolean {
   return JSON.stringify(normaliseMeeting(previous)) !== JSON.stringify(normaliseMeeting(next));
+}
+
+function cloneFolderSummary(folder: FolderSummaryRecord): FolderSummaryRecord {
+  return { ...folder };
+}
+
+function cloneMeetingSummary(meeting: MeetingSummaryRecord): MeetingSummaryRecord {
+  return {
+    ...meeting,
+    folders: meeting.folders.map((folder) => cloneFolderSummary(folder)),
+    tags: [...meeting.tags],
+  };
 }
 
 export function diffMeetingSummaries(
@@ -125,8 +137,22 @@ export function buildSyncEvents(
   runId: string,
   occurredAt: string,
   changes: GranolaAppSyncChange[],
+  previousMeetings: MeetingSummaryRecord[],
+  nextMeetings: MeetingSummaryRecord[],
 ): GranolaAppSyncEvent[] {
+  const previousById = new Map(
+    previousMeetings.map((meeting) => [meeting.id, cloneMeetingSummary(meeting)] as const),
+  );
+  const nextById = new Map(
+    nextMeetings.map((meeting) => [meeting.id, cloneMeetingSummary(meeting)] as const),
+  );
+
   return changes.map((change, index) => ({
+    folders:
+      (change.kind === "removed"
+        ? previousById.get(change.meetingId)
+        : nextById.get(change.meetingId)
+      )?.folders.map((folder) => cloneFolderSummary(folder)) ?? [],
     id: `${runId}:${index + 1}`,
     kind:
       change.kind === "created"
@@ -140,7 +166,17 @@ export function buildSyncEvents(
     occurredAt,
     previousUpdatedAt: change.previousUpdatedAt,
     runId,
+    tags:
+      (change.kind === "removed"
+        ? previousById.get(change.meetingId)
+        : nextById.get(change.meetingId)
+      )?.tags.slice() ?? [],
     title: change.title,
+    transcriptLoaded:
+      (change.kind === "removed"
+        ? previousById.get(change.meetingId)
+        : nextById.get(change.meetingId)
+      )?.transcriptLoaded ?? false,
     updatedAt: change.updatedAt,
   }));
 }

@@ -1602,6 +1602,8 @@ var granolaTransportPaths = {
 	authRefresh: "/auth/refresh",
 	authStatus: "/auth/status",
 	authUnlock: "/auth/unlock",
+	automationMatches: "/automation/matches",
+	automationRules: "/automation/rules",
 	events: "/events",
 	exportJobs: "/exports/jobs",
 	exportNotes: "/exports/notes",
@@ -1834,6 +1836,13 @@ var GranolaServerClient = class GranolaServerClient {
 	}
 	async inspectAuth() {
 		return await this.requestJson(granolaTransportPaths.authStatus);
+	}
+	async listAutomationRules() {
+		return await this.requestJson(granolaTransportPaths.automationRules);
+	}
+	async listAutomationMatches(options = {}) {
+		const path = options.limit ? \`\${granolaTransportPaths.automationMatches}?limit=\${encodeURIComponent(String(options.limit))}\` : granolaTransportPaths.automationMatches;
+		return await this.requestJson(path);
 	}
 	async inspectSync() {
 		return cloneValue(_classPrivateFieldGet2(_state, this).sync);

@@ -286,6 +286,13 @@ function createMeetingBundle(meeting: MeetingSummaryRecord): GranolaMeetingBundl
 function createAppState(): GranolaAppState {
   return {
     auth: authState,
+    automation: {
+      loaded: true,
+      matchCount: 0,
+      matchesFile: "/tmp/automation-matches.jsonl",
+      ruleCount: 0,
+      rulesFile: "/tmp/automation-rules.json",
+    },
     cache: {
       configured: true,
       documentCount: 2,
@@ -422,6 +429,8 @@ function createWorkspaceHarness(options: { failNextRefresh?: boolean } = {}) {
     getState: () => state,
     inspectAuth: vi.fn(async () => state.auth),
     inspectSync: vi.fn(async () => state.sync),
+    listAutomationMatches: vi.fn(async () => ({ matches: [] })),
+    listAutomationRules: vi.fn(async () => ({ rules: [] })),
     listExportJobs: vi.fn(async () => ({ jobs: [] })),
     listFolders,
     listMeetings,

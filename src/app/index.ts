@@ -18,6 +18,7 @@ export type {
 } from "./models.ts";
 export type {
   GranolaAppApi,
+  GranolaAppAutomationState,
   GranolaAppAuthMode,
   GranolaAppAuthState,
   GranolaAppCacheState,
@@ -45,6 +46,11 @@ export type {
   GranolaAppSyncResult,
   GranolaAppSyncState,
   GranolaAppSyncSummary,
+  GranolaAutomationMatch,
+  GranolaAutomationMatchesResult,
+  GranolaAutomationRule,
+  GranolaAutomationRulesResult,
+  GranolaAutomationRuleWhen,
   GranolaSyncChangeKind,
   GranolaSyncEventKind,
   GranolaAppUIState,

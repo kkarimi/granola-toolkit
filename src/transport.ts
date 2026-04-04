@@ -38,6 +38,8 @@ export const granolaTransportPaths = {
   authRefresh: "/auth/refresh",
   authStatus: "/auth/status",
   authUnlock: "/auth/unlock",
+  automationMatches: "/automation/matches",
+  automationRules: "/automation/rules",
   events: "/events",
   exportJobs: "/exports/jobs",
   exportNotes: "/exports/notes",

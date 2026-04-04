@@ -40,6 +40,7 @@ Global options:
   --api-key <token>   Granola Personal API key
   --config <path>     Path to .granola.toml
   --debug             Enable debug logging
+  --rules <path>      Path to automation rules JSON
   --supabase <path>   Path to supabase.json
   -h, --help          Show help
 
@@ -60,6 +61,7 @@ export async function runCli(argv: string[]): Promise<number> {
       config: { type: "string" },
       debug: { type: "boolean" },
       help: { type: "boolean" },
+      rules: { type: "string" },
       supabase: { type: "string" },
     });
 

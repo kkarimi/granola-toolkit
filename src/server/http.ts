@@ -457,6 +457,22 @@ export async function startGranolaServer(
         return;
       }
 
+      if (method === "GET" && path === granolaTransportPaths.automationRules) {
+        sendJson(response, await app.listAutomationRules(), { headers: originHeaders });
+        return;
+      }
+
+      if (method === "GET" && path === granolaTransportPaths.automationMatches) {
+        sendJson(
+          response,
+          await app.listAutomationMatches({
+            limit: parseInteger(url.searchParams.get("limit")),
+          }),
+          { headers: originHeaders },
+        );
+        return;
+      }
+
       if (method === "POST" && path === granolaTransportPaths.syncRun) {
         const body = await readJsonBody(request);
         sendJson(

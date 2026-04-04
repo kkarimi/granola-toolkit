@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 
 import type { AppConfig } from "../src/types.ts";
+import { automationCommand } from "../src/commands/automation.ts";
 import type { CommandContext } from "../src/commands/types.ts";
 import { authCommand } from "../src/commands/auth.ts";
 import { exportsCommand } from "../src/commands/exports.ts";
@@ -565,12 +566,15 @@ describe("command execution", () => {
       listSyncEvents: vi.fn(async () => ({
         events: [
           {
+            folders: [],
             id: "sync-1:1",
             kind: "meeting.created",
             meetingId: "doc-alpha-1111",
             occurredAt: "2024-03-01T12:00:00.000Z",
             runId: "sync-1",
+            tags: ["team"],
             title: "Alpha Sync",
+            transcriptLoaded: false,
             updatedAt: "2024-01-03T10:00:00Z",
           },
         ],
@@ -594,6 +598,45 @@ describe("command execution", () => {
     expect(log).toHaveBeenCalledWith(
       "2024-03-01T12:00:00.000Z meeting.created    Alpha Sync (doc-alpha-1111)",
     );
+  });
+
+  test("automation rules prints configured rule definitions", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const app = {
+      getState: () => ({
+        auth: {
+          mode: "stored-session",
+        },
+      }),
+      listAutomationRules: vi.fn(async () => ({
+        rules: [
+          {
+            id: "team-transcript",
+            name: "Team transcript ready",
+            when: {
+              eventKinds: ["transcript.ready"],
+              folderNames: ["Team"],
+              tags: ["customer"],
+              transcriptLoaded: true,
+            },
+          },
+        ],
+      })),
+    };
+
+    vi.spyOn(configModule, "loadConfig").mockResolvedValue(makeConfig());
+    vi.spyOn(appModule, "createGranolaApp").mockResolvedValue(app as never);
+
+    const exitCode = await automationCommand.run(
+      makeContext({
+        commandArgs: ["rules"],
+      }),
+    );
+
+    expect(exitCode).toBe(0);
+    expect(app.listAutomationRules).toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("team-transcript"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("transcript.ready"));
   });
 
   test("tui command reuses the background sync loop and stops it on exit", async () => {

@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { describe, expect, test, vi } from "vite-plus/test";
 
 import { GranolaApp } from "../src/app/core.ts";
+import { MemoryAutomationMatchStore } from "../src/automation-matches.ts";
+import { MemoryAutomationRuleStore } from "../src/automation-rules.ts";
 import { MemoryExportJobStore } from "../src/export-jobs.ts";
 import { MemoryMeetingIndexStore } from "../src/meeting-index.ts";
 import { MemorySyncEventStore } from "../src/sync-events.ts";
@@ -344,6 +346,100 @@ describe("GranolaApp", () => {
       }),
     );
     expect(app.getState().ui.view).toBe("sync");
+  });
+
+  test("matches automation rules from sync events", async () => {
+    const cacheFile = join(await mkdtemp(join(tmpdir(), "granola-app-cache-")), "cache.json");
+    await writeFile(cacheFile, "{}\n", "utf8");
+    const meetingIndexStore = new MemoryMeetingIndexStore();
+    await meetingIndexStore.writeIndex([
+      {
+        createdAt: "2024-01-01T09:00:00Z",
+        folders: [
+          {
+            createdAt: "2024-01-01T08:00:00Z",
+            documentCount: 1,
+            id: "folder-team-1111",
+            isFavourite: true,
+            name: "Team",
+            updatedAt: "2024-01-04T10:00:00Z",
+          },
+        ],
+        id: "doc-alpha-1111",
+        noteContentSource: "notes",
+        tags: ["team"],
+        title: "Alpha Sync",
+        transcriptLoaded: false,
+        transcriptSegmentCount: 0,
+        updatedAt: "2024-01-03T10:00:00Z",
+      },
+    ]);
+
+    const matchStore = new MemoryAutomationMatchStore();
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile,
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          mode: "supabase-file",
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: true,
+          supabasePath: "/tmp/supabase.json",
+        },
+        automationMatchStore: matchStore,
+        automationRuleStore: new MemoryAutomationRuleStore([
+          {
+            id: "team-transcript",
+            name: "Team transcript ready",
+            when: {
+              eventKinds: ["transcript.ready"],
+              folderNames: ["Team"],
+              tags: ["team"],
+              transcriptLoaded: true,
+            },
+          },
+        ]),
+        cacheLoader: async () => cacheData,
+        granolaClient: {
+          listDocuments: async () => documents,
+          listFolders: async () => folders,
+        },
+        meetingIndex: await meetingIndexStore.readIndex(),
+        meetingIndexStore,
+        now: () => new Date("2024-03-01T12:00:00Z"),
+      },
+      { surface: "server" },
+    );
+
+    await app.sync();
+    const matches = await app.listAutomationMatches({ limit: 10 });
+
+    expect(matches.matches).toEqual([
+      expect.objectContaining({
+        eventKind: "transcript.ready",
+        meetingId: "doc-alpha-1111",
+        ruleId: "team-transcript",
+        title: "Alpha Sync",
+      }),
+    ]);
+    expect(app.getState().automation).toEqual(
+      expect.objectContaining({
+        loaded: true,
+        matchCount: 1,
+        ruleCount: 1,
+      }),
+    );
   });
 
   test("tracks note exports in application state", async () => {

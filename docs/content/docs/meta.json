@@ -3,6 +3,7 @@
   "pages": [
     "index",
     "getting-started",
+    "automation",
     "exporting",
     "meetings-and-folders",
     "server-web-and-tui",

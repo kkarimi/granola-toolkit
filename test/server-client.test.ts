@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, test } from "vite-plus/test";
 
 import { GranolaApp } from "../src/app/core.ts";
+import { MemoryAutomationMatchStore } from "../src/automation-matches.ts";
+import { MemoryAutomationRuleStore } from "../src/automation-rules.ts";
 import type { GranolaAppStateEvent } from "../src/app/index.ts";
 import { MemorySyncEventStore } from "../src/sync-events.ts";
 import { createGranolaServerClient } from "../src/server/client.ts";
@@ -93,6 +95,16 @@ function createTestApp(): {
           supabaseAvailable: true,
           supabasePath: "/tmp/supabase.json",
         },
+        automationMatchStore: new MemoryAutomationMatchStore(),
+        automationRuleStore: new MemoryAutomationRuleStore([
+          {
+            id: "meeting-created-any",
+            name: "Meeting created",
+            when: {
+              eventKinds: ["meeting.created"],
+            },
+          },
+        ]),
         cacheLoader: async () => cacheData,
         granolaClient: {
           listDocuments: async () => currentDocuments,
@@ -224,6 +236,16 @@ describe("GranolaServerClient", () => {
           meetingId: "doc-beta-2222",
         }),
       ]),
+    );
+    expect(await client.listAutomationRules()).toEqual(
+      expect.objectContaining({
+        rules: [expect.objectContaining({ id: "meeting-created-any" })],
+      }),
+    );
+    expect(await client.listAutomationMatches({ limit: 5 })).toEqual(
+      expect.objectContaining({
+        matches: [expect.objectContaining({ ruleId: "meeting-created-any" })],
+      }),
     );
 
     const meeting = await client.findMeeting("Alpha Sync");
