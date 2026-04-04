@@ -30,6 +30,7 @@ describe("defaultGranolaToolkitPersistenceLayout", () => {
       apiKeyFile: "/home/nima/.config/granola-toolkit/api-key.txt",
       automationMatchesFile: "/home/nima/.config/granola-toolkit/automation-matches.jsonl",
       automationRulesFile: "/home/nima/.config/granola-toolkit/automation-rules.json",
+      automationRunsFile: "/home/nima/.config/granola-toolkit/automation-runs.jsonl",
       dataDirectory: "/home/nima/.config/granola-toolkit",
       exportJobsFile: "/home/nima/.config/granola-toolkit/export-jobs.json",
       meetingIndexFile: "/home/nima/.config/granola-toolkit/meeting-index.json",

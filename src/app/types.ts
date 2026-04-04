@@ -21,6 +21,12 @@ export type GranolaSyncEventKind =
   | "meeting.created"
   | "meeting.removed"
   | "transcript.ready";
+export type GranolaAutomationActionKind =
+  | "ask-user"
+  | "command"
+  | "export-notes"
+  | "export-transcript";
+export type GranolaAutomationActionRunStatus = "completed" | "failed" | "pending" | "skipped";
 export type GranolaExportScope =
   | {
       mode: "all";
@@ -29,6 +35,11 @@ export type GranolaExportScope =
       folderId: string;
       folderName: string;
       mode: "folder";
+    }
+  | {
+      meetingId: string;
+      meetingTitle: string;
+      mode: "meeting";
     };
 export type GranolaAppView =
   | "auth"
@@ -129,7 +140,56 @@ export interface GranolaAutomationRuleWhen {
   transcriptLoaded?: boolean;
 }
 
+export interface GranolaAutomationAskUserAction {
+  details?: string;
+  enabled?: boolean;
+  id: string;
+  kind: "ask-user";
+  name?: string;
+  prompt: string;
+}
+
+export interface GranolaAutomationCommandAction {
+  args?: string[];
+  command: string;
+  cwd?: string;
+  enabled?: boolean;
+  env?: Record<string, string>;
+  id: string;
+  kind: "command";
+  name?: string;
+  stdin?: "json" | "none";
+  timeoutMs?: number;
+}
+
+export interface GranolaAutomationExportNotesAction {
+  enabled?: boolean;
+  format?: NoteOutputFormat;
+  id: string;
+  kind: "export-notes";
+  name?: string;
+  outputDir?: string;
+  scopedOutput?: boolean;
+}
+
+export interface GranolaAutomationExportTranscriptAction {
+  enabled?: boolean;
+  format?: TranscriptOutputFormat;
+  id: string;
+  kind: "export-transcript";
+  name?: string;
+  outputDir?: string;
+  scopedOutput?: boolean;
+}
+
+export type GranolaAutomationAction =
+  | GranolaAutomationAskUserAction
+  | GranolaAutomationCommandAction
+  | GranolaAutomationExportNotesAction
+  | GranolaAutomationExportTranscriptAction;
+
 export interface GranolaAutomationRule {
+  actions?: GranolaAutomationAction[];
   enabled?: boolean;
   id: string;
   name: string;
@@ -150,13 +210,41 @@ export interface GranolaAutomationMatch {
   transcriptLoaded: boolean;
 }
 
+export interface GranolaAutomationActionRun {
+  actionId: string;
+  actionKind: GranolaAutomationActionKind;
+  actionName: string;
+  error?: string;
+  eventId: string;
+  eventKind: GranolaSyncEventKind;
+  folders: FolderSummaryRecord[];
+  finishedAt?: string;
+  id: string;
+  matchedAt: string;
+  meetingId: string;
+  meta?: Record<string, unknown>;
+  prompt?: string;
+  result?: string;
+  ruleId: string;
+  ruleName: string;
+  startedAt: string;
+  status: GranolaAutomationActionRunStatus;
+  tags: string[];
+  title: string;
+  transcriptLoaded: boolean;
+}
+
 export interface GranolaAppAutomationState {
+  lastRunAt?: string;
   lastMatchedAt?: string;
   loaded: boolean;
   matchCount: number;
   matchesFile?: string;
+  pendingRunCount: number;
   ruleCount: number;
   rulesFile?: string;
+  runCount: number;
+  runsFile?: string;
 }
 
 export interface GranolaAppExportRunState {
@@ -298,6 +386,10 @@ export interface GranolaAutomationMatchesResult {
   matches: GranolaAutomationMatch[];
 }
 
+export interface GranolaAutomationRunsResult {
+  runs: GranolaAutomationActionRun[];
+}
+
 export interface GranolaAppStateEvent {
   state: GranolaAppState;
   timestamp: string;
@@ -311,11 +403,20 @@ export interface GranolaAppApi {
   subscribe(listener: (event: GranolaAppStateEvent) => void): () => void;
   inspectAuth(): Promise<GranolaAppAuthState>;
   listAutomationMatches(options?: { limit?: number }): Promise<GranolaAutomationMatchesResult>;
+  listAutomationRuns(options?: {
+    limit?: number;
+    status?: GranolaAutomationActionRunStatus;
+  }): Promise<GranolaAutomationRunsResult>;
   listAutomationRules(): Promise<GranolaAutomationRulesResult>;
   listSyncEvents(options?: { limit?: number }): Promise<GranolaAppSyncEventsResult>;
   inspectSync(): Promise<GranolaAppSyncState>;
   loginAuth(options?: { apiKey?: string; supabasePath?: string }): Promise<GranolaAppAuthState>;
   logoutAuth(): Promise<GranolaAppAuthState>;
+  resolveAutomationRun(
+    id: string,
+    decision: "approve" | "reject",
+    options?: { note?: string },
+  ): Promise<GranolaAutomationActionRun>;
   refreshAuth(): Promise<GranolaAppAuthState>;
   switchAuthMode(mode: GranolaAppAuthMode): Promise<GranolaAppAuthState>;
   sync(options?: { forceRefresh?: boolean; foreground?: boolean }): Promise<GranolaAppSyncResult>;

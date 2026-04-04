@@ -12,6 +12,7 @@ import {
 
 import type {
   FolderSummaryRecord,
+  GranolaAutomationActionRun,
   GranolaAppApi,
   GranolaAppState,
   GranolaAppAuthState,
@@ -22,6 +23,7 @@ import type {
 } from "../app/index.ts";
 
 import { buildGranolaTuiSummary, renderGranolaTuiMeetingTab } from "./helpers.ts";
+import { GranolaTuiAutomationOverlay } from "./automation.ts";
 import { GranolaTuiAuthOverlay, type GranolaTuiAuthActionId } from "./auth.ts";
 import { GranolaTuiQuickOpenPalette } from "./palette.ts";
 import { granolaTuiTheme } from "./theme.ts";
@@ -87,6 +89,7 @@ export class GranolaTuiWorkspace implements Component {
 
   #appState: GranolaAppState;
   #activePane: GranolaTuiFocusPane = "meetings";
+  #automationRuns: GranolaAutomationActionRun[] = [];
   #detailError = "";
   #detailScroll = 0;
   #detailToken = 0;
@@ -123,6 +126,7 @@ export class GranolaTuiWorkspace implements Component {
       this.handleAppUpdate(event);
     });
 
+    await this.loadAutomationRuns();
     await this.loadFolders({
       setStatus: false,
     });
@@ -152,6 +156,8 @@ export class GranolaTuiWorkspace implements Component {
     this.#appState = event.state;
     this.#selectedFolderId = event.state.ui.selectedFolderId;
     this.#selectedMeetingId = event.state.ui.selectedMeetingId ?? this.#selectedMeetingId;
+
+    void this.loadAutomationRuns();
 
     if (
       this.#meetingSource === "index" &&
@@ -258,6 +264,16 @@ export class GranolaTuiWorkspace implements Component {
       if (token === this.#folderToken) {
         this.tui.requestRender();
       }
+    }
+  }
+
+  private async loadAutomationRuns(): Promise<void> {
+    try {
+      const result = await this.app.listAutomationRuns({ limit: 20 });
+      this.#automationRuns = [...result.runs];
+      this.tui.requestRender();
+    } catch {
+      // Automation visibility should not break the rest of the workspace.
     }
   }
 
@@ -657,6 +673,44 @@ export class GranolaTuiWorkspace implements Component {
     this.setStatus("Quick open");
   }
 
+  private openAutomationPanel(): void {
+    if (this.#overlay) {
+      return;
+    }
+
+    const closeOverlay = () => {
+      this.#overlay?.hide();
+      this.#overlay = undefined;
+      this.tui.setFocus(this);
+      this.tui.requestRender();
+    };
+
+    const overlay = new GranolaTuiAutomationOverlay({
+      onApprove: async (id) => {
+        closeOverlay();
+        await this.app.resolveAutomationRun(id, "approve");
+        await this.loadAutomationRuns();
+        this.setStatus("Automation approved");
+      },
+      onCancel: closeOverlay,
+      onReject: async (id) => {
+        closeOverlay();
+        await this.app.resolveAutomationRun(id, "reject");
+        await this.loadAutomationRuns();
+        this.setStatus("Automation rejected");
+      },
+      runs: this.#automationRuns,
+    });
+
+    this.#overlay = this.tui.showOverlay(overlay, {
+      anchor: "center",
+      maxHeight: "70%",
+      minWidth: 56,
+      width: "76%",
+    });
+    this.setStatus("Automation runs");
+  }
+
   handleInput(data: string): void {
     if (matchesKey(data, "ctrl+c") || matchesKey(data, "q")) {
       this.options.onExit();
@@ -675,6 +729,11 @@ export class GranolaTuiWorkspace implements Component {
 
     if (matchesKey(data, "a")) {
       this.openAuthPanel();
+      return;
+    }
+
+    if (matchesKey(data, "u")) {
+      this.openAutomationPanel();
       return;
     }
 
@@ -992,7 +1051,7 @@ export class GranolaTuiWorkspace implements Component {
     const footerStatus = padLine(toneText(this.#statusTone, this.#statusMessage), width);
     const footerHints = padLine(
       granolaTuiTheme.dim(
-        "h/l or Tab pane  j/k move  / quick open  a auth  r sync  1-4 tabs  PgUp/PgDn scroll  q quit",
+        "h/l or Tab pane  j/k move  / quick open  a auth  u automation  r sync  1-4 tabs  PgUp/PgDn scroll  q quit",
       ),
       width,
     );

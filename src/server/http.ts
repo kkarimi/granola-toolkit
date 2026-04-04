@@ -14,6 +14,7 @@ import {
   type GranolaServerInfo,
 } from "../transport.ts";
 import type {
+  GranolaAutomationActionRunStatus,
   GranolaAppAuthMode,
   GranolaAppStateEvent,
   GranolaMeetingSort,
@@ -75,6 +76,23 @@ function parseAuthMode(value: unknown): GranolaAppAuthMode {
       return value;
     default:
       throw new Error("invalid auth mode: expected api-key, stored-session, or supabase-file");
+  }
+}
+
+function parseAutomationRunStatus(
+  value: string | null,
+): GranolaAutomationActionRunStatus | undefined {
+  switch (value) {
+    case null:
+    case "":
+      return undefined;
+    case "completed":
+    case "failed":
+    case "pending":
+    case "skipped":
+      return value;
+    default:
+      throw new Error("invalid automation status: expected completed, failed, pending, or skipped");
   }
 }
 
@@ -299,6 +317,7 @@ export async function startGranolaServer(
     capabilities: {
       attach: true,
       auth: true,
+      automation: true,
       events: true,
       exports: true,
       folders: true,
@@ -467,6 +486,38 @@ export async function startGranolaServer(
           response,
           await app.listAutomationMatches({
             limit: parseInteger(url.searchParams.get("limit")),
+          }),
+          { headers: originHeaders },
+        );
+        return;
+      }
+
+      if (method === "GET" && path === granolaTransportPaths.automationRuns) {
+        sendJson(
+          response,
+          await app.listAutomationRuns({
+            limit: parseInteger(url.searchParams.get("limit")),
+            status: parseAutomationRunStatus(url.searchParams.get("status")),
+          }),
+          { headers: originHeaders },
+        );
+        return;
+      }
+
+      if (
+        method === "POST" &&
+        (path.endsWith("/approve") || path.endsWith("/reject")) &&
+        path.startsWith(`${granolaTransportPaths.automationRuns}/`)
+      ) {
+        const decision = path.endsWith("/approve") ? "approve" : "reject";
+        const id = decodeURIComponent(
+          path.slice(`${granolaTransportPaths.automationRuns}/`.length, -`/${decision}`.length),
+        );
+        const body = await readJsonBody(request);
+        sendJson(
+          response,
+          await app.resolveAutomationRun(id, decision, {
+            note: typeof body.note === "string" ? body.note : undefined,
           }),
           { headers: originHeaders },
         );

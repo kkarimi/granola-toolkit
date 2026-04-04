@@ -1,6 +1,8 @@
 import type {
   FolderRecord,
   GranolaAppApi,
+  GranolaAutomationActionRun,
+  GranolaAutomationActionRunStatus,
   GranolaAppAuthMode,
   GranolaAppAuthState,
   GranolaAppSyncEventsResult,
@@ -18,11 +20,14 @@ import type {
   GranolaMeetingListOptions,
   GranolaMeetingListResult,
   GranolaNotesExportResult,
+  GranolaAutomationRunsResult,
   GranolaTranscriptsExportResult,
   NoteOutputFormat,
   TranscriptOutputFormat,
 } from "../app/index.ts";
 import {
+  granolaAutomationRunDecisionPath,
+  granolaAutomationRunsPath,
   granolaExportJobRerunPath,
   granolaExportJobsPath,
   granolaFolderPath,
@@ -215,6 +220,26 @@ export class GranolaServerClient implements GranolaAppApi {
       ? `${granolaTransportPaths.automationMatches}?limit=${encodeURIComponent(String(options.limit))}`
       : granolaTransportPaths.automationMatches;
     return await this.requestJson(path);
+  }
+
+  async listAutomationRuns(
+    options: { limit?: number; status?: GranolaAutomationActionRunStatus } = {},
+  ): Promise<GranolaAutomationRunsResult> {
+    return await this.requestJson(granolaAutomationRunsPath(options));
+  }
+
+  async resolveAutomationRun(
+    id: string,
+    decision: "approve" | "reject",
+    options: { note?: string } = {},
+  ): Promise<GranolaAutomationActionRun> {
+    return await this.requestJson(granolaAutomationRunDecisionPath(id, decision), {
+      body: JSON.stringify(options),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    });
   }
 
   async inspectSync(): Promise<GranolaAppSyncState> {

@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 
 import type {
+  GranolaAutomationAction,
+  GranolaAutomationCommandAction,
+  GranolaAutomationExportNotesAction,
+  GranolaAutomationExportTranscriptAction,
   GranolaAutomationMatch,
   GranolaAutomationRule,
   GranolaAppSyncEvent,
@@ -11,6 +15,7 @@ import { parseJsonString } from "./utils.ts";
 function cloneRule(rule: GranolaAutomationRule): GranolaAutomationRule {
   return {
     ...rule,
+    actions: rule.actions?.map((action) => cloneAction(action)),
     when: {
       ...rule.when,
       eventKinds: rule.when.eventKinds ? [...rule.when.eventKinds] : undefined,
@@ -23,6 +28,22 @@ function cloneRule(rule: GranolaAutomationRule): GranolaAutomationRule {
   };
 }
 
+function cloneAction(action: GranolaAutomationAction): GranolaAutomationAction {
+  switch (action.kind) {
+    case "ask-user":
+      return { ...action };
+    case "command":
+      return {
+        ...action,
+        args: action.args ? [...action.args] : undefined,
+        env: action.env ? { ...action.env } : undefined,
+      };
+    case "export-notes":
+    case "export-transcript":
+      return { ...action };
+  }
+}
+
 function stringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) {
     return undefined;
@@ -32,6 +53,153 @@ function stringArray(value: unknown): string[] | undefined {
     (item): item is string => typeof item === "string" && item.trim().length > 0,
   );
   return values.length > 0 ? [...new Set(values.map((item) => item.trim()))] : undefined;
+}
+
+function stringRecord(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const entries = Object.entries(value).filter(([key, item]) => {
+    return (
+      typeof key === "string" &&
+      key.trim().length > 0 &&
+      typeof item === "string" &&
+      item.trim().length > 0
+    );
+  }) as Array<[string, string]>;
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  return Object.fromEntries(entries.map(([key, item]) => [key.trim(), item.trim()]));
+}
+
+function parseAction(value: unknown, index: number): GranolaAutomationAction | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  const kind =
+    typeof record.kind === "string" && record.kind.trim() ? record.kind.trim() : undefined;
+  const id =
+    typeof record.id === "string" && record.id.trim()
+      ? record.id.trim()
+      : kind
+        ? `${kind}-${index + 1}`
+        : undefined;
+  const name =
+    typeof record.name === "string" && record.name.trim() ? record.name.trim() : undefined;
+  const enabled = typeof record.enabled === "boolean" ? record.enabled : undefined;
+
+  switch (kind) {
+    case "ask-user": {
+      const prompt =
+        typeof record.prompt === "string" && record.prompt.trim()
+          ? record.prompt.trim()
+          : undefined;
+      if (!id || !prompt) {
+        return undefined;
+      }
+
+      return {
+        details:
+          typeof record.details === "string" && record.details.trim()
+            ? record.details.trim()
+            : undefined,
+        enabled,
+        id,
+        kind,
+        name,
+        prompt,
+      };
+    }
+    case "command": {
+      const command =
+        typeof record.command === "string" && record.command.trim()
+          ? record.command.trim()
+          : undefined;
+      if (!id || !command) {
+        return undefined;
+      }
+
+      const action: GranolaAutomationCommandAction = {
+        args: stringArray(record.args),
+        command,
+        cwd: typeof record.cwd === "string" && record.cwd.trim() ? record.cwd.trim() : undefined,
+        enabled,
+        env: stringRecord(record.env),
+        id,
+        kind,
+        name,
+        stdin: record.stdin === "json" || record.stdin === "none" ? record.stdin : undefined,
+        timeoutMs:
+          typeof record.timeoutMs === "number" && Number.isFinite(record.timeoutMs)
+            ? record.timeoutMs
+            : typeof record.timeoutMs === "string" && /^\d+$/.test(record.timeoutMs)
+              ? Number(record.timeoutMs)
+              : undefined,
+      };
+      return action;
+    }
+    case "export-notes": {
+      if (!id) {
+        return undefined;
+      }
+
+      const format =
+        record.format === "json" ||
+        record.format === "markdown" ||
+        record.format === "raw" ||
+        record.format === "yaml"
+          ? record.format
+          : undefined;
+
+      const action: GranolaAutomationExportNotesAction = {
+        enabled,
+        format,
+        id,
+        kind,
+        name,
+        outputDir:
+          typeof record.outputDir === "string" && record.outputDir.trim()
+            ? record.outputDir.trim()
+            : undefined,
+        scopedOutput: typeof record.scopedOutput === "boolean" ? record.scopedOutput : undefined,
+      };
+      return action;
+    }
+    case "export-transcript": {
+      if (!id) {
+        return undefined;
+      }
+
+      const format =
+        record.format === "json" ||
+        record.format === "raw" ||
+        record.format === "text" ||
+        record.format === "yaml"
+          ? record.format
+          : undefined;
+
+      const action: GranolaAutomationExportTranscriptAction = {
+        enabled,
+        format,
+        id,
+        kind,
+        name,
+        outputDir:
+          typeof record.outputDir === "string" && record.outputDir.trim()
+            ? record.outputDir.trim()
+            : undefined,
+        scopedOutput: typeof record.scopedOutput === "boolean" ? record.scopedOutput : undefined,
+      };
+      return action;
+    }
+    default:
+      return undefined;
+  }
 }
 
 function parseRule(value: unknown): GranolaAutomationRule | undefined {
@@ -53,6 +221,11 @@ function parseRule(value: unknown): GranolaAutomationRule | undefined {
   }
 
   return {
+    actions: Array.isArray(record.actions)
+      ? record.actions
+          .map((action, index) => parseAction(action, index))
+          .filter((action): action is GranolaAutomationAction => Boolean(action))
+      : undefined,
     enabled: typeof record.enabled === "boolean" ? record.enabled : undefined,
     id,
     name,

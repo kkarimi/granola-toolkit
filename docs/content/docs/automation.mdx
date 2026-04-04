@@ -1,6 +1,6 @@
 ---
 title: Automation
-description: Match durable sync events against local rules before actions are added on top.
+description: Match durable sync events against local rules and run local actions such as exports, prompts, and approval queues.
 ---
 
 ## Rule Files
@@ -30,13 +30,54 @@ Override that path with either:
         "folderNames": ["Team"],
         "tags": ["customer"],
         "transcriptLoaded": true
-      }
+      },
+      "actions": [
+        {
+          "id": "notes-markdown",
+          "kind": "export-notes",
+          "outputDir": "./automation/notes",
+          "scopedOutput": true
+        },
+        {
+          "id": "summarise",
+          "kind": "command",
+          "command": "/bin/sh",
+          "args": ["-lc", "cat >/tmp/granola-event.json"]
+        },
+        {
+          "id": "review",
+          "kind": "ask-user",
+          "prompt": "Review this transcript before sharing it"
+        }
+      ]
     }
   ]
 }
 ```
 
-Available match fields today:
+Each rule can contain zero or more actions. Current action kinds are:
+
+- `export-notes`
+- `export-transcript`
+- `command`
+- `ask-user`
+
+`command` actions receive a JSON payload on stdin by default, including the matched event, rule,
+and meeting bundle when the meeting still exists.
+
+`ask-user` actions do not perform side effects immediately. They create a pending automation run
+that can be approved or rejected later from the CLI, web workspace, or TUI.
+
+The toolkit stores:
+
+- raw sync events in `sync-events.jsonl`
+- rule matches in `automation-matches.jsonl`
+- action runs in `automation-runs.jsonl`
+
+All three live in the shared toolkit data directory so watch loops, `serve`, `web`, and `tui` see
+the same history.
+
+Available match fields:
 
 - `eventKinds`
 - `folderIds`
@@ -65,14 +106,35 @@ granola automation matches
 granola automation matches --limit 50
 ```
 
-## How Matching Works
+Inspect recent action runs and resolve pending approval items:
 
-`granola sync` and `granola sync --watch` now enrich each durable sync event with the meeting title,
-folders, tags, and transcript readiness. The rule engine evaluates those event records and stores
-rule matches separately from the raw sync event log.
+```bash
+granola automation runs
+granola automation runs --status pending
+granola automation approve <run-id>
+granola automation reject <run-id> --note "not relevant"
+```
 
-That separation matters:
+## How It Works
 
-- sync remains responsible for discovering change
-- rules remain responsible for deciding whether a change is interesting
-- actions can be added later without rewriting sync or event persistence
+`granola sync` and `granola sync --watch` enrich each durable sync event with the meeting title,
+folders, tags, and transcript readiness. The toolkit then flows through three layers:
+
+- sync discovers change and persists events
+- rules decide whether a change is interesting
+- actions execute once per matched event/action pair and persist their final run state
+
+That idempotent run log is what keeps automation observable instead of burying side effects inside
+the sync loop.
+
+## Surface Support
+
+- CLI: inspect rules, matches, and runs, and resolve pending `ask-user` runs
+- Web: browse recent automation runs and approve or reject pending items
+- TUI: open the automation overlay with `u` and resolve pending items from the terminal
+
+## Notes on Exports
+
+Automation exports run through the same file writers and export-job history as manual exports, but
+they do not hijack the active UI view. Meeting-scoped automation exports default to stable
+subdirectories under `_meetings/<meeting-id>/` when `scopedOutput` is enabled.

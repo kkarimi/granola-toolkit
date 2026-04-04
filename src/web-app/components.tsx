@@ -4,6 +4,7 @@ import { For, Show, type JSX } from "solid-js";
 
 import type {
   FolderSummaryRecord,
+  GranolaAutomationActionRun,
   GranolaAppAuthState,
   GranolaAppExportJobState,
   GranolaAppState,
@@ -77,6 +78,12 @@ interface SecurityPanelProps {
 interface ExportJobsPanelProps {
   jobs: GranolaAppExportJobState[];
   onRerun: (id: string) => void;
+}
+
+interface AutomationRunsPanelProps {
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+  runs: GranolaAutomationActionRun[];
 }
 
 interface WorkspaceProps {
@@ -430,6 +437,12 @@ export function AppStatePanel(props: {
                       : "not built"}
                 </strong>
               </div>
+              <div>
+                <span class="status-label">Automation</span>
+                <strong>
+                  {`${appState().automation.runCount} runs / ${appState().automation.pendingRunCount} pending`}
+                </strong>
+              </div>
             </div>
           )}
         </Show>
@@ -659,6 +672,74 @@ export function ExportJobsPanel(props: ExportJobsPanelProps): JSX.Element {
                     >
                       Rerun
                     </button>
+                  </Show>
+                </div>
+              </article>
+            )}
+          </For>
+        </Show>
+      </div>
+    </section>
+  );
+}
+
+export function AutomationRunsPanel(props: AutomationRunsPanelProps): JSX.Element {
+  return (
+    <section class="jobs-panel">
+      <div class="jobs-panel__head">
+        <h3>Automation Runs</h3>
+        <p>Recent action runs triggered by durable sync events.</p>
+      </div>
+      <div class="jobs-list">
+        <Show
+          when={props.runs.length > 0}
+          fallback={<div class="job-empty">No automation runs yet.</div>}
+        >
+          <For each={props.runs.slice(0, 6)}>
+            {(run) => (
+              <article class="job-card">
+                <div class="job-card__head">
+                  <div>
+                    <div class="job-card__title">{run.actionName}</div>
+                    <div class="job-card__meta">{`${run.ruleName} • ${run.id}`}</div>
+                  </div>
+                  <div class="job-card__status" data-status={run.status}>
+                    {run.status}
+                  </div>
+                </div>
+                <div class="job-card__meta">{`${run.title} • ${run.eventKind}`}</div>
+                <div class="job-card__meta">{`Started: ${run.startedAt.slice(0, 19)}`}</div>
+                <Show when={run.prompt}>
+                  <div class="job-card__meta">{run.prompt}</div>
+                </Show>
+                <Show when={run.result}>
+                  <div class="job-card__meta">{run.result}</div>
+                </Show>
+                <Show when={run.error}>
+                  <div class="job-card__meta">{run.error}</div>
+                </Show>
+                <div class="job-card__actions">
+                  <Show when={run.status === "pending"}>
+                    <>
+                      <button
+                        class="button button--secondary"
+                        onClick={() => {
+                          props.onApprove(run.id);
+                        }}
+                        type="button"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        class="button button--secondary"
+                        onClick={() => {
+                          props.onReject(run.id);
+                        }}
+                        type="button"
+                      >
+                        Reject
+                      </button>
+                    </>
                   </Show>
                 </div>
               </article>

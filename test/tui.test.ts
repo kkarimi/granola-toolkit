@@ -185,10 +185,13 @@ describe("buildGranolaTuiSummary", () => {
         auth: storedAuthState,
         automation: {
           loaded: true,
+          pendingRunCount: 0,
           matchCount: 0,
           matchesFile: "/tmp/automation-matches.jsonl",
           ruleCount: 0,
           rulesFile: "/tmp/automation-rules.json",
+          runCount: 0,
+          runsFile: "/tmp/automation-runs.jsonl",
         },
         cache: {
           configured: true,

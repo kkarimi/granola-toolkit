@@ -83,6 +83,14 @@ describe("automation rules", () => {
               eventKinds: ["transcript.ready"],
               folderNames: ["Team"],
             },
+            actions: [
+              {
+                id: "note-export",
+                kind: "export-notes",
+                outputDir: "/tmp/notes",
+                scopedOutput: true,
+              },
+            ],
           },
         ],
       })}\n`,
@@ -92,6 +100,13 @@ describe("automation rules", () => {
     const store = new FileAutomationRuleStore(filePath);
     expect(await store.readRules()).toEqual([
       expect.objectContaining({
+        actions: [
+          expect.objectContaining({
+            id: "note-export",
+            kind: "export-notes",
+            outputDir: "/tmp/notes",
+          }),
+        ],
         id: "team-transcript",
         name: "Team transcript ready",
       }),

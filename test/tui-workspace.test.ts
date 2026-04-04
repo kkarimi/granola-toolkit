@@ -10,6 +10,7 @@ import type {
   MeetingSummaryRecord,
 } from "../src/app/index.ts";
 import type { CacheData, GranolaDocument } from "../src/types.ts";
+import { GranolaTuiAutomationOverlay } from "../src/tui/automation.ts";
 import { GranolaTuiQuickOpenPalette } from "../src/tui/palette.ts";
 import {
   GranolaTuiWorkspace,
@@ -288,10 +289,13 @@ function createAppState(): GranolaAppState {
     auth: authState,
     automation: {
       loaded: true,
+      pendingRunCount: 0,
       matchCount: 0,
       matchesFile: "/tmp/automation-matches.jsonl",
       ruleCount: 0,
       rulesFile: "/tmp/automation-rules.json",
+      runCount: 0,
+      runsFile: "/tmp/automation-runs.jsonl",
     },
     cache: {
       configured: true,
@@ -356,7 +360,21 @@ function createAppState(): GranolaAppState {
   };
 }
 
-function createWorkspaceHarness(options: { failNextRefresh?: boolean } = {}) {
+function createWorkspaceHarness(
+  options: {
+    automationRuns?: Array<{
+      actionId: string;
+      actionKind: "ask-user" | "command" | "export-notes" | "export-transcript";
+      actionName: string;
+      id: string;
+      prompt?: string;
+      result?: string;
+      status: "completed" | "failed" | "pending" | "skipped";
+      title: string;
+    }>;
+    failNextRefresh?: boolean;
+  } = {},
+) {
   const host = new FakeTuiHost();
   const state = createAppState();
   const listeners = new Set<(event: GranolaAppStateEvent) => void>();
@@ -418,6 +436,26 @@ function createWorkspaceHarness(options: { failNextRefresh?: boolean } = {}) {
 
     return createMeetingBundle(meeting);
   });
+  const resolveAutomationRun = vi.fn(async (id: string) => ({
+    actionId: "review",
+    actionKind: "ask-user" as const,
+    actionName: "Review transcript",
+    eventId: "sync-1:1",
+    eventKind: "transcript.ready" as const,
+    finishedAt: "2024-03-01T12:01:00.000Z",
+    folders: [],
+    id,
+    matchedAt: "2024-03-01T12:00:00.000Z",
+    meetingId: "doc-alpha-1111",
+    result: "Approved from test",
+    ruleId: "team-transcript",
+    ruleName: "Team transcript ready",
+    startedAt: "2024-03-01T12:00:00.000Z",
+    status: "completed" as const,
+    tags: ["team"],
+    title: "Alpha Sync",
+    transcriptLoaded: true,
+  }));
 
   const app: GranolaTuiApp = {
     exportNotes: vi.fn(),
@@ -430,6 +468,21 @@ function createWorkspaceHarness(options: { failNextRefresh?: boolean } = {}) {
     inspectAuth: vi.fn(async () => state.auth),
     inspectSync: vi.fn(async () => state.sync),
     listAutomationMatches: vi.fn(async () => ({ matches: [] })),
+    listAutomationRuns: vi.fn(async () => ({
+      runs: (options.automationRuns ?? []).map((run) => ({
+        eventId: "sync-1:1",
+        eventKind: "transcript.ready" as const,
+        folders: [],
+        matchedAt: "2024-03-01T12:00:00.000Z",
+        meetingId: "doc-alpha-1111",
+        ruleId: "team-transcript",
+        ruleName: "Team transcript ready",
+        startedAt: "2024-03-01T12:00:00.000Z",
+        tags: ["team"],
+        transcriptLoaded: true,
+        ...run,
+      })),
+    })),
     listAutomationRules: vi.fn(async () => ({ rules: [] })),
     listExportJobs: vi.fn(async () => ({ jobs: [] })),
     listFolders,
@@ -438,6 +491,7 @@ function createWorkspaceHarness(options: { failNextRefresh?: boolean } = {}) {
     loginAuth: vi.fn(async () => state.auth),
     logoutAuth: vi.fn(async () => state.auth),
     refreshAuth: vi.fn(async () => state.auth),
+    resolveAutomationRun,
     rerunExportJob: vi.fn(),
     sync: vi.fn(async () => ({
       changes: [],
@@ -499,6 +553,7 @@ function createWorkspaceHarness(options: { failNextRefresh?: boolean } = {}) {
     host,
     listFolders,
     listMeetings,
+    resolveAutomationRun,
     state,
     waitFor,
     workspace,
@@ -624,5 +679,35 @@ describe("GranolaTuiWorkspace", () => {
     const rendered = harness.workspace.render(100).join("\n");
     expect(rendered).toContain("Opened Alpha Sync");
     expect(rendered).not.toContain("live refresh failed");
+  });
+
+  test("opens automation runs and resolves a pending item", async () => {
+    const harness = createWorkspaceHarness({
+      automationRuns: [
+        {
+          actionId: "review",
+          actionKind: "ask-user",
+          actionName: "Review transcript",
+          id: "sync-1:1:review",
+          prompt: "Review the transcript before sharing it",
+          status: "pending",
+          title: "Alpha Sync",
+        },
+      ],
+    });
+
+    await harness.workspace.initialise();
+    harness.workspace.handleInput("u");
+
+    const overlay = harness.host.overlayComponent;
+    expect(overlay).toBeInstanceOf(GranolaTuiAutomationOverlay);
+    if (!(overlay instanceof GranolaTuiAutomationOverlay)) {
+      throw new Error("expected automation overlay");
+    }
+
+    overlay.handleInput("\n");
+    await harness.flush();
+
+    expect(harness.resolveAutomationRun).toHaveBeenCalledWith("sync-1:1:review", "approve");
   });
 });

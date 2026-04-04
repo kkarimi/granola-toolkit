@@ -1,4 +1,5 @@
 import type {
+  GranolaAutomationActionRunStatus,
   GranolaExportJobsListOptions,
   GranolaFolderListOptions,
   GranolaMeetingListOptions,
@@ -11,6 +12,7 @@ export interface GranolaServerInfo {
   capabilities: {
     attach: boolean;
     auth: boolean;
+    automation: boolean;
     events: boolean;
     exports: boolean;
     folders: boolean;
@@ -40,6 +42,7 @@ export const granolaTransportPaths = {
   authUnlock: "/auth/unlock",
   automationMatches: "/automation/matches",
   automationRules: "/automation/rules",
+  automationRuns: "/automation/runs",
   events: "/events",
   exportJobs: "/exports/jobs",
   exportNotes: "/exports/notes",
@@ -119,6 +122,25 @@ export function granolaExportJobsPath(options: GranolaExportJobsListOptions = {}
   return appendSearchParams(granolaTransportPaths.exportJobs, {
     limit: options.limit,
   });
+}
+
+export function granolaAutomationRunsPath(
+  options: {
+    limit?: number;
+    status?: GranolaAutomationActionRunStatus;
+  } = {},
+): string {
+  return appendSearchParams(granolaTransportPaths.automationRuns, {
+    limit: options.limit,
+    status: options.status,
+  });
+}
+
+export function granolaAutomationRunDecisionPath(
+  id: string,
+  decision: "approve" | "reject",
+): string {
+  return `${granolaTransportPaths.automationRuns}/${encodeURIComponent(id)}/${decision}`;
 }
 
 export function granolaExportJobRerunPath(id: string): string {

@@ -5,6 +5,7 @@ import { createStore } from "solid-js/store";
 
 import type {
   FolderSummaryRecord,
+  GranolaAutomationActionRun,
   GranolaAppAuthMode,
   GranolaAppAuthState,
   GranolaAppState,
@@ -25,6 +26,7 @@ import {
 } from "../web/client-state.ts";
 import {
   AppStatePanel,
+  AutomationRunsPanel,
   AuthPanel,
   ExportJobsPanel,
   FolderList,
@@ -42,6 +44,7 @@ interface GranolaWebBrowserConfig {
 interface GranolaWebAppState {
   apiKeyDraft: string;
   appState: GranolaAppState | null;
+  automationRuns: GranolaAutomationActionRun[];
   detailError: string;
   folderError: string;
   folders: FolderSummaryRecord[];
@@ -89,6 +92,7 @@ export function App() {
   const [state, setState] = createStore<GranolaWebAppState>({
     apiKeyDraft: "",
     appState: null,
+    automationRuns: [],
     detailError: "",
     folderError: "",
     folders: [],
@@ -176,6 +180,19 @@ export function App() {
     }
   };
 
+  const loadAutomationRuns = async () => {
+    if (!client) {
+      return;
+    }
+
+    try {
+      const result = await client.listAutomationRuns({ limit: 20 });
+      setState("automationRuns", result.runs);
+    } catch (error) {
+      setState("detailError", error instanceof Error ? error.message : String(error));
+    }
+  };
+
   const loadMeeting = async (meetingId: string) => {
     if (!client) {
       return;
@@ -247,7 +264,7 @@ export function App() {
       });
     }
 
-    await Promise.all([loadFolders(forceRefresh), mergeAuthState()]);
+    await Promise.all([loadFolders(forceRefresh), loadAutomationRuns(), mergeAuthState()]);
     await loadMeetings({ refresh: forceRefresh });
 
     setState("serverLocked", false);
@@ -443,6 +460,21 @@ export function App() {
     }
   };
 
+  const resolveAutomationRun = async (id: string, decision: "approve" | "reject") => {
+    if (!client) {
+      return;
+    }
+
+    setStatus(decision === "approve" ? "Approving automation…" : "Rejecting automation…", "busy");
+    try {
+      await client.resolveAutomationRun(id, decision);
+      await refreshAll();
+    } catch (error) {
+      setState("detailError", error instanceof Error ? error.message : String(error));
+      setStatus("Automation decision failed", "error");
+    }
+  };
+
   const unlockServer = async () => {
     if (!state.serverPassword.trim()) {
       setStatus("Enter the server password", "error");
@@ -479,6 +511,7 @@ export function App() {
     await detachClient();
     setState({
       appState: null,
+      automationRuns: [],
       detailError: "",
       folderError: "",
       folders: [],
@@ -504,6 +537,14 @@ export function App() {
     if (nextPath !== currentPath) {
       history.replaceState(null, "", nextPath);
     }
+  });
+
+  createEffect(() => {
+    if (!state.appState?.automation.loaded || !client) {
+      return;
+    }
+
+    void loadAutomationRuns();
   });
 
   onMount(() => {
@@ -676,6 +717,15 @@ export function App() {
           onRerun={(jobId) => {
             void rerunJob(jobId);
           }}
+        />
+        <AutomationRunsPanel
+          onApprove={(runId) => {
+            void resolveAutomationRun(runId, "approve");
+          }}
+          onReject={(runId) => {
+            void resolveAutomationRun(runId, "reject");
+          }}
+          runs={state.automationRuns}
         />
         <Workspace
           bundle={state.selectedMeetingBundle}

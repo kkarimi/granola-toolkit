@@ -6,6 +6,7 @@ import { describe, expect, test, vi } from "vite-plus/test";
 
 import { GranolaApp } from "../src/app/core.ts";
 import { MemoryAutomationMatchStore } from "../src/automation-matches.ts";
+import { MemoryAutomationRunStore } from "../src/automation-runs.ts";
 import { MemoryAutomationRuleStore } from "../src/automation-rules.ts";
 import { MemoryExportJobStore } from "../src/export-jobs.ts";
 import { MemoryMeetingIndexStore } from "../src/meeting-index.ts";
@@ -437,7 +438,164 @@ describe("GranolaApp", () => {
       expect.objectContaining({
         loaded: true,
         matchCount: 1,
+        pendingRunCount: 0,
         ruleCount: 1,
+        runCount: 0,
+      }),
+    );
+  });
+
+  test("executes automation actions from matched sync events and resolves pending runs", async () => {
+    const cacheFile = join(await mkdtemp(join(tmpdir(), "granola-app-cache-")), "cache.json");
+    await writeFile(cacheFile, "{}\n", "utf8");
+    const outputDir = await mkdtemp(join(tmpdir(), "granola-automation-export-"));
+    const meetingIndexStore = new MemoryMeetingIndexStore();
+    const matchStore = new MemoryAutomationMatchStore();
+    const runStore = new MemoryAutomationRunStore();
+
+    await meetingIndexStore.writeIndex([
+      {
+        createdAt: "2024-01-01T09:00:00Z",
+        folders: [
+          {
+            createdAt: "2024-01-01T08:00:00Z",
+            documentCount: 1,
+            id: "folder-team-1111",
+            isFavourite: true,
+            name: "Team",
+            updatedAt: "2024-01-04T10:00:00Z",
+          },
+        ],
+        id: "doc-alpha-1111",
+        noteContentSource: "notes",
+        tags: ["team"],
+        title: "Alpha Sync",
+        transcriptLoaded: false,
+        transcriptSegmentCount: 0,
+        updatedAt: "2024-01-03T10:00:00Z",
+      },
+    ]);
+
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: outputDir,
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile,
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          mode: "supabase-file",
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: true,
+          supabasePath: "/tmp/supabase.json",
+        },
+        automationMatchStore: matchStore,
+        automationRuleStore: new MemoryAutomationRuleStore([
+          {
+            actions: [
+              {
+                id: "notes-export",
+                kind: "export-notes",
+                outputDir,
+                scopedOutput: true,
+              },
+              {
+                args: [
+                  "-e",
+                  "let data='';process.stdin.on('data',chunk=>data+=chunk);process.stdin.on('end',()=>{const input=JSON.parse(data);process.stdout.write(input.meeting.meeting.meeting.title);});",
+                ],
+                command: process.execPath,
+                id: "prompt-command",
+                kind: "command",
+              },
+              {
+                id: "review",
+                kind: "ask-user",
+                prompt: "Review the new transcript before publishing it",
+              },
+            ],
+            id: "team-transcript",
+            name: "Team transcript ready",
+            when: {
+              eventKinds: ["transcript.ready"],
+              folderNames: ["Team"],
+              tags: ["team"],
+              transcriptLoaded: true,
+            },
+          },
+        ]),
+        automationRunStore: runStore,
+        cacheLoader: async () => cacheData,
+        granolaClient: {
+          listDocuments: async () => documents,
+          listFolders: async () => folders,
+        },
+        meetingIndex: await meetingIndexStore.readIndex(),
+        meetingIndexStore,
+        now: () => new Date("2024-03-01T12:00:00Z"),
+      },
+      { surface: "server" },
+    );
+
+    await app.sync();
+    const runs = await app.listAutomationRuns({ limit: 10 });
+    const markdown = await readFile(
+      join(outputDir, "_meetings", "doc-alpha-1111", "Alpha Sync.md"),
+      "utf8",
+    );
+    const pendingRun = runs.runs.find((run) => run.status === "pending");
+    if (!pendingRun) {
+      throw new Error("expected pending automation run");
+    }
+
+    expect(markdown).toContain("# Alpha Sync");
+    expect(runs.runs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          actionId: "notes-export",
+          actionKind: "export-notes",
+          status: "completed",
+        }),
+        expect.objectContaining({
+          actionId: "prompt-command",
+          actionKind: "command",
+          result: "Alpha Sync",
+          status: "completed",
+        }),
+        expect.objectContaining({
+          actionId: "review",
+          actionKind: "ask-user",
+          prompt: "Review the new transcript before publishing it",
+          status: "pending",
+        }),
+      ]),
+    );
+    expect(app.getState().automation).toEqual(
+      expect.objectContaining({
+        matchCount: 1,
+        pendingRunCount: 1,
+        runCount: 3,
+      }),
+    );
+
+    const resolved = await app.resolveAutomationRun(pendingRun.id, "approve", {
+      note: "Approved from test",
+    });
+
+    expect(resolved.status).toBe("completed");
+    expect(app.getState().automation.pendingRunCount).toBe(0);
+    expect(await runStore.readRun(pendingRun.id)).toEqual(
+      expect.objectContaining({
+        result: "Approved from test",
+        status: "completed",
       }),
     );
   });

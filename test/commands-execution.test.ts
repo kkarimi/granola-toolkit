@@ -639,6 +639,101 @@ describe("command execution", () => {
     expect(log).toHaveBeenCalledWith(expect.stringContaining("transcript.ready"));
   });
 
+  test("automation runs prints recent action runs", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const app = {
+      getState: () => ({
+        auth: {
+          mode: "stored-session",
+        },
+      }),
+      listAutomationRuns: vi.fn(async () => ({
+        runs: [
+          {
+            actionId: "review",
+            actionKind: "ask-user",
+            actionName: "Review transcript",
+            eventId: "sync-1:1",
+            eventKind: "transcript.ready",
+            folders: [],
+            id: "sync-1:1:review",
+            matchedAt: "2024-03-01T12:00:00.000Z",
+            meetingId: "doc-alpha-1111",
+            ruleId: "team-transcript",
+            ruleName: "Team transcript ready",
+            startedAt: "2024-03-01T12:00:00.000Z",
+            status: "pending" as const,
+            tags: ["team"],
+            title: "Alpha Sync",
+            transcriptLoaded: true,
+          },
+        ],
+      })),
+    };
+
+    vi.spyOn(configModule, "loadConfig").mockResolvedValue(makeConfig());
+    vi.spyOn(appModule, "createGranolaApp").mockResolvedValue(app as never);
+
+    const exitCode = await automationCommand.run(
+      makeContext({
+        commandArgs: ["runs"],
+      }),
+    );
+
+    expect(exitCode).toBe(0);
+    expect(app.listAutomationRuns).toHaveBeenCalledWith({ limit: 20, status: undefined });
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("Review transcript"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("pending"));
+  });
+
+  test("automation approve resolves a pending run", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const app = {
+      getState: () => ({
+        auth: {
+          mode: "stored-session",
+        },
+      }),
+      resolveAutomationRun: vi.fn(async () => ({
+        actionId: "review",
+        actionKind: "ask-user",
+        actionName: "Review transcript",
+        eventId: "sync-1:1",
+        eventKind: "transcript.ready",
+        folders: [],
+        id: "sync-1:1:review",
+        matchedAt: "2024-03-01T12:00:00.000Z",
+        meetingId: "doc-alpha-1111",
+        result: "Approved from CLI",
+        ruleId: "team-transcript",
+        ruleName: "Team transcript ready",
+        startedAt: "2024-03-01T12:00:00.000Z",
+        status: "completed" as const,
+        tags: ["team"],
+        title: "Alpha Sync",
+        transcriptLoaded: true,
+      })),
+    };
+
+    vi.spyOn(configModule, "loadConfig").mockResolvedValue(makeConfig());
+    vi.spyOn(appModule, "createGranolaApp").mockResolvedValue(app as never);
+
+    const exitCode = await automationCommand.run(
+      makeContext({
+        commandArgs: ["approve", "sync-1:1:review"],
+        commandFlags: {
+          note: "Approved from CLI",
+        },
+      }),
+    );
+
+    expect(exitCode).toBe(0);
+    expect(app.resolveAutomationRun).toHaveBeenCalledWith("sync-1:1:review", "approve", {
+      note: "Approved from CLI",
+    });
+    expect(log).toHaveBeenCalledWith("Approved Review transcript for Alpha Sync (sync-1:1:review)");
+  });
+
   test("tui command reuses the background sync loop and stops it on exit", async () => {
     const app = {
       getState: () => ({

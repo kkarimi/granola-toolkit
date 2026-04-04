@@ -24,6 +24,7 @@ granola auth login --api-key grn_...
 granola sync
 granola sync --watch
 granola automation rules
+granola automation runs
 granola folder list
 granola meeting list --limit 10
 granola notes --folder Team

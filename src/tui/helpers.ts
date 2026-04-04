@@ -156,6 +156,11 @@ export function buildGranolaTuiSummary(
       : state.sync.lastCompletedAt
         ? `sync ${state.sync.lastCompletedAt.slice(11, 16)}`
         : "sync idle";
+  const automation = state.automation.pendingRunCount
+    ? `${state.automation.pendingRunCount} pending`
+    : state.automation.runCount
+      ? `${state.automation.runCount} runs`
+      : "automation idle";
 
-  return `auth ${authMode} | ${documents} | ${folders} | ${cache} | ${index} | ${sync} | list ${meetingSource}`;
+  return `auth ${authMode} | ${documents} | ${folders} | ${cache} | ${index} | ${sync} | ${automation} | list ${meetingSource}`;
 }

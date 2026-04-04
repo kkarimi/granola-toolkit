@@ -1,10 +1,23 @@
+import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { resolve as resolvePath } from "node:path";
 
+import {
+  automationActionName,
+  buildAutomationActionRunId,
+  enabledAutomationActions,
+  executeAutomationAction,
+} from "../automation-actions.ts";
 import {
   createDefaultAutomationMatchStore,
   defaultAutomationMatchesFilePath,
   type AutomationMatchStore,
 } from "../automation-matches.ts";
+import {
+  createDefaultAutomationRunStore,
+  defaultAutomationRunsFilePath,
+  type AutomationRunStore,
+} from "../automation-runs.ts";
 import {
   createDefaultAutomationRuleStore,
   defaultAutomationRulesFilePath,
@@ -29,6 +42,7 @@ import {
   allExportScope,
   cloneExportScope,
   folderExportScope,
+  meetingExportScope,
   resolveExportOutputDir,
 } from "../export-scope.ts";
 import {
@@ -72,10 +86,15 @@ import { granolaCacheCandidates } from "../utils.ts";
 
 import type {
   GranolaAppApi,
+  GranolaAutomationCommandAction,
+  GranolaAutomationExportNotesAction,
+  GranolaAutomationExportTranscriptAction,
+  GranolaAutomationActionRun,
   GranolaAutomationMatch,
   GranolaAutomationRule,
   GranolaAutomationMatchesResult,
   GranolaAutomationRulesResult,
+  GranolaAutomationRunsResult,
   GranolaAppAuthMode,
   GranolaAppAuthState,
   GranolaAppExportJobState,
@@ -110,6 +129,8 @@ interface GranolaAppDependencies {
   authController?: DefaultGranolaAuthController;
   automationMatchStore?: AutomationMatchStore;
   automationMatches?: GranolaAutomationMatch[];
+  automationRunStore?: AutomationRunStore;
+  automationRuns?: GranolaAutomationActionRun[];
   automationRuleStore?: AutomationRuleStore;
   automationRules?: GranolaAutomationRule[];
   cacheLoader: (cacheFile?: string) => Promise<CacheData | undefined>;
@@ -213,8 +234,11 @@ function defaultState(
       loaded: false,
       matchCount: 0,
       matchesFile: defaultAutomationMatchesFilePath(),
+      pendingRunCount: 0,
       ruleCount: 0,
       rulesFile: config.automation?.rulesFile ?? defaultAutomationRulesFilePath(),
+      runCount: 0,
+      runsFile: defaultAutomationRunsFilePath(),
     },
     cache: {
       configured: Boolean(config.transcripts.cacheFile),
@@ -260,6 +284,7 @@ function defaultState(
 }
 
 export class GranolaApp implements GranolaAppApi {
+  #automationActionRuns: GranolaAutomationActionRun[];
   #automationMatches: GranolaAutomationMatch[];
   #automationRules: GranolaAutomationRule[];
   #cacheData?: CacheData;
@@ -283,26 +308,25 @@ export class GranolaApp implements GranolaAppApi {
       folders: match.folders.map((folder) => ({ ...folder })),
       tags: [...match.tags],
     }));
-    this.#automationRules = (deps.automationRules ?? []).map((rule) => ({
-      ...rule,
-      when: {
-        ...rule.when,
-        eventKinds: rule.when.eventKinds ? [...rule.when.eventKinds] : undefined,
-        folderIds: rule.when.folderIds ? [...rule.when.folderIds] : undefined,
-        folderNames: rule.when.folderNames ? [...rule.when.folderNames] : undefined,
-        meetingIds: rule.when.meetingIds ? [...rule.when.meetingIds] : undefined,
-        tags: rule.when.tags ? [...rule.when.tags] : undefined,
-        titleIncludes: rule.when.titleIncludes ? [...rule.when.titleIncludes] : undefined,
-      },
-    }));
+    this.#automationActionRuns = (deps.automationRuns ?? []).map((run) =>
+      this.cloneAutomationRun(run),
+    );
+    this.#automationRules = (deps.automationRules ?? []).map((rule) =>
+      this.cloneAutomationRule(rule),
+    );
     this.#state.exports.jobs = (deps.exportJobs ?? []).map((job) => cloneExportJob(job));
     this.#state.automation = {
+      lastRunAt:
+        this.#automationActionRuns[0]?.finishedAt ?? this.#automationActionRuns[0]?.startedAt,
       lastMatchedAt: this.#automationMatches[0]?.matchedAt,
       loaded: true,
       matchCount: this.#automationMatches.length,
       matchesFile: defaultAutomationMatchesFilePath(),
+      pendingRunCount: this.#automationActionRuns.filter((run) => run.status === "pending").length,
       ruleCount: this.#automationRules.length,
       rulesFile: config.automation?.rulesFile ?? defaultAutomationRulesFilePath(),
+      runCount: this.#automationActionRuns.length,
+      runsFile: defaultAutomationRunsFilePath(),
     };
     this.#meetingIndex = (deps.meetingIndex ?? []).map((meeting) => cloneMeetingSummary(meeting));
     this.#state.index = {
@@ -393,6 +417,21 @@ export class GranolaApp implements GranolaAppApi {
   private cloneAutomationRule(rule: GranolaAutomationRule): GranolaAutomationRule {
     return {
       ...rule,
+      actions: rule.actions?.map((action) => {
+        switch (action.kind) {
+          case "ask-user":
+            return { ...action };
+          case "command":
+            return {
+              ...action,
+              args: action.args ? [...action.args] : undefined,
+              env: action.env ? { ...action.env } : undefined,
+            };
+          case "export-notes":
+          case "export-transcript":
+            return { ...action };
+        }
+      }),
       when: {
         ...rule.when,
         eventKinds: rule.when.eventKinds ? [...rule.when.eventKinds] : undefined,
@@ -413,6 +452,45 @@ export class GranolaApp implements GranolaAppApi {
     };
   }
 
+  private cloneAutomationRun(run: GranolaAutomationActionRun): GranolaAutomationActionRun {
+    return {
+      ...run,
+      folders: run.folders.map((folder) => ({ ...folder })),
+      meta: run.meta ? structuredClone(run.meta) : undefined,
+      tags: [...run.tags],
+    };
+  }
+
+  private refreshAutomationState(): void {
+    const latestMatch = this.#automationMatches.reduce<GranolaAutomationMatch | undefined>(
+      (current, candidate) =>
+        !current || candidate.matchedAt.localeCompare(current.matchedAt) > 0 ? candidate : current,
+      undefined,
+    );
+    const latestRun = this.#automationActionRuns.reduce<GranolaAutomationActionRun | undefined>(
+      (current, candidate) => {
+        const candidateTime = candidate.finishedAt ?? candidate.startedAt;
+        const currentTime = current ? (current.finishedAt ?? current.startedAt) : undefined;
+        return !currentTime || candidateTime.localeCompare(currentTime) > 0 ? candidate : current;
+      },
+      undefined,
+    );
+
+    this.#state.automation = {
+      ...this.#state.automation,
+      lastMatchedAt: latestMatch?.matchedAt ?? this.#state.automation.lastMatchedAt,
+      lastRunAt: latestRun?.finishedAt ?? latestRun?.startedAt ?? this.#state.automation.lastRunAt,
+      loaded: true,
+      matchCount: this.#automationMatches.length,
+      matchesFile: defaultAutomationMatchesFilePath(),
+      pendingRunCount: this.#automationActionRuns.filter((run) => run.status === "pending").length,
+      ruleCount: this.#automationRules.length,
+      rulesFile: this.config.automation?.rulesFile ?? defaultAutomationRulesFilePath(),
+      runCount: this.#automationActionRuns.length,
+      runsFile: defaultAutomationRunsFilePath(),
+    };
+  }
+
   private async loadAutomationRules(
     options: { forceRefresh?: boolean } = {},
   ): Promise<GranolaAutomationRule[]> {
@@ -427,12 +505,7 @@ export class GranolaApp implements GranolaAppApi {
     this.#automationRules = (await this.deps.automationRuleStore.readRules()).map((rule) =>
       this.cloneAutomationRule(rule),
     );
-    this.#state.automation = {
-      ...this.#state.automation,
-      loaded: true,
-      ruleCount: this.#automationRules.length,
-      rulesFile: this.config.automation?.rulesFile ?? defaultAutomationRulesFilePath(),
-    };
+    this.refreshAutomationState();
     this.emitStateUpdate();
     return this.#automationRules.map((rule) => this.cloneAutomationRule(rule));
   }
@@ -447,12 +520,31 @@ export class GranolaApp implements GranolaAppApi {
     }
 
     this.#automationMatches.push(...matches.map((match) => this.cloneAutomationMatch(match)));
-    this.#state.automation = {
-      ...this.#state.automation,
-      lastMatchedAt: matches.at(-1)?.matchedAt ?? this.#state.automation.lastMatchedAt,
-      loaded: true,
-      matchCount: this.#automationMatches.length,
-    };
+    this.refreshAutomationState();
+  }
+
+  private async appendAutomationRuns(runs: GranolaAutomationActionRun[]): Promise<void> {
+    if (runs.length === 0) {
+      return;
+    }
+
+    if (this.deps.automationRunStore) {
+      await this.deps.automationRunStore.appendRuns(runs);
+    }
+
+    for (const run of runs) {
+      const index = this.#automationActionRuns.findIndex((candidate) => candidate.id === run.id);
+      if (index >= 0) {
+        this.#automationActionRuns[index] = this.cloneAutomationRun(run);
+      } else {
+        this.#automationActionRuns.push(this.cloneAutomationRun(run));
+      }
+    }
+
+    this.#automationActionRuns.sort((left, right) =>
+      (right.finishedAt ?? right.startedAt).localeCompare(left.finishedAt ?? left.startedAt),
+    );
+    this.refreshAutomationState();
   }
 
   private createSyncRunId(): string {
@@ -869,6 +961,64 @@ export class GranolaApp implements GranolaAppApi {
     };
   }
 
+  async listAutomationRuns(
+    options: { limit?: number; status?: GranolaAutomationActionRun["status"] } = {},
+  ): Promise<GranolaAutomationRunsResult> {
+    const limit = options.limit ?? 20;
+    const runs = this.deps.automationRunStore
+      ? await this.deps.automationRunStore.readRuns({
+          limit,
+          status: options.status,
+        })
+      : this.#automationActionRuns
+          .filter((run) => (options.status ? run.status === options.status : true))
+          .slice(0, limit);
+
+    this.setUiState({
+      view: "idle",
+    });
+    return {
+      runs: runs.map((run) => this.cloneAutomationRun(run)),
+    };
+  }
+
+  async resolveAutomationRun(
+    id: string,
+    decision: "approve" | "reject",
+    options: { note?: string } = {},
+  ): Promise<GranolaAutomationActionRun> {
+    const current =
+      (this.deps.automationRunStore ? await this.deps.automationRunStore.readRun(id) : undefined) ??
+      this.#automationActionRuns.find((run) => run.id === id);
+    if (!current) {
+      throw new Error(`automation run not found: ${id}`);
+    }
+
+    if (current.status !== "pending") {
+      throw new Error(`automation run is not pending: ${id}`);
+    }
+
+    const finishedAt = this.nowIso();
+    const resolved: GranolaAutomationActionRun = {
+      ...this.cloneAutomationRun(current),
+      finishedAt,
+      meta: {
+        ...(current.meta ? structuredClone(current.meta) : {}),
+        decision,
+        note: options.note?.trim() || undefined,
+      },
+      result:
+        decision === "approve"
+          ? options.note?.trim() || "Approved by user"
+          : options.note?.trim() || "Rejected by user",
+      status: decision === "approve" ? "completed" : "skipped",
+    };
+
+    await this.appendAutomationRuns([resolved]);
+    this.emitStateUpdate();
+    return this.cloneAutomationRun(resolved);
+  }
+
   async loginAuth(
     options: { apiKey?: string; supabasePath?: string } = {},
   ): Promise<GranolaAppAuthState> {
@@ -927,6 +1077,254 @@ export class GranolaApp implements GranolaAppApi {
     }
   }
 
+  private async maybeReadMeetingBundleById(
+    id: string,
+    options: { requireCache?: boolean } = {},
+  ): Promise<GranolaMeetingBundle | undefined> {
+    try {
+      return await this.readMeetingBundleById(id, options);
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async runAutomationNotesAction(
+    match: GranolaAutomationMatch,
+    action: GranolaAutomationExportNotesAction,
+  ): Promise<
+    | {
+        format: string;
+        outputDir: string;
+        scope: GranolaExportScope;
+        written: number;
+      }
+    | undefined
+  > {
+    const bundle = await this.maybeReadMeetingBundleById(match.meetingId);
+    if (!bundle) {
+      return undefined;
+    }
+
+    const scope = meetingExportScope({
+      meetingId: bundle.document.id,
+      meetingTitle: bundle.meeting.meeting.title || bundle.document.id,
+    });
+    const result = await this.runNotesExport({
+      documents: [bundle.document],
+      format: action.format ?? "markdown",
+      outputDir: resolveExportOutputDir(action.outputDir ?? this.config.notes.output, scope, {
+        scopedDirectory: action.scopedOutput,
+      }),
+      scope,
+      trackLastRun: false,
+      updateUi: false,
+    });
+
+    return {
+      format: result.format,
+      outputDir: result.outputDir,
+      scope: result.scope,
+      written: result.written,
+    };
+  }
+
+  private async runAutomationTranscriptAction(
+    match: GranolaAutomationMatch,
+    action: GranolaAutomationExportTranscriptAction,
+  ): Promise<
+    | {
+        format: string;
+        outputDir: string;
+        scope: GranolaExportScope;
+        written: number;
+      }
+    | undefined
+  > {
+    const bundle = await this.maybeReadMeetingBundleById(match.meetingId);
+    if (!bundle?.cacheData) {
+      return undefined;
+    }
+
+    const cacheDocument = bundle.cacheData.documents[bundle.document.id];
+    const transcriptSegments = bundle.cacheData.transcripts[bundle.document.id];
+    if (!cacheDocument || !transcriptSegments || transcriptSegments.length === 0) {
+      return undefined;
+    }
+
+    const scope = meetingExportScope({
+      meetingId: bundle.document.id,
+      meetingTitle: bundle.meeting.meeting.title || bundle.document.id,
+    });
+    const result = await this.runTranscriptsExport({
+      cacheData: {
+        documents: {
+          [bundle.document.id]: cacheDocument,
+        },
+        transcripts: {
+          [bundle.document.id]: transcriptSegments,
+        },
+      },
+      format: action.format ?? "text",
+      outputDir: resolveExportOutputDir(action.outputDir ?? this.config.transcripts.output, scope, {
+        scopedDirectory: action.scopedOutput,
+      }),
+      scope,
+      trackLastRun: false,
+      updateUi: false,
+    });
+
+    return {
+      format: result.format,
+      outputDir: result.outputDir,
+      scope: result.scope,
+      written: result.written,
+    };
+  }
+
+  private async runAutomationCommand(
+    match: GranolaAutomationMatch,
+    rule: GranolaAutomationRule,
+    action: GranolaAutomationCommandAction,
+  ): Promise<{
+    command: string;
+    cwd?: string;
+    output?: string;
+  }> {
+    const bundle =
+      match.eventKind === "meeting.removed"
+        ? undefined
+        : await this.maybeReadMeetingBundleById(match.meetingId, {
+            requireCache: false,
+          });
+    const cwd = action.cwd ? resolvePath(action.cwd) : process.cwd();
+    const payload = JSON.stringify(
+      {
+        action: {
+          id: action.id,
+          kind: "command",
+          name: automationActionName(action),
+        },
+        authMode: this.#state.auth.mode,
+        generatedAt: this.nowIso(),
+        match: this.cloneAutomationMatch(match),
+        meeting: bundle
+          ? {
+              document: bundle.document,
+              meeting: bundle.meeting,
+            }
+          : undefined,
+        rule: {
+          id: rule.id,
+          name: rule.name,
+        },
+      },
+      null,
+      2,
+    );
+
+    return await new Promise((resolve, reject) => {
+      const child = spawn(action.command, action.args ?? [], {
+        cwd,
+        env: {
+          ...process.env,
+          ...action.env,
+          GRANOLA_ACTION_KIND: "command",
+          GRANOLA_EVENT_ID: match.eventId,
+          GRANOLA_EVENT_KIND: match.eventKind,
+          GRANOLA_MATCH_ID: match.id,
+          GRANOLA_MEETING_ID: match.meetingId,
+          GRANOLA_RULE_ID: rule.id,
+        },
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      const stdoutChunks: Buffer[] = [];
+      const stderrChunks: Buffer[] = [];
+      let timedOut = false;
+      const timeoutMs = action.timeoutMs ?? this.config.notes.timeoutMs;
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        child.kill("SIGTERM");
+      }, timeoutMs);
+
+      child.stdout.on("data", (chunk) => {
+        stdoutChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      child.stderr.on("data", (chunk) => {
+        stderrChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      child.on("error", (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+      child.on("close", (code) => {
+        clearTimeout(timeout);
+        const stdout = Buffer.concat(stdoutChunks).toString("utf8").trim();
+        const stderr = Buffer.concat(stderrChunks).toString("utf8").trim();
+        if (timedOut) {
+          reject(new Error(`automation command timed out after ${timeoutMs}ms`));
+          return;
+        }
+
+        if (code !== 0) {
+          reject(
+            new Error(stderr || stdout || `automation command exited with status ${String(code)}`),
+          );
+          return;
+        }
+
+        resolve({
+          command: [action.command, ...(action.args ?? [])].join(" "),
+          cwd,
+          output: stdout || stderr || undefined,
+        });
+      });
+
+      if (action.stdin !== "none") {
+        child.stdin.write(payload);
+      }
+      child.stdin.end();
+    });
+  }
+
+  private async runAutomationActions(
+    rules: GranolaAutomationRule[],
+    matches: GranolaAutomationMatch[],
+  ): Promise<GranolaAutomationActionRun[]> {
+    const rulesById = new Map(rules.map((rule) => [rule.id, rule] as const));
+    const existingRunIds = new Set(this.#automationActionRuns.map((run) => run.id));
+    const runs: GranolaAutomationActionRun[] = [];
+
+    for (const match of matches) {
+      const rule = rulesById.get(match.ruleId);
+      if (!rule) {
+        continue;
+      }
+
+      for (const action of enabledAutomationActions(rule)) {
+        const runId = buildAutomationActionRunId(match, action.id);
+        if (existingRunIds.has(runId)) {
+          continue;
+        }
+
+        existingRunIds.add(runId);
+        runs.push(
+          await executeAutomationAction(match, rule, action, {
+            exportNotes: async (nextMatch, nextAction) =>
+              await this.runAutomationNotesAction(nextMatch, nextAction),
+            exportTranscripts: async (nextMatch, nextAction) =>
+              await this.runAutomationTranscriptAction(nextMatch, nextAction),
+            nowIso: () => this.nowIso(),
+            runCommand: async (nextMatch, nextRule, nextAction) =>
+              await this.runAutomationCommand(nextMatch, nextRule, nextAction),
+          }),
+        );
+      }
+    }
+
+    await this.appendAutomationRuns(runs);
+    return runs.map((run) => this.cloneAutomationRun(run));
+  }
+
   private async runSync(options: {
     forceRefresh?: boolean;
     foreground: boolean;
@@ -969,6 +1367,7 @@ export class GranolaApp implements GranolaAppApi {
       const rules = await this.loadAutomationRules();
       const automationMatches = matchAutomationRules(rules, events, completedAt);
       await this.appendAutomationMatches(automationMatches);
+      await this.runAutomationActions(rules, automationMatches);
       this.#state.sync = {
         ...this.#state.sync,
         eventCount: this.#state.sync.eventCount + events.length,
@@ -1207,7 +1606,7 @@ export class GranolaApp implements GranolaAppApi {
     };
   }
 
-  async getMeeting(
+  private async readMeetingBundleById(
     id: string,
     options: { requireCache?: boolean } = {},
   ): Promise<GranolaMeetingBundle> {
@@ -1221,12 +1620,6 @@ export class GranolaApp implements GranolaAppApi {
       this.buildFoldersByDocumentId(folders)?.get(document.id),
     );
 
-    this.setUiState({
-      selectedFolderId: meeting.meeting.folders[0]?.id,
-      selectedMeetingId: document.id,
-      view: "meeting-detail",
-    });
-
     return {
       cacheData,
       document,
@@ -1234,7 +1627,7 @@ export class GranolaApp implements GranolaAppApi {
     };
   }
 
-  async findMeeting(
+  private async readMeetingBundleByQuery(
     query: string,
     options: { requireCache?: boolean } = {},
   ): Promise<GranolaMeetingBundle> {
@@ -1248,17 +1641,41 @@ export class GranolaApp implements GranolaAppApi {
       this.buildFoldersByDocumentId(folders)?.get(document.id),
     );
 
-    this.setUiState({
-      selectedFolderId: meeting.meeting.folders[0]?.id,
-      selectedMeetingId: document.id,
-      view: "meeting-detail",
-    });
-
     return {
       cacheData,
       document,
       meeting,
     };
+  }
+
+  async getMeeting(
+    id: string,
+    options: { requireCache?: boolean } = {},
+  ): Promise<GranolaMeetingBundle> {
+    const bundle = await this.readMeetingBundleById(id, options);
+
+    this.setUiState({
+      selectedFolderId: bundle.meeting.meeting.folders[0]?.id,
+      selectedMeetingId: bundle.document.id,
+      view: "meeting-detail",
+    });
+
+    return bundle;
+  }
+
+  async findMeeting(
+    query: string,
+    options: { requireCache?: boolean } = {},
+  ): Promise<GranolaMeetingBundle> {
+    const bundle = await this.readMeetingBundleByQuery(query, options);
+
+    this.setUiState({
+      selectedFolderId: bundle.meeting.meeting.folders[0]?.id,
+      selectedMeetingId: bundle.document.id,
+      view: "meeting-detail",
+    });
+
+    return bundle;
   }
 
   async listExportJobs(
@@ -1305,6 +1722,8 @@ export class GranolaApp implements GranolaAppApi {
     format: NoteOutputFormat;
     outputDir: string;
     scope: GranolaExportScope;
+    trackLastRun?: boolean;
+    updateUi?: boolean;
   }): Promise<GranolaNotesExportResult> {
     let job = await this.startExportJob(
       "notes",
@@ -1333,20 +1752,24 @@ export class GranolaApp implements GranolaAppApi {
       throw error;
     }
 
-    this.#state.exports.notes = {
-      format: options.format,
-      itemCount: options.documents.length,
-      jobId: job.id,
-      outputDir: options.outputDir,
-      ranAt: this.nowIso(),
-      scope: cloneExportScope(options.scope),
-      written,
-    };
+    if (options.trackLastRun !== false) {
+      this.#state.exports.notes = {
+        format: options.format,
+        itemCount: options.documents.length,
+        jobId: job.id,
+        outputDir: options.outputDir,
+        ranAt: this.nowIso(),
+        scope: cloneExportScope(options.scope),
+        written,
+      };
+    }
     this.emitStateUpdate();
-    this.setUiState({
-      selectedFolderId: options.scope.mode === "folder" ? options.scope.folderId : undefined,
-      view: "notes-export",
-    });
+    if (options.updateUi !== false) {
+      this.setUiState({
+        selectedFolderId: options.scope.mode === "folder" ? options.scope.folderId : undefined,
+        view: "notes-export",
+      });
+    }
 
     return {
       documentCount: options.documents.length,
@@ -1403,6 +1826,8 @@ export class GranolaApp implements GranolaAppApi {
     format: TranscriptOutputFormat;
     outputDir: string;
     scope: GranolaExportScope;
+    trackLastRun?: boolean;
+    updateUi?: boolean;
   }): Promise<GranolaTranscriptsExportResult> {
     const count = transcriptCount(options.cacheData);
     let job = await this.startExportJob(
@@ -1432,20 +1857,24 @@ export class GranolaApp implements GranolaAppApi {
       throw error;
     }
 
-    this.#state.exports.transcripts = {
-      format: options.format,
-      itemCount: count,
-      jobId: job.id,
-      outputDir: options.outputDir,
-      ranAt: this.nowIso(),
-      scope: cloneExportScope(options.scope),
-      written,
-    };
+    if (options.trackLastRun !== false) {
+      this.#state.exports.transcripts = {
+        format: options.format,
+        itemCount: count,
+        jobId: job.id,
+        outputDir: options.outputDir,
+        ranAt: this.nowIso(),
+        scope: cloneExportScope(options.scope),
+        written,
+      };
+    }
     this.emitStateUpdate();
-    this.setUiState({
-      selectedFolderId: options.scope.mode === "folder" ? options.scope.folderId : undefined,
-      view: "transcripts-export",
-    });
+    if (options.updateUi !== false) {
+      this.setUiState({
+        selectedFolderId: options.scope.mode === "folder" ? options.scope.folderId : undefined,
+        view: "transcripts-export",
+      });
+    }
 
     return {
       cacheData: options.cacheData,
@@ -1519,6 +1948,8 @@ export async function createGranolaApp(
   const auth = await inspectDefaultGranolaAuth(config);
   const automationMatchStore = createDefaultAutomationMatchStore();
   const automationMatches = await automationMatchStore.readMatches(0);
+  const automationRunStore = createDefaultAutomationRunStore();
+  const automationRuns = await automationRunStore.readRuns({ limit: 0 });
   const automationRuleStore = createDefaultAutomationRuleStore(
     config.automation?.rulesFile ?? defaultAutomationRulesFilePath(),
   );
@@ -1539,6 +1970,8 @@ export async function createGranolaApp(
       authController,
       automationMatches,
       automationMatchStore,
+      automationRunStore,
+      automationRuns,
       automationRules,
       automationRuleStore,
       cacheLoader: loadOptionalGranolaCache,

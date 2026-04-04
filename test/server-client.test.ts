@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "vite-plus/test";
 
 import { GranolaApp } from "../src/app/core.ts";
 import { MemoryAutomationMatchStore } from "../src/automation-matches.ts";
+import { MemoryAutomationRunStore } from "../src/automation-runs.ts";
 import { MemoryAutomationRuleStore } from "../src/automation-rules.ts";
 import type { GranolaAppStateEvent } from "../src/app/index.ts";
 import { MemorySyncEventStore } from "../src/sync-events.ts";
@@ -96,8 +97,16 @@ function createTestApp(): {
           supabasePath: "/tmp/supabase.json",
         },
         automationMatchStore: new MemoryAutomationMatchStore(),
+        automationRunStore: new MemoryAutomationRunStore(),
         automationRuleStore: new MemoryAutomationRuleStore([
           {
+            actions: [
+              {
+                id: "review",
+                kind: "ask-user",
+                prompt: "Review the meeting before sharing it",
+              },
+            ],
             id: "meeting-created-any",
             name: "Meeting created",
             when: {
@@ -245,6 +254,26 @@ describe("GranolaServerClient", () => {
     expect(await client.listAutomationMatches({ limit: 5 })).toEqual(
       expect.objectContaining({
         matches: [expect.objectContaining({ ruleId: "meeting-created-any" })],
+      }),
+    );
+    const automationRuns = await client.listAutomationRuns({ limit: 5 });
+    expect(automationRuns).toEqual(
+      expect.objectContaining({
+        runs: [
+          expect.objectContaining({
+            actionId: "review",
+            status: "pending",
+          }),
+        ],
+      }),
+    );
+    const resolvedRun = await client.resolveAutomationRun(automationRuns.runs[0]!.id, "approve", {
+      note: "Approved in test",
+    });
+    expect(resolvedRun).toEqual(
+      expect.objectContaining({
+        result: "Approved in test",
+        status: "completed",
       }),
     );
 

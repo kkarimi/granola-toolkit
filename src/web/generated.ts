@@ -1604,6 +1604,7 @@ var granolaTransportPaths = {
 	authUnlock: "/auth/unlock",
 	automationMatches: "/automation/matches",
 	automationRules: "/automation/rules",
+	automationRuns: "/automation/runs",
 	events: "/events",
 	exportJobs: "/exports/jobs",
 	exportNotes: "/exports/notes",
@@ -1662,6 +1663,15 @@ function granolaFoldersPath(options = {}) {
 }
 function granolaExportJobsPath(options = {}) {
 	return appendSearchParams(granolaTransportPaths.exportJobs, { limit: options.limit });
+}
+function granolaAutomationRunsPath(options = {}) {
+	return appendSearchParams(granolaTransportPaths.automationRuns, {
+		limit: options.limit,
+		status: options.status
+	});
+}
+function granolaAutomationRunDecisionPath(id, decision) {
+	return \`\${granolaTransportPaths.automationRuns}/\${encodeURIComponent(id)}/\${decision}\`;
 }
 function granolaExportJobRerunPath(id) {
 	return \`\${granolaTransportPaths.exportJobs}/\${encodeURIComponent(id)}/rerun\`;
@@ -1843,6 +1853,16 @@ var GranolaServerClient = class GranolaServerClient {
 	async listAutomationMatches(options = {}) {
 		const path = options.limit ? \`\${granolaTransportPaths.automationMatches}?limit=\${encodeURIComponent(String(options.limit))}\` : granolaTransportPaths.automationMatches;
 		return await this.requestJson(path);
+	}
+	async listAutomationRuns(options = {}) {
+		return await this.requestJson(granolaAutomationRunsPath(options));
+	}
+	async resolveAutomationRun(id, decision, options = {}) {
+		return await this.requestJson(granolaAutomationRunDecisionPath(id, decision), {
+			body: JSON.stringify(options),
+			headers: { "content-type": "application/json" },
+			method: "POST"
+		});
 	}
 	async inspectSync() {
 		return cloneValue(_classPrivateFieldGet2(_state, this).sync);
@@ -2062,7 +2082,7 @@ function nextWorkspaceTab(currentTab, key) {
 //#endregion
 //#region src/web-app/components.tsx
 /** @jsxImportSource solid-js */
-var _tmpl$$1 = /* @__PURE__ */ template(\`<section class=hero><h1>Granola Toolkit</h1><p>Browser workspace for folders, meetings, notes, transcripts, and export flows on top of one local server instance.</p><input class=search placeholder="Search meetings, ids, or tags"><div class="field-row field-row--inline"><label><span class=field-label>Sort</span><select class=select><option value=updated-desc>Newest first</option><option value=updated-asc>Oldest first</option><option value=title-asc>Title A-Z</option><option value=title-desc>Title Z-A</option></select></label><label><span class=field-label>Updated From</span><input class=field-input type=date></label></div><label class=field-row><span class=field-label>Updated To</span><input class=field-input type=date>\`), _tmpl$2 = /* @__PURE__ */ template(\`<section class=toolbar><div><p>Meetings are loaded from the shared server state so this view can stay aligned with the terminal UI and sync loop.</p></div><div class=toolbar-form><input class=field-input placeholder="Quick open by id or title"><button class="button button--secondary"type=button>Open\`), _tmpl$3 = /* @__PURE__ */ template(\`<div class="folder-empty folder-empty--error">\`), _tmpl$4 = /* @__PURE__ */ template(\`<section class=folder-panel><div class=folder-panel__head><h2>Folders</h2><p>Pick a folder to scope the meeting browser, or stay on All meetings.</p></div><div class=folder-list>\`), _tmpl$5 = /* @__PURE__ */ template(\`<button class=folder-row type=button><span class=folder-row__title>All meetings</span><span class=folder-row__meta>Browse the full meeting list.\`), _tmpl$6 = /* @__PURE__ */ template(\`<div class=folder-empty>No folders found.\`), _tmpl$7 = /* @__PURE__ */ template(\`<button class=folder-row type=button><span class=folder-row__title></span><span class=folder-row__meta>\`), _tmpl$8 = /* @__PURE__ */ template(\`<div class="meeting-empty meeting-empty--error">\`), _tmpl$9 = /* @__PURE__ */ template(\`<section class=meeting-list>\`), _tmpl$0 = /* @__PURE__ */ template(\`<div class=meeting-empty>\`), _tmpl$1 = /* @__PURE__ */ template(\`<button class=meeting-row type=button><span class=meeting-row__title></span><span class=meeting-row__meta></span><span class=meeting-row__meta>\`), _tmpl$10 = /* @__PURE__ */ template(\`<section class=detail-head><div><h2>Meeting Workspace</h2></div><div class=state-badge>\`), _tmpl$11 = /* @__PURE__ */ template(\`<p>Waiting for server state…\`), _tmpl$12 = /* @__PURE__ */ template(\`<div class=status-grid><div><span class=status-label>Surface</span><strong></strong></div><div><span class=status-label>View</span><strong></strong></div><div><span class=status-label>Auth</span><strong></strong></div><div><span class=status-label>Sync</span><strong></strong></div><div><span class=status-label>Documents</span><strong></strong></div><div><span class=status-label>Folders</span><strong></strong></div><div><span class=status-label>Cache</span><strong></strong></div><div><span class=status-label>Index</span><strong>\`), _tmpl$13 = /* @__PURE__ */ template(\`<section class=security-panel><div class=security-panel__head><h3>Server Access</h3><p>This server is locked with a password. Unlock it to load meetings and live state.</p></div><div class=security-panel__body><input class=field-input placeholder="Server password"type=password><div class=toolbar-actions><button class="button button--primary"type=button>Unlock</button><button class="button button--secondary"type=button>Lock\`), _tmpl$14 = /* @__PURE__ */ template(\`<section class=auth-panel><div class=auth-panel__head><h3>Auth Session</h3><p>Inspect, refresh, and switch between API key, stored session, and <code>supabase.json</code>.</p></div><div class=auth-panel__body>\`), _tmpl$15 = /* @__PURE__ */ template(\`<div class=auth-card><div class=auth-card__meta>Auth state unavailable.\`), _tmpl$16 = /* @__PURE__ */ template(\`<div class=auth-card__meta>Client ID: \`), _tmpl$17 = /* @__PURE__ */ template(\`<div class=auth-card__meta>Sign-in method: \`), _tmpl$18 = /* @__PURE__ */ template(\`<div class=auth-card__meta>supabase path: \`), _tmpl$19 = /* @__PURE__ */ template(\`<div class="auth-card__meta auth-card__error">\`), _tmpl$20 = /* @__PURE__ */ template(\`<div class=auth-card><div class=status-grid><div><span class=status-label>Active</span><strong></strong></div><div><span class=status-label>API key</span><strong></strong></div><div><span class=status-label>Stored</span><strong></strong></div><div><span class=status-label>supabase.json</span><strong></strong></div><div><span class=status-label>Refresh</span><strong></strong></div></div><div class=auth-card__meta>Store a Granola Personal API key here or use <code>granola auth login --api-key &lt;token&gt;</code>.</div><div class=auth-card__actions><input class=input placeholder=grn_... type=password><button class="button button--secondary"type=button>Save API key</button><button class="button button--secondary"type=button>Import desktop session</button><button class="button button--secondary"type=button>Refresh stored session</button><button class="button button--secondary"type=button>Use API key</button><button class="button button--secondary"type=button>Use stored session</button><button class="button button--secondary"type=button>Use supabase.json</button><button class="button button--secondary"type=button>Sign out\`), _tmpl$21 = /* @__PURE__ */ template(\`<section class=jobs-panel><div class=jobs-panel__head><h3>Recent Export Jobs</h3><p>Tracked across CLI and web runs.</p></div><div class=jobs-list>\`), _tmpl$22 = /* @__PURE__ */ template(\`<div class=job-empty>No export jobs yet.\`), _tmpl$23 = /* @__PURE__ */ template(\`<div class=job-card__meta>\`), _tmpl$24 = /* @__PURE__ */ template(\`<button class="button button--secondary"type=button>Rerun\`), _tmpl$25 = /* @__PURE__ */ template(\`<article class=job-card><div class=job-card__head><div><div class=job-card__title> export</div><div class=job-card__meta></div></div><div class=job-card__status></div></div><div class=job-card__meta></div><div class=job-card__meta>Started: </div><div class=job-card__meta>Output: </div><div class=job-card__actions>\`), _tmpl$26 = /* @__PURE__ */ template(\`<nav class=workspace-tabs><span class=workspace-hint>1-4 switch tabs, [ and ] cycle\`), _tmpl$27 = /* @__PURE__ */ template(\`<button class=workspace-tab type=button>\`), _tmpl$28 = /* @__PURE__ */ template(\`<div class=empty>\`), _tmpl$29 = /* @__PURE__ */ template(\`<div class=detail-meta><div class=detail-chip></div><div class=detail-chip></div><div class=detail-chip>\`), _tmpl$30 = /* @__PURE__ */ template(\`<div class=detail-body><div class=workspace-grid><aside class="detail-section workspace-sidebar"><h2>Meeting Metadata</h2><pre class=detail-pre></pre></aside><section class="detail-section workspace-main"><h2></h2><pre class=detail-pre>\`);
+var _tmpl$$1 = /* @__PURE__ */ template(\`<section class=hero><h1>Granola Toolkit</h1><p>Browser workspace for folders, meetings, notes, transcripts, and export flows on top of one local server instance.</p><input class=search placeholder="Search meetings, ids, or tags"><div class="field-row field-row--inline"><label><span class=field-label>Sort</span><select class=select><option value=updated-desc>Newest first</option><option value=updated-asc>Oldest first</option><option value=title-asc>Title A-Z</option><option value=title-desc>Title Z-A</option></select></label><label><span class=field-label>Updated From</span><input class=field-input type=date></label></div><label class=field-row><span class=field-label>Updated To</span><input class=field-input type=date>\`), _tmpl$2 = /* @__PURE__ */ template(\`<section class=toolbar><div><p>Meetings are loaded from the shared server state so this view can stay aligned with the terminal UI and sync loop.</p></div><div class=toolbar-form><input class=field-input placeholder="Quick open by id or title"><button class="button button--secondary"type=button>Open\`), _tmpl$3 = /* @__PURE__ */ template(\`<div class="folder-empty folder-empty--error">\`), _tmpl$4 = /* @__PURE__ */ template(\`<section class=folder-panel><div class=folder-panel__head><h2>Folders</h2><p>Pick a folder to scope the meeting browser, or stay on All meetings.</p></div><div class=folder-list>\`), _tmpl$5 = /* @__PURE__ */ template(\`<button class=folder-row type=button><span class=folder-row__title>All meetings</span><span class=folder-row__meta>Browse the full meeting list.\`), _tmpl$6 = /* @__PURE__ */ template(\`<div class=folder-empty>No folders found.\`), _tmpl$7 = /* @__PURE__ */ template(\`<button class=folder-row type=button><span class=folder-row__title></span><span class=folder-row__meta>\`), _tmpl$8 = /* @__PURE__ */ template(\`<div class="meeting-empty meeting-empty--error">\`), _tmpl$9 = /* @__PURE__ */ template(\`<section class=meeting-list>\`), _tmpl$0 = /* @__PURE__ */ template(\`<div class=meeting-empty>\`), _tmpl$1 = /* @__PURE__ */ template(\`<button class=meeting-row type=button><span class=meeting-row__title></span><span class=meeting-row__meta></span><span class=meeting-row__meta>\`), _tmpl$10 = /* @__PURE__ */ template(\`<section class=detail-head><div><h2>Meeting Workspace</h2></div><div class=state-badge>\`), _tmpl$11 = /* @__PURE__ */ template(\`<p>Waiting for server state…\`), _tmpl$12 = /* @__PURE__ */ template(\`<div class=status-grid><div><span class=status-label>Surface</span><strong></strong></div><div><span class=status-label>View</span><strong></strong></div><div><span class=status-label>Auth</span><strong></strong></div><div><span class=status-label>Sync</span><strong></strong></div><div><span class=status-label>Documents</span><strong></strong></div><div><span class=status-label>Folders</span><strong></strong></div><div><span class=status-label>Cache</span><strong></strong></div><div><span class=status-label>Index</span><strong></strong></div><div><span class=status-label>Automation</span><strong>\`), _tmpl$13 = /* @__PURE__ */ template(\`<section class=security-panel><div class=security-panel__head><h3>Server Access</h3><p>This server is locked with a password. Unlock it to load meetings and live state.</p></div><div class=security-panel__body><input class=field-input placeholder="Server password"type=password><div class=toolbar-actions><button class="button button--primary"type=button>Unlock</button><button class="button button--secondary"type=button>Lock\`), _tmpl$14 = /* @__PURE__ */ template(\`<section class=auth-panel><div class=auth-panel__head><h3>Auth Session</h3><p>Inspect, refresh, and switch between API key, stored session, and <code>supabase.json</code>.</p></div><div class=auth-panel__body>\`), _tmpl$15 = /* @__PURE__ */ template(\`<div class=auth-card><div class=auth-card__meta>Auth state unavailable.\`), _tmpl$16 = /* @__PURE__ */ template(\`<div class=auth-card__meta>Client ID: \`), _tmpl$17 = /* @__PURE__ */ template(\`<div class=auth-card__meta>Sign-in method: \`), _tmpl$18 = /* @__PURE__ */ template(\`<div class=auth-card__meta>supabase path: \`), _tmpl$19 = /* @__PURE__ */ template(\`<div class="auth-card__meta auth-card__error">\`), _tmpl$20 = /* @__PURE__ */ template(\`<div class=auth-card><div class=status-grid><div><span class=status-label>Active</span><strong></strong></div><div><span class=status-label>API key</span><strong></strong></div><div><span class=status-label>Stored</span><strong></strong></div><div><span class=status-label>supabase.json</span><strong></strong></div><div><span class=status-label>Refresh</span><strong></strong></div></div><div class=auth-card__meta>Store a Granola Personal API key here or use <code>granola auth login --api-key &lt;token&gt;</code>.</div><div class=auth-card__actions><input class=input placeholder=grn_... type=password><button class="button button--secondary"type=button>Save API key</button><button class="button button--secondary"type=button>Import desktop session</button><button class="button button--secondary"type=button>Refresh stored session</button><button class="button button--secondary"type=button>Use API key</button><button class="button button--secondary"type=button>Use stored session</button><button class="button button--secondary"type=button>Use supabase.json</button><button class="button button--secondary"type=button>Sign out\`), _tmpl$21 = /* @__PURE__ */ template(\`<section class=jobs-panel><div class=jobs-panel__head><h3>Recent Export Jobs</h3><p>Tracked across CLI and web runs.</p></div><div class=jobs-list>\`), _tmpl$22 = /* @__PURE__ */ template(\`<div class=job-empty>No export jobs yet.\`), _tmpl$23 = /* @__PURE__ */ template(\`<div class=job-card__meta>\`), _tmpl$24 = /* @__PURE__ */ template(\`<button class="button button--secondary"type=button>Rerun\`), _tmpl$25 = /* @__PURE__ */ template(\`<article class=job-card><div class=job-card__head><div><div class=job-card__title> export</div><div class=job-card__meta></div></div><div class=job-card__status></div></div><div class=job-card__meta></div><div class=job-card__meta>Started: </div><div class=job-card__meta>Output: </div><div class=job-card__actions>\`), _tmpl$26 = /* @__PURE__ */ template(\`<section class=jobs-panel><div class=jobs-panel__head><h3>Automation Runs</h3><p>Recent action runs triggered by durable sync events.</p></div><div class=jobs-list>\`), _tmpl$27 = /* @__PURE__ */ template(\`<div class=job-empty>No automation runs yet.\`), _tmpl$28 = /* @__PURE__ */ template(\`<button class="button button--secondary"type=button>Approve\`), _tmpl$29 = /* @__PURE__ */ template(\`<button class="button button--secondary"type=button>Reject\`), _tmpl$30 = /* @__PURE__ */ template(\`<article class=job-card><div class=job-card__head><div><div class=job-card__title></div><div class=job-card__meta></div></div><div class=job-card__status></div></div><div class=job-card__meta></div><div class=job-card__meta></div><div class=job-card__actions>\`), _tmpl$31 = /* @__PURE__ */ template(\`<nav class=workspace-tabs><span class=workspace-hint>1-4 switch tabs, [ and ] cycle\`), _tmpl$32 = /* @__PURE__ */ template(\`<button class=workspace-tab type=button>\`), _tmpl$33 = /* @__PURE__ */ template(\`<div class=empty>\`), _tmpl$34 = /* @__PURE__ */ template(\`<div class=detail-meta><div class=detail-chip></div><div class=detail-chip></div><div class=detail-chip>\`), _tmpl$35 = /* @__PURE__ */ template(\`<div class=detail-body><div class=workspace-grid><aside class="detail-section workspace-sidebar"><h2>Meeting Metadata</h2><pre class=detail-pre></pre></aside><section class="detail-section workspace-main"><h2></h2><pre class=detail-pre>\`);
 function authModeLabel(mode) {
 	switch (mode) {
 		case "api-key": return "API key";
@@ -2279,7 +2299,7 @@ function AppStatePanel(props) {
 				return props.appState;
 			},
 			children: (appState) => (() => {
-				var _el$39 = _tmpl$12(), _el$40 = _el$39.firstChild, _el$42 = _el$40.firstChild.nextSibling, _el$43 = _el$40.nextSibling, _el$45 = _el$43.firstChild.nextSibling, _el$46 = _el$43.nextSibling, _el$48 = _el$46.firstChild.nextSibling, _el$49 = _el$46.nextSibling, _el$51 = _el$49.firstChild.nextSibling, _el$52 = _el$49.nextSibling, _el$54 = _el$52.firstChild.nextSibling, _el$55 = _el$52.nextSibling, _el$57 = _el$55.firstChild.nextSibling, _el$58 = _el$55.nextSibling, _el$60 = _el$58.firstChild.nextSibling, _el$63 = _el$58.nextSibling.firstChild.nextSibling;
+				var _el$39 = _tmpl$12(), _el$40 = _el$39.firstChild, _el$42 = _el$40.firstChild.nextSibling, _el$43 = _el$40.nextSibling, _el$45 = _el$43.firstChild.nextSibling, _el$46 = _el$43.nextSibling, _el$48 = _el$46.firstChild.nextSibling, _el$49 = _el$46.nextSibling, _el$51 = _el$49.firstChild.nextSibling, _el$52 = _el$49.nextSibling, _el$54 = _el$52.firstChild.nextSibling, _el$55 = _el$52.nextSibling, _el$57 = _el$55.firstChild.nextSibling, _el$58 = _el$55.nextSibling, _el$60 = _el$58.firstChild.nextSibling, _el$61 = _el$58.nextSibling, _el$63 = _el$61.firstChild.nextSibling, _el$66 = _el$61.nextSibling.firstChild.nextSibling;
 				insert(_el$42, () => appState().ui.surface);
 				insert(_el$45, () => appState().ui.view);
 				insert(_el$48, authStatus);
@@ -2300,6 +2320,7 @@ function AppStatePanel(props) {
 					var _c$7 = memo(() => !!appState().index.loaded);
 					return () => _c$7() ? \`\${appState().index.meetingCount} meetings\` : appState().index.available ? "available" : "not built";
 				})());
+				insert(_el$66, () => \`\${appState().automation.runCount} runs / \${appState().automation.pendingRunCount} pending\`);
 				return _el$39;
 			})()
 		}), null);
@@ -2314,27 +2335,27 @@ function SecurityPanel(props) {
 			return props.visible;
 		},
 		get children() {
-			var _el$64 = _tmpl$13(), _el$67 = _el$64.firstChild.nextSibling.firstChild, _el$69 = _el$67.nextSibling.firstChild, _el$70 = _el$69.nextSibling;
-			_el$67.$$keydown = (event) => {
+			var _el$67 = _tmpl$13(), _el$70 = _el$67.firstChild.nextSibling.firstChild, _el$72 = _el$70.nextSibling.firstChild, _el$73 = _el$72.nextSibling;
+			_el$70.$$keydown = (event) => {
 				if (event.key === "Enter") {
 					event.preventDefault();
 					props.onUnlock();
 				}
 			};
-			_el$67.$$input = (event) => {
+			_el$70.$$input = (event) => {
 				props.onPasswordChange(event.currentTarget.value);
 			};
-			addEventListener(_el$69, "click", props.onUnlock, true);
-			addEventListener(_el$70, "click", props.onLock, true);
-			createRenderEffect(() => _el$67.value = props.password);
-			return _el$64;
+			addEventListener(_el$72, "click", props.onUnlock, true);
+			addEventListener(_el$73, "click", props.onLock, true);
+			createRenderEffect(() => _el$70.value = props.password);
+			return _el$67;
 		}
 	});
 }
 function AuthPanel(props) {
 	return (() => {
-		var _el$71 = _tmpl$14(), _el$73 = _el$71.firstChild.nextSibling;
-		insert(_el$73, createComponent(Show, {
+		var _el$74 = _tmpl$14(), _el$76 = _el$74.firstChild.nextSibling;
+		insert(_el$76, createComponent(Show, {
 			get fallback() {
 				return _tmpl$15();
 			},
@@ -2342,79 +2363,79 @@ function AuthPanel(props) {
 				return props.auth;
 			},
 			children: (auth) => (() => {
-				var _el$75 = _tmpl$20(), _el$76 = _el$75.firstChild, _el$77 = _el$76.firstChild, _el$79 = _el$77.firstChild.nextSibling, _el$80 = _el$77.nextSibling, _el$82 = _el$80.firstChild.nextSibling, _el$83 = _el$80.nextSibling, _el$85 = _el$83.firstChild.nextSibling, _el$86 = _el$83.nextSibling, _el$88 = _el$86.firstChild.nextSibling, _el$91 = _el$86.nextSibling.firstChild.nextSibling, _el$99 = _el$76.nextSibling, _el$101 = _el$99.nextSibling.firstChild, _el$102 = _el$101.nextSibling, _el$103 = _el$102.nextSibling, _el$104 = _el$103.nextSibling, _el$105 = _el$104.nextSibling, _el$106 = _el$105.nextSibling, _el$107 = _el$106.nextSibling, _el$108 = _el$107.nextSibling;
-				insert(_el$79, () => authModeLabel(auth().mode));
-				insert(_el$82, () => auth().apiKeyAvailable ? "available" : "missing");
-				insert(_el$85, () => auth().storedSessionAvailable ? "available" : "missing");
-				insert(_el$88, () => auth().supabaseAvailable ? "available" : "missing");
-				insert(_el$91, () => auth().refreshAvailable ? "available" : "missing");
-				insert(_el$75, createComponent(Show, {
+				var _el$78 = _tmpl$20(), _el$79 = _el$78.firstChild, _el$80 = _el$79.firstChild, _el$82 = _el$80.firstChild.nextSibling, _el$83 = _el$80.nextSibling, _el$85 = _el$83.firstChild.nextSibling, _el$86 = _el$83.nextSibling, _el$88 = _el$86.firstChild.nextSibling, _el$89 = _el$86.nextSibling, _el$91 = _el$89.firstChild.nextSibling, _el$94 = _el$89.nextSibling.firstChild.nextSibling, _el$102 = _el$79.nextSibling, _el$104 = _el$102.nextSibling.firstChild, _el$105 = _el$104.nextSibling, _el$106 = _el$105.nextSibling, _el$107 = _el$106.nextSibling, _el$108 = _el$107.nextSibling, _el$109 = _el$108.nextSibling, _el$110 = _el$109.nextSibling, _el$111 = _el$110.nextSibling;
+				insert(_el$82, () => authModeLabel(auth().mode));
+				insert(_el$85, () => auth().apiKeyAvailable ? "available" : "missing");
+				insert(_el$88, () => auth().storedSessionAvailable ? "available" : "missing");
+				insert(_el$91, () => auth().supabaseAvailable ? "available" : "missing");
+				insert(_el$94, () => auth().refreshAvailable ? "available" : "missing");
+				insert(_el$78, createComponent(Show, {
 					get when() {
 						return auth().clientId;
 					},
 					get children() {
-						var _el$92 = _tmpl$16();
-						_el$92.firstChild;
-						insert(_el$92, () => auth().clientId, null);
-						return _el$92;
+						var _el$95 = _tmpl$16();
+						_el$95.firstChild;
+						insert(_el$95, () => auth().clientId, null);
+						return _el$95;
 					}
-				}), _el$99);
-				insert(_el$75, createComponent(Show, {
+				}), _el$102);
+				insert(_el$78, createComponent(Show, {
 					get when() {
 						return auth().signInMethod;
 					},
 					get children() {
-						var _el$94 = _tmpl$17();
-						_el$94.firstChild;
-						insert(_el$94, () => auth().signInMethod, null);
-						return _el$94;
+						var _el$97 = _tmpl$17();
+						_el$97.firstChild;
+						insert(_el$97, () => auth().signInMethod, null);
+						return _el$97;
 					}
-				}), _el$99);
-				insert(_el$75, createComponent(Show, {
+				}), _el$102);
+				insert(_el$78, createComponent(Show, {
 					get when() {
 						return auth().supabasePath;
 					},
 					get children() {
-						var _el$96 = _tmpl$18();
-						_el$96.firstChild;
-						insert(_el$96, () => auth().supabasePath, null);
-						return _el$96;
+						var _el$99 = _tmpl$18();
+						_el$99.firstChild;
+						insert(_el$99, () => auth().supabasePath, null);
+						return _el$99;
 					}
-				}), _el$99);
-				insert(_el$75, createComponent(Show, {
+				}), _el$102);
+				insert(_el$78, createComponent(Show, {
 					get when() {
 						return auth().lastError;
 					},
 					get children() {
-						var _el$98 = _tmpl$19();
-						insert(_el$98, () => auth().lastError);
-						return _el$98;
+						var _el$101 = _tmpl$19();
+						insert(_el$101, () => auth().lastError);
+						return _el$101;
 					}
-				}), _el$99);
-				_el$101.$$input = (event) => {
+				}), _el$102);
+				_el$104.$$input = (event) => {
 					props.onApiKeyDraftChange(event.currentTarget.value);
 				};
-				addEventListener(_el$102, "click", props.onSaveApiKey, true);
-				addEventListener(_el$103, "click", props.onImportDesktopSession, true);
-				addEventListener(_el$104, "click", props.onRefresh, true);
-				_el$105.$$click = () => {
+				addEventListener(_el$105, "click", props.onSaveApiKey, true);
+				addEventListener(_el$106, "click", props.onImportDesktopSession, true);
+				addEventListener(_el$107, "click", props.onRefresh, true);
+				_el$108.$$click = () => {
 					props.onSwitchMode("api-key");
 				};
-				_el$106.$$click = () => {
+				_el$109.$$click = () => {
 					props.onSwitchMode("stored-session");
 				};
-				_el$107.$$click = () => {
+				_el$110.$$click = () => {
 					props.onSwitchMode("supabase-file");
 				};
-				addEventListener(_el$108, "click", props.onLogout, true);
+				addEventListener(_el$111, "click", props.onLogout, true);
 				createRenderEffect((_p$) => {
 					var _v$ = !auth().supabaseAvailable, _v$2 = !auth().storedSessionAvailable || !auth().refreshAvailable, _v$3 = !auth().apiKeyAvailable || auth().mode === "api-key", _v$4 = !auth().storedSessionAvailable || auth().mode === "stored-session", _v$5 = !auth().supabaseAvailable || auth().mode === "supabase-file", _v$6 = !auth().apiKeyAvailable && !auth().storedSessionAvailable;
-					_v$ !== _p$.e && (_el$103.disabled = _p$.e = _v$);
-					_v$2 !== _p$.t && (_el$104.disabled = _p$.t = _v$2);
-					_v$3 !== _p$.a && (_el$105.disabled = _p$.a = _v$3);
-					_v$4 !== _p$.o && (_el$106.disabled = _p$.o = _v$4);
-					_v$5 !== _p$.i && (_el$107.disabled = _p$.i = _v$5);
-					_v$6 !== _p$.n && (_el$108.disabled = _p$.n = _v$6);
+					_v$ !== _p$.e && (_el$106.disabled = _p$.e = _v$);
+					_v$2 !== _p$.t && (_el$107.disabled = _p$.t = _v$2);
+					_v$3 !== _p$.a && (_el$108.disabled = _p$.a = _v$3);
+					_v$4 !== _p$.o && (_el$109.disabled = _p$.o = _v$4);
+					_v$5 !== _p$.i && (_el$110.disabled = _p$.i = _v$5);
+					_v$6 !== _p$.n && (_el$111.disabled = _p$.n = _v$6);
 					return _p$;
 				}, {
 					e: void 0,
@@ -2424,17 +2445,17 @@ function AuthPanel(props) {
 					i: void 0,
 					n: void 0
 				});
-				createRenderEffect(() => _el$101.value = props.apiKeyDraft);
-				return _el$75;
+				createRenderEffect(() => _el$104.value = props.apiKeyDraft);
+				return _el$78;
 			})()
 		}));
-		return _el$71;
+		return _el$74;
 	})();
 }
 function ExportJobsPanel(props) {
 	return (() => {
-		var _el$109 = _tmpl$21(), _el$111 = _el$109.firstChild.nextSibling;
-		insert(_el$111, createComponent(Show, {
+		var _el$112 = _tmpl$21(), _el$114 = _el$112.firstChild.nextSibling;
+		insert(_el$114, createComponent(Show, {
 			get when() {
 				return props.jobs.length > 0;
 			},
@@ -2447,46 +2468,127 @@ function ExportJobsPanel(props) {
 						return props.jobs.slice(0, 6);
 					},
 					children: (job) => (() => {
-						var _el$113 = _tmpl$25(), _el$114 = _el$113.firstChild, _el$115 = _el$114.firstChild, _el$116 = _el$115.firstChild, _el$117 = _el$116.firstChild, _el$118 = _el$116.nextSibling, _el$119 = _el$115.nextSibling, _el$120 = _el$114.nextSibling, _el$121 = _el$120.nextSibling;
-						_el$121.firstChild;
-						var _el$123 = _el$121.nextSibling;
-						_el$123.firstChild;
-						var _el$126 = _el$123.nextSibling;
-						insert(_el$116, () => job.kind, _el$117);
-						insert(_el$118, () => job.id);
-						insert(_el$119, () => job.status);
-						insert(_el$120, () => \`Format: \${job.format} • \${scopeLabel(job.scope)} • \${job.itemCount > 0 ? \`\${job.completedCount}/\${job.itemCount} items\` : "0 items"} • Written: \${job.written}\`);
-						insert(_el$121, () => job.startedAt.slice(0, 19), null);
-						insert(_el$123, () => job.outputDir, null);
-						insert(_el$113, createComponent(Show, {
+						var _el$116 = _tmpl$25(), _el$117 = _el$116.firstChild, _el$118 = _el$117.firstChild, _el$119 = _el$118.firstChild, _el$120 = _el$119.firstChild, _el$121 = _el$119.nextSibling, _el$122 = _el$118.nextSibling, _el$123 = _el$117.nextSibling, _el$124 = _el$123.nextSibling;
+						_el$124.firstChild;
+						var _el$126 = _el$124.nextSibling;
+						_el$126.firstChild;
+						var _el$129 = _el$126.nextSibling;
+						insert(_el$119, () => job.kind, _el$120);
+						insert(_el$121, () => job.id);
+						insert(_el$122, () => job.status);
+						insert(_el$123, () => \`Format: \${job.format} • \${scopeLabel(job.scope)} • \${job.itemCount > 0 ? \`\${job.completedCount}/\${job.itemCount} items\` : "0 items"} • Written: \${job.written}\`);
+						insert(_el$124, () => job.startedAt.slice(0, 19), null);
+						insert(_el$126, () => job.outputDir, null);
+						insert(_el$116, createComponent(Show, {
 							get when() {
 								return job.error;
 							},
 							get children() {
-								var _el$125 = _tmpl$23();
-								insert(_el$125, () => job.error);
-								return _el$125;
+								var _el$128 = _tmpl$23();
+								insert(_el$128, () => job.error);
+								return _el$128;
 							}
-						}), _el$126);
-						insert(_el$126, createComponent(Show, {
+						}), _el$129);
+						insert(_el$129, createComponent(Show, {
 							get when() {
 								return job.status !== "running";
 							},
 							get children() {
-								var _el$127 = _tmpl$24();
-								_el$127.$$click = () => {
+								var _el$130 = _tmpl$24();
+								_el$130.$$click = () => {
 									props.onRerun(job.id);
 								};
-								return _el$127;
+								return _el$130;
 							}
 						}));
-						createRenderEffect(() => setAttribute(_el$119, "data-status", job.status));
-						return _el$113;
+						createRenderEffect(() => setAttribute(_el$122, "data-status", job.status));
+						return _el$116;
 					})()
 				});
 			}
 		}));
-		return _el$109;
+		return _el$112;
+	})();
+}
+function AutomationRunsPanel(props) {
+	return (() => {
+		var _el$131 = _tmpl$26(), _el$133 = _el$131.firstChild.nextSibling;
+		insert(_el$133, createComponent(Show, {
+			get when() {
+				return props.runs.length > 0;
+			},
+			get fallback() {
+				return _tmpl$27();
+			},
+			get children() {
+				return createComponent(For, {
+					get each() {
+						return props.runs.slice(0, 6);
+					},
+					children: (run) => (() => {
+						var _el$135 = _tmpl$30(), _el$136 = _el$135.firstChild, _el$137 = _el$136.firstChild, _el$138 = _el$137.firstChild, _el$139 = _el$138.nextSibling, _el$140 = _el$137.nextSibling, _el$141 = _el$136.nextSibling, _el$142 = _el$141.nextSibling, _el$146 = _el$142.nextSibling;
+						insert(_el$138, () => run.actionName);
+						insert(_el$139, () => \`\${run.ruleName} • \${run.id}\`);
+						insert(_el$140, () => run.status);
+						insert(_el$141, () => \`\${run.title} • \${run.eventKind}\`);
+						insert(_el$142, () => \`Started: \${run.startedAt.slice(0, 19)}\`);
+						insert(_el$135, createComponent(Show, {
+							get when() {
+								return run.prompt;
+							},
+							get children() {
+								var _el$143 = _tmpl$23();
+								insert(_el$143, () => run.prompt);
+								return _el$143;
+							}
+						}), _el$146);
+						insert(_el$135, createComponent(Show, {
+							get when() {
+								return run.result;
+							},
+							get children() {
+								var _el$144 = _tmpl$23();
+								insert(_el$144, () => run.result);
+								return _el$144;
+							}
+						}), _el$146);
+						insert(_el$135, createComponent(Show, {
+							get when() {
+								return run.error;
+							},
+							get children() {
+								var _el$145 = _tmpl$23();
+								insert(_el$145, () => run.error);
+								return _el$145;
+							}
+						}), _el$146);
+						insert(_el$146, createComponent(Show, {
+							get when() {
+								return run.status === "pending";
+							},
+							get children() {
+								return [(() => {
+									var _el$147 = _tmpl$28();
+									_el$147.$$click = () => {
+										props.onApprove(run.id);
+									};
+									return _el$147;
+								})(), (() => {
+									var _el$148 = _tmpl$29();
+									_el$148.$$click = () => {
+										props.onReject(run.id);
+									};
+									return _el$148;
+								})()];
+							}
+						}));
+						createRenderEffect(() => setAttribute(_el$140, "data-status", run.status));
+						return _el$135;
+					})()
+				});
+			}
+		}));
+		return _el$131;
 	})();
 }
 function Workspace(props) {
@@ -2496,8 +2598,8 @@ function Workspace(props) {
 		return workspaceBody(props.bundle, props.selectedMeeting, parsedTab());
 	};
 	return [(() => {
-		var _el$128 = _tmpl$26(), _el$129 = _el$128.firstChild;
-		insert(_el$128, createComponent(For, {
+		var _el$149 = _tmpl$31(), _el$150 = _el$149.firstChild;
+		insert(_el$149, createComponent(For, {
 			each: [
 				"notes",
 				"transcript",
@@ -2505,50 +2607,50 @@ function Workspace(props) {
 				"raw"
 			],
 			children: (tab) => (() => {
-				var _el$130 = _tmpl$27();
-				_el$130.$$click = () => {
+				var _el$151 = _tmpl$32();
+				_el$151.$$click = () => {
 					props.onSelectTab(tab);
 				};
-				insert(_el$130, tab === "notes" ? "Notes" : tab === "transcript" ? "Transcript" : tab === "metadata" ? "Metadata" : "Raw");
-				createRenderEffect(() => setAttribute(_el$130, "data-selected", parsedTab() === tab ? "true" : void 0));
-				return _el$130;
+				insert(_el$151, tab === "notes" ? "Notes" : tab === "transcript" ? "Transcript" : tab === "metadata" ? "Metadata" : "Raw");
+				createRenderEffect(() => setAttribute(_el$151, "data-selected", parsedTab() === tab ? "true" : void 0));
+				return _el$151;
 			})()
-		}), _el$129);
-		return _el$128;
+		}), _el$150);
+		return _el$149;
 	})(), createComponent(Show, {
 		get when() {
 			return props.selectedMeeting;
 		},
 		get fallback() {
 			return (() => {
-				var _el$131 = _tmpl$28();
-				insert(_el$131, () => props.detailError || "Select a meeting to inspect its notes and transcript.");
-				return _el$131;
+				var _el$152 = _tmpl$33();
+				insert(_el$152, () => props.detailError || "Select a meeting to inspect its notes and transcript.");
+				return _el$152;
 			})();
 		},
 		children: (meeting) => [(() => {
-			var _el$132 = _tmpl$29(), _el$133 = _el$132.firstChild, _el$134 = _el$133.nextSibling, _el$135 = _el$134.nextSibling;
-			insert(_el$133, () => \`ID: \${meeting().meeting.id}\`);
-			insert(_el$134, () => \`Source: \${meeting().meeting.noteContentSource}\`);
-			insert(_el$135, () => \`Transcript: \${meeting().meeting.transcriptSegmentCount} segments\`);
-			return _el$132;
+			var _el$153 = _tmpl$34(), _el$154 = _el$153.firstChild, _el$155 = _el$154.nextSibling, _el$156 = _el$155.nextSibling;
+			insert(_el$154, () => \`ID: \${meeting().meeting.id}\`);
+			insert(_el$155, () => \`Source: \${meeting().meeting.noteContentSource}\`);
+			insert(_el$156, () => \`Transcript: \${meeting().meeting.transcriptSegmentCount} segments\`);
+			return _el$153;
 		})(), createComponent(Show, {
 			get when() {
 				return !props.detailError;
 			},
 			get fallback() {
 				return (() => {
-					var _el$144 = _tmpl$28();
-					insert(_el$144, () => props.detailError);
-					return _el$144;
+					var _el$165 = _tmpl$33();
+					insert(_el$165, () => props.detailError);
+					return _el$165;
 				})();
 			},
 			get children() {
-				var _el$136 = _tmpl$30(), _el$138 = _el$136.firstChild.firstChild, _el$140 = _el$138.firstChild.nextSibling, _el$142 = _el$138.nextSibling.firstChild, _el$143 = _el$142.nextSibling;
-				insert(_el$140, () => metadataLines(meeting()));
-				insert(_el$142, () => details()?.title);
-				insert(_el$143, () => details()?.body);
-				return _el$136;
+				var _el$157 = _tmpl$35(), _el$159 = _el$157.firstChild.firstChild, _el$161 = _el$159.firstChild.nextSibling, _el$163 = _el$159.nextSibling.firstChild, _el$164 = _el$163.nextSibling;
+				insert(_el$161, () => metadataLines(meeting()));
+				insert(_el$163, () => details()?.title);
+				insert(_el$164, () => details()?.body);
+				return _el$157;
 			}
 		})]
 	})];
@@ -2579,6 +2681,7 @@ function App() {
 	const [state, setState] = createStore({
 		apiKeyDraft: "",
 		appState: null,
+		automationRuns: [],
 		detailError: "",
 		folderError: "",
 		folders: [],
@@ -2647,6 +2750,14 @@ function App() {
 			setState("selectedFolderId", null);
 		}
 	};
+	const loadAutomationRuns = async () => {
+		if (!client) return;
+		try {
+			setState("automationRuns", (await client.listAutomationRuns({ limit: 20 })).runs);
+		} catch (error) {
+			setState("detailError", error instanceof Error ? error.message : String(error));
+		}
+	};
 	const loadMeeting = async (meetingId) => {
 		if (!client) return;
 		setState("selectedMeetingId", meetingId);
@@ -2700,7 +2811,11 @@ function App() {
 			forceRefresh: true,
 			foreground: true
 		});
-		await Promise.all([loadFolders(forceRefresh), mergeAuthState()]);
+		await Promise.all([
+			loadFolders(forceRefresh),
+			loadAutomationRuns(),
+			mergeAuthState()
+		]);
 		await loadMeetings({ refresh: forceRefresh });
 		setState("serverLocked", false);
 		setStatus(forceRefresh ? "Sync complete" : state.meetingSource === "index" ? "Loaded from index" : "Connected", "ok");
@@ -2833,6 +2948,17 @@ function App() {
 			setStatus("Rerun failed", "error");
 		}
 	};
+	const resolveAutomationRun = async (id, decision) => {
+		if (!client) return;
+		setStatus(decision === "approve" ? "Approving automation…" : "Rejecting automation…", "busy");
+		try {
+			await client.resolveAutomationRun(id, decision);
+			await refreshAll();
+		} catch (error) {
+			setState("detailError", error instanceof Error ? error.message : String(error));
+			setStatus("Automation decision failed", "error");
+		}
+	};
 	const unlockServer = async () => {
 		if (!state.serverPassword.trim()) {
 			setStatus("Enter the server password", "error");
@@ -2860,6 +2986,7 @@ function App() {
 		await detachClient();
 		setState({
 			appState: null,
+			automationRuns: [],
 			detailError: "",
 			folderError: "",
 			folders: [],
@@ -2881,6 +3008,10 @@ function App() {
 			workspaceTab: state.workspaceTab
 		});
 		if (nextPath !== \`\${window.location.pathname}\${window.location.search}\${window.location.hash}\`) history.replaceState(null, "", nextPath);
+	});
+	createEffect(() => {
+		if (!state.appState?.automation.loaded || !client) return;
+		loadAutomationRuns();
 	});
 	onMount(() => {
 		const onKeyDown = (event) => {
@@ -3055,6 +3186,17 @@ function App() {
 			},
 			onRerun: (jobId) => {
 				rerunJob(jobId);
+			}
+		}), null);
+		insert(_el$3, createComponent(AutomationRunsPanel, {
+			onApprove: (runId) => {
+				resolveAutomationRun(runId, "approve");
+			},
+			onReject: (runId) => {
+				resolveAutomationRun(runId, "reject");
+			},
+			get runs() {
+				return state.automationRuns;
 			}
 		}), null);
 		insert(_el$3, createComponent(Workspace, {

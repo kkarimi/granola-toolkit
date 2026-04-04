@@ -6,6 +6,7 @@ export type GranolaToolkitSessionStoreKind = "file" | "keychain";
 export interface GranolaToolkitPersistenceLayout {
   automationMatchesFile: string;
   automationRulesFile: string;
+  automationRunsFile: string;
   apiKeyFile: string;
   dataDirectory: string;
   exportJobsFile: string;
@@ -40,6 +41,7 @@ export function defaultGranolaToolkitPersistenceLayout(
   return {
     automationMatchesFile: join(dataDirectory, "automation-matches.jsonl"),
     automationRulesFile: join(dataDirectory, "automation-rules.json"),
+    automationRunsFile: join(dataDirectory, "automation-runs.jsonl"),
     apiKeyFile: join(dataDirectory, "api-key.txt"),
     dataDirectory,
     exportJobsFile: join(dataDirectory, "export-jobs.json"),
