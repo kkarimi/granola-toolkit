@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, test, vi } from "vite-plus/test";
 
 import { GranolaApp } from "../src/app/core.ts";
+import { MemoryExportJobStore } from "../src/export-jobs.ts";
 import type { CacheData, GranolaDocument } from "../src/types.ts";
 
 const documents: GranolaDocument[] = [
@@ -102,6 +103,7 @@ describe("GranolaApp", () => {
 
   test("tracks note exports in application state", async () => {
     const outputDir = await mkdtemp(join(tmpdir(), "granola-app-notes-"));
+    const jobStore = new MemoryExportJobStore();
     const app = new GranolaApp(
       {
         debug: false,
@@ -122,6 +124,7 @@ describe("GranolaApp", () => {
           supabasePath: "/tmp/supabase.json",
         },
         cacheLoader: async () => undefined,
+        exportJobStore: jobStore,
         granolaClient: {
           listDocuments: async () => documents,
         },
@@ -134,17 +137,70 @@ describe("GranolaApp", () => {
     const state = app.getState();
 
     expect(result.documentCount).toBe(1);
+    expect(result.job.status).toBe("completed");
     expect(result.written).toBe(1);
     expect(markdown).toContain("# Alpha Sync");
     expect(state.exports.notes).toEqual(
       expect.objectContaining({
         format: "markdown",
         itemCount: 1,
+        jobId: result.job.id,
         outputDir,
         written: 1,
       }),
     );
+    expect(state.exports.jobs[0]).toEqual(
+      expect.objectContaining({
+        completedCount: 1,
+        id: result.job.id,
+        kind: "notes",
+        status: "completed",
+      }),
+    );
+    expect(await jobStore.readJobs()).toHaveLength(1);
     expect(state.ui.view).toBe("notes-export");
+  });
+
+  test("lists and reruns persisted export jobs", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "granola-app-rerun-"));
+    const jobStore = new MemoryExportJobStore();
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: outputDir,
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile: "",
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          mode: "supabase-file",
+          storedSessionAvailable: false,
+          supabasePath: "/tmp/supabase.json",
+        },
+        cacheLoader: async () => undefined,
+        exportJobStore: jobStore,
+        granolaClient: {
+          listDocuments: async () => documents,
+        },
+        now: () => new Date("2024-03-01T12:00:00Z"),
+      },
+    );
+
+    const first = await app.exportNotes("markdown");
+    const listed = await app.listExportJobs({ limit: 10 });
+    const rerun = await app.rerunExportJob(first.job.id);
+
+    expect(listed.jobs[0]?.id).toBe(first.job.id);
+    expect("documentCount" in rerun).toBe(true);
+    expect(rerun.job.id).not.toBe(first.job.id);
+    expect(rerun.job.kind).toBe("notes");
+    expect((await jobStore.readJobs()).map((job) => job.id)).toEqual([rerun.job.id, first.job.id]);
   });
 
   test("tracks list filters and quick-open state", async () => {

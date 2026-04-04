@@ -52,6 +52,13 @@ export const granolaWebMarkup = String.raw`
       </div>
       <p>Initial beta web client. It speaks to the same local API that future TUI and attach flows will use.</p>
     </section>
+    <section class="jobs-panel">
+      <div class="jobs-panel__head">
+        <h3>Recent Export Jobs</h3>
+        <p>Tracked across CLI and web runs.</p>
+      </div>
+      <div class="jobs-list" data-jobs-list></div>
+    </section>
     <nav class="workspace-tabs">
       <button class="workspace-tab" data-workspace-tab="notes">Notes</button>
       <button class="workspace-tab" data-workspace-tab="transcript">Transcript</button>

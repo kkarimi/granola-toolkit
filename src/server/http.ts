@@ -251,6 +251,24 @@ export async function startGranolaServer(
         return;
       }
 
+      if (method === "GET" && path === "/exports/jobs") {
+        const limit = parseInteger(url.searchParams.get("limit"));
+        const result = await app.listExportJobs({ limit });
+        sendJson(response, result);
+        return;
+      }
+
+      if (method === "POST" && path.startsWith("/exports/jobs/") && path.endsWith("/rerun")) {
+        const id = decodeURIComponent(path.slice("/exports/jobs/".length, -"/rerun".length));
+        if (!id) {
+          throw new Error("export job id is required");
+        }
+
+        const result = await app.rerunExportJob(id);
+        sendJson(response, result, { status: 202 });
+        return;
+      }
+
       if (method === "POST" && path === "/exports/transcripts") {
         const body = await readJsonBody(request);
         const result = await app.exportTranscripts(transcriptFormatFromBody(body.format));

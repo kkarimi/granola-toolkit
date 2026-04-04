@@ -20,6 +20,7 @@ const els = {
   detailBody: document.querySelector("[data-detail-body]"),
   detailMeta: document.querySelector("[data-detail-meta]"),
   empty: document.querySelector("[data-empty]"),
+  jobsList: document.querySelector("[data-jobs-list]"),
   list: document.querySelector("[data-meeting-list]"),
   noteButton: document.querySelector("[data-export-notes]"),
   quickOpen: document.querySelector("[data-quick-open]"),
@@ -103,6 +104,8 @@ function renderAppState() {
     '<div><span class="status-label">Cache</span><strong>' + escapeHtml(cache) + "</strong></div>",
     "</div>",
   ].join("");
+
+  renderExportJobs();
 }
 
 function renderMeetingList() {
@@ -213,6 +216,44 @@ function renderMeetingDetail() {
     "</section>",
     "</div>",
   ].join("");
+}
+
+function renderExportJobs() {
+  const jobs = state.appState?.exports?.jobs || [];
+  if (jobs.length === 0) {
+    els.jobsList.innerHTML = '<div class="job-empty">No export jobs yet.</div>';
+    return;
+  }
+
+  els.jobsList.innerHTML = jobs
+    .slice(0, 6)
+    .map((job) => {
+      const progress = job.itemCount > 0
+        ? job.completedCount + "/" + job.itemCount + " items"
+        : "0 items";
+      const error = job.error ? '<div class="job-card__meta">' + escapeHtml(job.error) + "</div>" : "";
+      const rerunButton =
+        job.status === "running"
+          ? ""
+          : '<button class="button button--secondary" data-rerun-job-id="' + escapeHtml(job.id) + '">Rerun</button>';
+
+      return [
+        '<article class="job-card">',
+        '<div class="job-card__head">',
+        '<div>',
+        '<div class="job-card__title">' + escapeHtml(job.kind) + " export</div>",
+        '<div class="job-card__meta">' + escapeHtml(job.id) + "</div>",
+        "</div>",
+        '<div class="job-card__status" data-status="' + escapeHtml(job.status) + '">' + escapeHtml(job.status) + "</div>",
+        "</div>",
+        '<div class="job-card__meta">Format: ' + escapeHtml(job.format) + " • " + escapeHtml(progress) + " • Written: " + escapeHtml(String(job.written)) + "</div>",
+        '<div class="job-card__meta">Started: ' + escapeHtml(job.startedAt.slice(0, 19)) + "</div>",
+        error,
+        '<div class="job-card__actions">' + rerunButton + "</div>",
+        "</article>",
+      ].join("");
+    })
+    .join("");
 }
 
 async function fetchJson(path, init) {
@@ -347,6 +388,20 @@ async function exportTranscripts() {
   await refreshAll();
 }
 
+async function rerunJob(id) {
+  setStatus("Rerunning export…", "busy");
+  try {
+    await fetchJson("/exports/jobs/" + encodeURIComponent(id) + "/rerun", {
+      method: "POST",
+    });
+    await refreshAll();
+  } catch (error) {
+    setStatus("Rerun failed", "error");
+    state.detailError = error instanceof Error ? error.message : String(error);
+    renderMeetingDetail();
+  }
+}
+
 els.list.addEventListener("click", (event) => {
   if (!(event.target instanceof Element)) {
     return;
@@ -355,6 +410,19 @@ els.list.addEventListener("click", (event) => {
   const button = event.target.closest("[data-meeting-id]");
   if (!button) return;
   void loadMeeting(button.dataset.meetingId);
+});
+
+els.jobsList.addEventListener("click", (event) => {
+  if (!(event.target instanceof Element)) {
+    return;
+  }
+
+  const button = event.target.closest("[data-rerun-job-id]");
+  if (!button) {
+    return;
+  }
+
+  void rerunJob(button.dataset.rerunJobId);
 });
 
 els.refreshButton.addEventListener("click", () => {

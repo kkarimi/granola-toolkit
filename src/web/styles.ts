@@ -204,6 +204,90 @@ body {
   width: min(440px, 100%);
 }
 
+.jobs-panel {
+  padding: 0 24px 18px;
+}
+
+.jobs-panel__head h3 {
+  margin: 0;
+  font-size: 0.92rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.jobs-panel__head p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.jobs-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.job-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.job-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.job-card__title {
+  font-weight: 700;
+}
+
+.job-card__meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.job-card__status {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.job-card__status[data-status="running"] {
+  background: rgba(163, 79, 47, 0.12);
+  color: var(--warm);
+}
+
+.job-card__status[data-status="failed"] {
+  background: rgba(157, 44, 44, 0.12);
+  color: var(--error);
+}
+
+.job-card__status[data-status="completed"] {
+  background: rgba(36, 107, 79, 0.12);
+  color: var(--ok);
+}
+
+.job-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.job-empty {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .workspace-tabs {
   display: flex;
   flex-wrap: wrap;

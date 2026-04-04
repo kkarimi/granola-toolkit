@@ -48,7 +48,9 @@ export const notesCommand: CommandDefinition = {
     debug(config.debug, "authMode", app.getState().auth.mode);
 
     const result = await app.exportNotes(format);
-    console.log(`✓ Exported ${result.documentCount} notes to ${result.outputDir}`);
+    console.log(
+      `✓ Exported ${result.documentCount} notes to ${result.outputDir} (job ${result.job.id})`,
+    );
     debug(config.debug, "notes written", result.written);
     return 0;
   },

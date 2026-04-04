@@ -46,7 +46,9 @@ export const transcriptsCommand: CommandDefinition = {
     debug(config.debug, "authMode", app.getState().auth.mode);
 
     const result = await app.exportTranscripts(format);
-    console.log(`✓ Exported ${result.transcriptCount} transcripts to ${result.outputDir}`);
+    console.log(
+      `✓ Exported ${result.transcriptCount} transcripts to ${result.outputDir} (job ${result.job.id})`,
+    );
     debug(config.debug, "transcripts written", result.written);
     return 0;
   },

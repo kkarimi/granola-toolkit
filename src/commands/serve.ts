@@ -62,7 +62,9 @@ export const serveCommand: CommandDefinition = {
     console.log("  GET  /events");
     console.log("  GET  /meetings");
     console.log("  GET  /meetings/:id");
+    console.log("  GET  /exports/jobs");
     console.log("  POST /exports/notes");
+    console.log("  POST /exports/jobs/:id/rerun");
     console.log("  POST /exports/transcripts");
 
     await waitForShutdown(async () => await server.close());

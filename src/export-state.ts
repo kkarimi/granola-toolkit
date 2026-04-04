@@ -141,10 +141,16 @@ function entryChanged(left: ExportStateEntry | undefined, right: ExportStateEntr
 export async function syncManagedExports({
   items,
   kind,
+  onProgress,
   outputDir,
 }: {
   items: ManagedExportItem[];
   kind: ExportStateKind;
+  onProgress?: (progress: {
+    completed: number;
+    total: number;
+    written: number;
+  }) => Promise<void> | void;
   outputDir: string;
 }): Promise<number> {
   await ensureDirectory(outputDir);
@@ -171,6 +177,7 @@ export async function syncManagedExports({
   const activeFileNames = new Set(plans.map((plan) => plan.fileName));
   const exportedAt = new Date().toISOString();
   const nextEntries: Record<string, ExportStateEntry> = {};
+  let completed = 0;
   let written = 0;
   let stateChanged = false;
 
@@ -197,6 +204,15 @@ export async function syncManagedExports({
 
     nextEntries[plan.id] = nextEntry;
     stateChanged = stateChanged || entryChanged(plan.existing, nextEntry);
+    completed += 1;
+
+    if (onProgress) {
+      await onProgress({
+        completed,
+        total: plans.length,
+        written,
+      });
+    }
   }
 
   for (const plan of plans) {

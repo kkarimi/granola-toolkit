@@ -33,6 +33,7 @@ Installed command:
 ```bash
 granola --help
 granola auth login
+granola exports --help
 granola meeting --help
 granola notes --help
 granola serve --help
@@ -47,6 +48,7 @@ Local build:
 ```bash
 vp pack
 node dist/cli.js --help
+node dist/cli.js exports --help
 node dist/cli.js meeting --help
 node dist/cli.js notes --help
 node dist/cli.js serve --help
@@ -73,6 +75,8 @@ granola notes
 
 node dist/cli.js notes --supabase "$HOME/Library/Application Support/Granola/supabase.json"
 node dist/cli.js notes --format json --output ./notes-json
+granola exports list
+granola exports rerun notes-1234abcd
 ```
 
 Export transcripts:
@@ -194,7 +198,9 @@ The initial server API includes:
 - `GET /meetings`
 - `GET /meetings/resolve?q=<query>`
 - `GET /meetings/:id`
+- `GET /exports/jobs`
 - `POST /exports/notes`
+- `POST /exports/jobs/:id/rerun`
 - `POST /exports/transcripts`
 
 This is the foundation for the future `granola web` client and any attachable TUI flows.
@@ -212,7 +218,19 @@ The initial browser client includes:
 - keyboard-first workspace switching with `1`-`4`, `[` and `]`
 - app-state status from the shared core
 - note and transcript export actions backed by the same local API
+- a recent export-jobs panel with rerun actions
 - stronger empty and error states for list/detail failures
+
+### Export Jobs
+
+Exports are now tracked as jobs with:
+
+- persistent local history across CLI and web runs
+- running, completed, and failed status
+- per-export progress counters
+- rerun support from `granola exports rerun <job-id>` or the web client
+
+Use `granola exports list` to inspect recent jobs from the CLI.
 
 ## Auth
 

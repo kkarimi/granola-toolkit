@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vite-plus/test";
 
 import { GranolaApp } from "../src/app/core.ts";
+import { MemoryExportJobStore } from "../src/export-jobs.ts";
 import { startGranolaServer } from "../src/server/http.ts";
 import type { CacheData, GranolaDocument } from "../src/types.ts";
 
@@ -156,6 +157,7 @@ describe("startGranolaServer", () => {
 
   test("streams state updates and handles export requests", async () => {
     const outputDir = await mkdtemp(join(tmpdir(), "granola-server-notes-"));
+    const jobStore = new MemoryExportJobStore();
     const app = new GranolaApp(
       {
         debug: false,
@@ -176,6 +178,7 @@ describe("startGranolaServer", () => {
           supabasePath: "/tmp/supabase.json",
         },
         cacheLoader: async () => undefined,
+        exportJobStore: jobStore,
         granolaClient: {
           listDocuments: async () => documents,
         },
@@ -212,12 +215,44 @@ describe("startGranolaServer", () => {
     expect(await exportResponse.json()).toEqual(
       expect.objectContaining({
         documentCount: 1,
+        job: expect.objectContaining({
+          kind: "notes",
+          status: "completed",
+        }),
         written: 1,
       }),
     );
 
     const markdown = await readFile(join(outputDir, "Alpha Sync.md"), "utf8");
     expect(markdown).toContain("# Alpha Sync");
+
+    const jobsResponse = await fetch(new URL("/exports/jobs?limit=10", server.url));
+    expect(jobsResponse.ok).toBe(true);
+    const jobsPayload = (await jobsResponse.json()) as {
+      jobs: Array<{ id: string; kind: string }>;
+    };
+    expect(jobsPayload.jobs[0]).toEqual(
+      expect.objectContaining({
+        kind: "notes",
+      }),
+    );
+
+    const rerunResponse = await fetch(
+      new URL(`/exports/jobs/${jobsPayload.jobs[0]!.id}/rerun`, server.url),
+      {
+        method: "POST",
+      },
+    );
+    expect(rerunResponse.status).toBe(202);
+    expect(await rerunResponse.json()).toEqual(
+      expect.objectContaining({
+        documentCount: 1,
+        job: expect.objectContaining({
+          kind: "notes",
+          status: "completed",
+        }),
+      }),
+    );
 
     await reader?.cancel();
   });
@@ -263,6 +298,7 @@ describe("startGranolaServer", () => {
     const html = await response.text();
     expect(html).toContain("<title>Granola Toolkit</title>");
     expect(html).toContain("Meeting Workspace");
+    expect(html).toContain("Recent Export Jobs");
     expect(html).toContain('new EventSource("/events")');
     expect(html).toContain('data-workspace-tab="notes"');
     expect(html).toContain("1-4 switch tabs");

@@ -194,6 +194,13 @@ export async function writeTranscripts(
   cacheData: CacheData,
   outputDir: string,
   format: TranscriptOutputFormat = "text",
+  options: {
+    onProgress?: (progress: {
+      completed: number;
+      total: number;
+      written: number;
+    }) => Promise<void> | void;
+  } = {},
 ): Promise<number> {
   const entries = Object.entries(cacheData.transcripts)
     .filter(([, segments]) => segments.length > 0)
@@ -233,6 +240,7 @@ export async function writeTranscripts(
       ];
     }),
     kind: "transcripts",
+    onProgress: options.onProgress,
     outputDir,
   });
 }

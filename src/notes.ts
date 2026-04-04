@@ -130,6 +130,13 @@ export async function writeNotes(
   documents: GranolaDocument[],
   outputDir: string,
   format: NoteOutputFormat = "markdown",
+  options: {
+    onProgress?: (progress: {
+      completed: number;
+      total: number;
+      written: number;
+    }) => Promise<void> | void;
+  } = {},
 ): Promise<number> {
   const sorted = [...documents].sort(
     (left, right) =>
@@ -150,6 +157,7 @@ export async function writeNotes(
       };
     }),
     kind: "notes",
+    onProgress: options.onProgress,
     outputDir,
   });
 }

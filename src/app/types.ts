@@ -10,8 +10,11 @@ import type { AppConfig, CacheData, GranolaDocument } from "../types.ts";
 export type GranolaAppAuthMode = GranolaSessionMetadata["mode"];
 export type GranolaAppSurface = "cli" | "server" | "tui" | "web";
 export type GranolaMeetingSort = "title-asc" | "title-desc" | "updated-asc" | "updated-desc";
+export type GranolaExportJobKind = "notes" | "transcripts";
+export type GranolaExportJobStatus = "completed" | "failed" | "running";
 export type GranolaAppView =
   | "idle"
+  | "exports-history"
   | "meeting-detail"
   | "meeting-list"
   | "notes-export"
@@ -37,8 +40,23 @@ export interface GranolaAppCacheState {
 export interface GranolaAppExportRunState {
   format: string;
   itemCount: number;
+  jobId: string;
   outputDir: string;
   ranAt: string;
+  written: number;
+}
+
+export interface GranolaAppExportJobState {
+  completedCount: number;
+  error?: string;
+  finishedAt?: string;
+  format: string;
+  id: string;
+  itemCount: number;
+  kind: GranolaExportJobKind;
+  outputDir: string;
+  startedAt: string;
+  status: GranolaExportJobStatus;
   written: number;
 }
 
@@ -58,6 +76,7 @@ export interface GranolaAppState {
   config: AppConfig;
   documents: GranolaAppDocumentsState;
   exports: {
+    jobs: GranolaAppExportJobState[];
     notes?: GranolaAppExportRunState;
     transcripts?: GranolaAppExportRunState;
   };
@@ -82,6 +101,7 @@ export interface GranolaNotesExportResult {
   documentCount: number;
   documents: GranolaDocument[];
   format: NoteOutputFormat;
+  job: GranolaAppExportJobState;
   outputDir: string;
   written: number;
 }
@@ -89,6 +109,7 @@ export interface GranolaNotesExportResult {
 export interface GranolaTranscriptsExportResult {
   cacheData: CacheData;
   format: TranscriptOutputFormat;
+  job: GranolaAppExportJobState;
   outputDir: string;
   transcriptCount: number;
   written: number;
@@ -97,6 +118,14 @@ export interface GranolaTranscriptsExportResult {
 export interface GranolaMeetingListResult {
   format?: "json" | "text" | "yaml";
   meetings: MeetingSummaryRecord[];
+}
+
+export interface GranolaExportJobsListOptions {
+  limit?: number;
+}
+
+export interface GranolaExportJobsResult {
+  jobs: GranolaAppExportJobState[];
 }
 
 export interface GranolaAppStateEvent {
