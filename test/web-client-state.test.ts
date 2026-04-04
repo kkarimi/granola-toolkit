@@ -1,14 +1,24 @@
 import { describe, expect, test } from "vite-plus/test";
 
 import {
+  applyWorkspaceFilter,
   buildBrowserUrlPath,
   buildMeetingsQuery,
   buildNotesExportRequest,
   buildTranscriptsExportRequest,
   currentFilterSummary,
+  defaultWorkspacePreferences,
+  describeAuthStatus,
+  describeSyncStatus,
   exportScopeLabel,
+  hasActiveFilters,
   nextWorkspaceTab,
   parseWorkspaceTab,
+  parseWorkspacePreferences,
+  rememberRecentMeeting,
+  removeWorkspaceFilter,
+  saveWorkspaceFilter,
+  serialiseWorkspacePreferences,
   selectMeetingId,
   startupSelectionFromSearch,
 } from "../src/web/client-state.ts";
@@ -117,5 +127,52 @@ describe("web client state helpers", () => {
       exportScopeLabel({ mode: "folder", folderName: "Team", folderId: "folder-team-1111" }),
     ).toBe("Folder: Team");
     expect(exportScopeLabel({ mode: "all" })).toBe("Scope: All meetings");
+  });
+
+  test("persists saved filters and recent meetings for the workspace", () => {
+    const initial = defaultWorkspacePreferences();
+    const withRecent = rememberRecentMeeting(initial, {
+      folders: [{ id: "folder-team-1111" }],
+      id: "doc-alpha-1111",
+      title: "Alpha Sync",
+      updatedAt: "2026-04-04T20:00:00Z",
+    });
+    const withFilter = saveWorkspaceFilter(withRecent, {
+      folders: [{ id: "folder-team-1111", name: "Team" }],
+      search: "alpha",
+      selectedFolderId: "folder-team-1111",
+      sort: "updated-asc",
+      updatedFrom: "2026-04-01",
+      updatedTo: "2026-04-04",
+    });
+    const roundTripped = parseWorkspacePreferences(serialiseWorkspacePreferences(withFilter));
+
+    expect(roundTripped.recentMeetings[0]?.id).toBe("doc-alpha-1111");
+    expect(roundTripped.savedFilters[0]?.label).toContain('folder "Team"');
+    expect(hasActiveFilters(roundTripped.savedFilters[0]?.filters ?? {})).toBe(true);
+    expect(applyWorkspaceFilter(roundTripped.savedFilters[0]!)).toEqual({
+      search: "alpha",
+      selectedFolderId: "folder-team-1111",
+      sort: "updated-asc",
+      updatedFrom: "2026-04-01",
+      updatedTo: "2026-04-04",
+    });
+    expect(
+      removeWorkspaceFilter(roundTripped, roundTripped.savedFilters[0]!.id).savedFilters,
+    ).toHaveLength(0);
+  });
+
+  test("describes auth and sync status in user-facing language", () => {
+    expect(describeAuthStatus({ mode: "api-key" })).toBe("API key active");
+    expect(describeAuthStatus({ lastError: "bad token", mode: "stored-session" })).toBe(
+      "Auth needs attention",
+    );
+    expect(
+      describeSyncStatus({
+        lastCompletedAt: "2026-04-04T20:11:12Z",
+        summary: { changedCount: 3 },
+      }),
+    ).toBe("Synced 20:11:12 · 3 changes");
+    expect(describeSyncStatus({ lastError: "boom" })).toBe("Sync needs attention");
   });
 });

@@ -10,14 +10,20 @@ import {
 
 import type { MeetingSummaryRecord } from "../app/index.ts";
 
-import { buildGranolaTuiQuickOpenItems, type GranolaTuiQuickOpenItem } from "./helpers.ts";
+import {
+  buildGranolaTuiQuickOpenItems,
+  type GranolaTuiQuickOpenActionId,
+  type GranolaTuiQuickOpenItem,
+} from "./helpers.ts";
 import { granolaTuiTheme } from "./theme.ts";
 
 interface GranolaTuiQuickOpenPaletteOptions {
   meetings: MeetingSummaryRecord[];
+  onAction: (actionId: GranolaTuiQuickOpenActionId) => Promise<void> | void;
   onCancel: () => void;
   onPick: (meetingId: string) => Promise<void> | void;
   onResolveQuery: (query: string) => Promise<void> | void;
+  recentMeetingIds?: string[];
 }
 
 function padLine(text: string, width: number): string {
@@ -39,7 +45,9 @@ export class GranolaTuiQuickOpenPalette implements Component, Focusable {
   #selectedIndex = 0;
 
   constructor(private readonly options: GranolaTuiQuickOpenPaletteOptions) {
-    this.#matches = buildGranolaTuiQuickOpenItems(this.options.meetings, "");
+    this.#matches = buildGranolaTuiQuickOpenItems(this.options.meetings, "", {
+      recentMeetingIds: this.options.recentMeetingIds,
+    });
     this.#input.onEscape = () => {
       this.options.onCancel();
     };
@@ -53,13 +61,20 @@ export class GranolaTuiQuickOpenPalette implements Component, Focusable {
   }
 
   private updateMatches(): void {
-    this.#matches = buildGranolaTuiQuickOpenItems(this.options.meetings, this.query);
+    this.#matches = buildGranolaTuiQuickOpenItems(this.options.meetings, this.query, {
+      recentMeetingIds: this.options.recentMeetingIds,
+    });
     this.#selectedIndex = Math.max(0, Math.min(this.#selectedIndex, this.#matches.length - 1));
   }
 
   private async chooseSelection(): Promise<void> {
     const selected = this.#matches[this.#selectedIndex];
     if (selected) {
+      if (selected.kind === "action" && selected.actionId) {
+        await this.options.onAction(selected.actionId);
+        return;
+      }
+
       await this.options.onPick(selected.id);
       return;
     }
@@ -112,7 +127,8 @@ export class GranolaTuiQuickOpenPalette implements Component, Focusable {
     lines.push(`+${"-".repeat(bodyWidth - 2)}+`);
     lines.push(
       frameLine(
-        granolaTuiTheme.strong("Quick Open") + granolaTuiTheme.dim("  title, id, or tag"),
+        granolaTuiTheme.strong("Quick Open") +
+          granolaTuiTheme.dim("  meetings, recent items, or workspace actions"),
         bodyWidth,
       ),
     );
@@ -123,7 +139,7 @@ export class GranolaTuiQuickOpenPalette implements Component, Focusable {
     }
 
     for (const hintLine of wrapTextWithAnsi(
-      granolaTuiTheme.dim("Enter to open, Esc to cancel, arrows to move"),
+      granolaTuiTheme.dim("Enter to open, Esc to cancel, arrows to move, type sync/auth/all"),
       Math.max(1, bodyWidth - 4),
     )) {
       lines.push(frameLine(hintLine, bodyWidth));

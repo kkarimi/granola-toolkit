@@ -163,6 +163,21 @@ describe("buildGranolaTuiQuickOpenItems", () => {
     expect(items).toHaveLength(1);
     expect(items[0]?.description).toContain("doc-bravo-2222");
   });
+
+  test("surfaces recent meetings and workspace actions in the palette", () => {
+    const items = buildGranolaTuiQuickOpenItems(meetings, "", {
+      recentMeetingIds: ["doc-bravo-2222"],
+    });
+
+    expect(items[0]).toEqual(
+      expect.objectContaining({
+        id: "doc-bravo-2222",
+        kind: "meeting",
+      }),
+    );
+    expect(items.some((item) => item.id === "sync" && item.kind === "action")).toBe(true);
+    expect(items[0]?.description).toContain("Recent");
+  });
 });
 
 describe("renderGranolaTuiMeetingTab", () => {
@@ -258,8 +273,9 @@ describe("buildGranolaTuiSummary", () => {
     );
 
     expect(summary).toContain("3 folders");
-    expect(summary).toContain("sync 12:00");
-    expect(summary).toContain("list live");
+    expect(summary).toContain("auth stored session");
+    expect(summary).toContain("synced 12:00");
+    expect(summary).toContain("source live");
   });
 });
 

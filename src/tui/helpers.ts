@@ -9,11 +9,15 @@ import { renderMeetingNotes, renderMeetingTranscript } from "../meetings.ts";
 import type { GranolaTuiWorkspaceTab } from "./types.ts";
 
 export interface GranolaTuiQuickOpenItem {
+  actionId?: GranolaTuiQuickOpenActionId;
   description: string;
   id: string;
+  kind: "action" | "meeting";
   label: string;
   score: number;
 }
+
+export type GranolaTuiQuickOpenActionId = "auth" | "automation" | "clear-scope" | "sync";
 
 function splitQuery(query: string): string[] {
   return query.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -54,11 +58,16 @@ function scoreMeetingTerm(meeting: MeetingSummaryRecord, term: string): number |
 export function buildGranolaTuiQuickOpenItems(
   meetings: MeetingSummaryRecord[],
   query: string,
+  options: {
+    includeActions?: boolean;
+    recentMeetingIds?: string[];
+  } = {},
 ): GranolaTuiQuickOpenItem[] {
   const terms = splitQuery(query);
-
-  return meetings
-    .map((meeting) => {
+  const recentMeetingIds = options.recentMeetingIds ?? [];
+  const recentMeetingIndex = new Map(recentMeetingIds.map((id, index) => [id, index]));
+  const items: GranolaTuiQuickOpenItem[] = meetings
+    .map<GranolaTuiQuickOpenItem | undefined>((meeting) => {
       const score = terms.reduce<number | undefined>((current, term) => {
         const termScore = scoreMeetingTerm(meeting, term);
         if (termScore === undefined) {
@@ -74,26 +83,91 @@ export function buildGranolaTuiQuickOpenItems(
 
       const tags =
         meeting.tags.length > 0 ? meeting.tags.map((tag) => `#${tag}`).join(" ") : "untagged";
+      const recentIndex = recentMeetingIndex.get(meeting.id);
+      const recencyScore = recentIndex === undefined ? 0 : -20 + recentIndex;
+      const recentPrefix = recentIndex === undefined ? "" : "Recent · ";
 
       return {
-        description: `${meeting.updatedAt.slice(0, 10)} | ${tags} | ${meeting.id}`,
+        description: `${recentPrefix}${meeting.updatedAt.slice(0, 10)} | ${tags} | ${meeting.id}`,
         id: meeting.id,
+        kind: "meeting",
         label: meeting.title || meeting.id,
-        score: score ?? 99,
-      } satisfies GranolaTuiQuickOpenItem;
+        score: (score ?? 99) + recencyScore,
+      };
     })
-    .filter((item): item is GranolaTuiQuickOpenItem => item !== undefined)
-    .sort((left, right) => {
-      if (left.score !== right.score) {
-        return left.score - right.score;
+    .filter((item): item is GranolaTuiQuickOpenItem => item !== undefined);
+
+  if (options.includeActions !== false) {
+    const actions: Array<{
+      description: string;
+      id: GranolaTuiQuickOpenActionId;
+      keywords: string[];
+      label: string;
+    }> = [
+      {
+        description: "Trigger a foreground sync refresh",
+        id: "sync",
+        keywords: ["sync", "refresh", "reload"],
+        label: "Sync now",
+      },
+      {
+        description: "Open auth controls for API key and session switching",
+        id: "auth",
+        keywords: ["auth", "session", "login", "api"],
+        label: "Auth session",
+      },
+      {
+        description: "Review recent automation runs",
+        id: "automation",
+        keywords: ["automation", "runs", "actions"],
+        label: "Automation runs",
+      },
+      {
+        description: "Clear the current folder scope and show all meetings",
+        id: "clear-scope",
+        keywords: ["all", "scope", "folder", "clear"],
+        label: "All meetings",
+      },
+    ];
+
+    for (const action of actions) {
+      const score = terms.reduce<number | undefined>((current, term) => {
+        const matched = [action.label, ...action.keywords].some((value) =>
+          value.toLowerCase().includes(term),
+        );
+        if (!matched) {
+          return undefined;
+        }
+
+        return (current ?? 0) - 50;
+      }, 0);
+
+      if (terms.length > 0 && score === undefined) {
+        continue;
       }
 
-      if (left.description !== right.description) {
-        return right.description.localeCompare(left.description);
-      }
+      items.push({
+        actionId: action.id,
+        description: action.description,
+        id: action.id,
+        kind: "action",
+        label: action.label,
+        score: score ?? -40,
+      });
+    }
+  }
 
-      return left.label.localeCompare(right.label);
-    });
+  return items.sort((left, right) => {
+    if (left.score !== right.score) {
+      return left.score - right.score;
+    }
+
+    if (left.description !== right.description) {
+      return right.description.localeCompare(left.description);
+    }
+
+    return left.label.localeCompare(right.label);
+  });
 }
 
 export function renderGranolaTuiMeetingTab(
@@ -137,11 +211,13 @@ export function buildGranolaTuiSummary(
 ): string {
   const authMode =
     state.auth.mode === "api-key"
-      ? "key"
+      ? "API key"
       : state.auth.mode === "stored-session"
-        ? "stored"
-        : "supabase";
-  const documents = state.documents.loaded ? `${state.documents.count} docs` : "docs pending";
+        ? "stored session"
+        : "supabase.json";
+  const documents = state.documents.loaded
+    ? `${state.documents.count} documents`
+    : "documents pending";
   const folders = state.folders.loaded ? `${state.folders.count} folders` : "folders pending";
   const cache = state.cache.loaded
     ? `${state.cache.transcriptCount} transcript sets`
@@ -152,9 +228,9 @@ export function buildGranolaTuiSummary(
   const sync = state.sync.running
     ? "sync running"
     : state.sync.lastError
-      ? "sync error"
+      ? "sync needs attention"
       : state.sync.lastCompletedAt
-        ? `sync ${state.sync.lastCompletedAt.slice(11, 16)}`
+        ? `synced ${state.sync.lastCompletedAt.slice(11, 16)}`
         : "sync idle";
   const automation = state.automation.pendingRunCount
     ? `${state.automation.pendingRunCount} pending`
@@ -162,5 +238,5 @@ export function buildGranolaTuiSummary(
       ? `${state.automation.runCount} runs`
       : "automation idle";
 
-  return `auth ${authMode} | ${documents} | ${folders} | ${cache} | ${index} | ${sync} | ${automation} | list ${meetingSource}`;
+  return `auth ${authMode} | ${documents} | ${folders} | ${cache} | ${index} | ${sync} | ${automation} | source ${meetingSource}`;
 }

@@ -60,7 +60,7 @@ select {
 
 .sidebar {
   display: grid;
-  grid-template-rows: auto auto auto 1fr;
+  grid-template-rows: auto auto auto auto 1fr;
   overflow: hidden;
 }
 
@@ -139,13 +139,21 @@ select {
 }
 
 .folder-list,
-.jobs-list {
+.jobs-list,
+.saved-filter-list {
   display: grid;
   gap: 10px;
 }
 
+.saved-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .folder-row,
-.meeting-row {
+.meeting-row,
+.saved-filter-card__main {
   width: 100%;
   display: grid;
   gap: 4px;
@@ -168,8 +176,30 @@ select {
   border-radius: 18px;
 }
 
+.saved-filter-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.saved-filter-card__main {
+  margin: 0;
+}
+
+.saved-filter-card__remove {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 700;
+}
+
 .folder-row:hover,
-.folder-row[data-selected="true"] {
+.folder-row[data-selected="true"],
+.saved-filter-card__main:hover {
   transform: translateY(-1px);
   border-color: rgba(163, 79, 47, 0.26);
   background: var(--panel-strong);
@@ -183,7 +213,8 @@ select {
 }
 
 .folder-row__title,
-.job-card__title {
+.job-card__title,
+.saved-filter-card__title {
   font-weight: 700;
 }
 
@@ -197,7 +228,8 @@ select {
 .job-card__meta,
 .folder-empty,
 .job-empty,
-.meeting-empty {
+.meeting-empty,
+.saved-filter-card__meta {
   color: var(--muted);
   font-size: 0.9rem;
 }

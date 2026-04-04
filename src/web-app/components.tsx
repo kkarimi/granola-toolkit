@@ -15,9 +15,14 @@ import type {
   MeetingSummaryRecord,
 } from "../app/index.ts";
 import {
+  describeAuthStatus,
+  describeSyncStatus,
   currentFilterSummary,
   exportScopeLabel,
+  hasActiveFilters,
   parseWorkspaceTab,
+  type WebWorkspaceRecentMeeting,
+  type WebWorkspaceSavedFilter,
   type WorkspaceTab,
 } from "../web/client-state.ts";
 
@@ -44,8 +49,27 @@ interface FolderListProps {
   selectedFolderId?: string | null;
 }
 
+interface SavedFiltersPanelProps {
+  folders: FolderSummaryRecord[];
+  onApply: (filter: WebWorkspaceSavedFilter) => void;
+  onRemove: (id: string) => void;
+  onSaveCurrent: () => void;
+  savedFilters: WebWorkspaceSavedFilter[];
+  search: string;
+  selectedFolderId?: string | null;
+  sort: GranolaMeetingSort;
+  updatedFrom: string;
+  updatedTo: string;
+}
+
+interface RecentMeetingsPanelProps {
+  onOpen: (meeting: WebWorkspaceRecentMeeting) => void;
+  recentMeetings: WebWorkspaceRecentMeeting[];
+}
+
 interface MeetingListProps {
   error?: string;
+  emptyHint?: string;
   folders: FolderSummaryRecord[];
   meetings: MeetingSummaryRecord[];
   onSelect: (meetingId: string) => void;
@@ -294,6 +318,107 @@ export function FolderList(props: FolderListProps): JSX.Element {
   );
 }
 
+export function SavedFiltersPanel(props: SavedFiltersPanelProps): JSX.Element {
+  const canSaveCurrent = () =>
+    hasActiveFilters({
+      search: props.search,
+      selectedFolderId: props.selectedFolderId,
+      sort: props.sort,
+      updatedFrom: props.updatedFrom,
+      updatedTo: props.updatedTo,
+    });
+
+  return (
+    <section class="folder-panel">
+      <div class="folder-panel__head">
+        <h2>Saved Filters</h2>
+        <p>Keep the slices you revisit often close at hand.</p>
+      </div>
+      <div class="saved-filter-actions">
+        <button
+          class="button button--secondary"
+          disabled={!canSaveCurrent()}
+          onClick={() => {
+            props.onSaveCurrent();
+          }}
+          type="button"
+        >
+          Save current filter
+        </button>
+      </div>
+      <div class="saved-filter-list">
+        <Show
+          when={props.savedFilters.length > 0}
+          fallback={<div class="folder-empty">No saved filters yet.</div>}
+        >
+          <For each={props.savedFilters}>
+            {(preset) => (
+              <div class="saved-filter-card">
+                <button
+                  class="saved-filter-card__main"
+                  onClick={() => {
+                    props.onApply(preset);
+                  }}
+                  type="button"
+                >
+                  <span class="folder-row__title">{preset.label}</span>
+                  <span class="folder-row__meta">
+                    {currentFilterSummary({
+                      folders: props.folders,
+                      ...preset.filters,
+                    }) || "Saved workspace scope"}
+                  </span>
+                </button>
+                <button
+                  class="saved-filter-card__remove"
+                  onClick={() => {
+                    props.onRemove(preset.id);
+                  }}
+                  type="button"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+          </For>
+        </Show>
+      </div>
+    </section>
+  );
+}
+
+export function RecentMeetingsPanel(props: RecentMeetingsPanelProps): JSX.Element {
+  return (
+    <section class="folder-panel">
+      <div class="folder-panel__head">
+        <h2>Recent Meetings</h2>
+        <p>Jump back into the conversations you opened most recently.</p>
+      </div>
+      <div class="folder-list">
+        <Show
+          when={props.recentMeetings.length > 0}
+          fallback={<div class="folder-empty">No recent meetings yet.</div>}
+        >
+          <For each={props.recentMeetings}>
+            {(meeting) => (
+              <button
+                class="folder-row"
+                onClick={() => {
+                  props.onOpen(meeting);
+                }}
+                type="button"
+              >
+                <span class="folder-row__title">{meeting.title}</span>
+                <span class="folder-row__meta">{meeting.updatedAt.slice(0, 10)}</span>
+              </button>
+            )}
+          </For>
+        </Show>
+      </div>
+    </section>
+  );
+}
+
 export function MeetingList(props: MeetingListProps): JSX.Element {
   const summary = () =>
     currentFilterSummary({
@@ -311,7 +436,9 @@ export function MeetingList(props: MeetingListProps): JSX.Element {
           <Show
             fallback={
               <div class="meeting-empty">
-                {summary() ? `No meetings match ${summary()}.` : "No meetings yet. Try Sync now."}
+                {summary()
+                  ? `No meetings match ${summary()}.`
+                  : props.emptyHint || "No meetings yet. Try Sync now."}
               </div>
             }
             when={props.meetings.length > 0}
@@ -353,34 +480,8 @@ export function AppStatePanel(props: {
   statusLabel: string;
   statusTone: WebStatusTone;
 }): JSX.Element {
-  const syncStatus = () => {
-    const sync = props.appState?.sync;
-    if (!sync) {
-      return "idle";
-    }
-
-    if (sync.running) {
-      return "running";
-    }
-
-    if (sync.lastError) {
-      return "error";
-    }
-
-    if (sync.lastCompletedAt) {
-      return `last ${sync.lastCompletedAt.slice(11, 19)}`;
-    }
-
-    return "idle";
-  };
-
-  const authStatus = () => {
-    if (!props.appState) {
-      return "Waiting for auth state…";
-    }
-
-    return authModeLabel(props.appState.auth.mode);
-  };
+  const syncStatus = () => describeSyncStatus(props.appState?.sync ?? {});
+  const authStatus = () => describeAuthStatus(props.appState?.auth);
 
   return (
     <section class="detail-head">
@@ -445,6 +546,9 @@ export function AppStatePanel(props: {
               </div>
             </div>
           )}
+        </Show>
+        <Show when={props.appState?.auth.lastError}>
+          <p>{props.appState?.auth.lastError}</p>
         </Show>
       </div>
       <div class="state-badge" data-tone={props.statusTone}>

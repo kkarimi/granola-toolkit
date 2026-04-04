@@ -17,11 +17,19 @@ import type {
 } from "../app/index.ts";
 import { createGranolaServerClient, type GranolaServerClient } from "../server/client.ts";
 import {
+  applyWorkspaceFilter,
   buildBrowserUrlPath,
+  granolaWebWorkspaceStorageKey,
+  parseWorkspacePreferences,
+  rememberRecentMeeting,
+  saveWorkspaceFilter,
+  removeWorkspaceFilter,
+  serialiseWorkspacePreferences,
   nextWorkspaceTab,
   parseWorkspaceTab,
   selectMeetingId,
   startupSelectionFromSearch,
+  type WebWorkspacePreferences,
   type WorkspaceTab,
 } from "../web/client-state.ts";
 import {
@@ -31,6 +39,8 @@ import {
   ExportJobsPanel,
   FolderList,
   MeetingList,
+  RecentMeetingsPanel,
+  SavedFiltersPanel,
   SecurityPanel,
   ToolbarFilters,
   type WebStatusTone,
@@ -52,6 +62,8 @@ interface GranolaWebAppState {
   meetingSource: MeetingSummarySource;
   meetings: MeetingSummaryRecord[];
   quickOpen: string;
+  recentMeetings: WebWorkspacePreferences["recentMeetings"];
+  savedFilters: WebWorkspacePreferences["savedFilters"];
   search: string;
   selectedFolderId: string | null;
   selectedMeetingBundle: GranolaMeetingBundle | null;
@@ -89,6 +101,9 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function App() {
   const startup = startupSelectionFromSearch(window.location.search);
+  const initialPreferences = parseWorkspacePreferences(
+    window.localStorage.getItem(granolaWebWorkspaceStorageKey),
+  );
   const [state, setState] = createStore<GranolaWebAppState>({
     apiKeyDraft: "",
     appState: null,
@@ -100,6 +115,8 @@ export function App() {
     meetingSource: "live",
     meetings: [],
     quickOpen: "",
+    recentMeetings: initialPreferences.recentMeetings,
+    savedFilters: initialPreferences.savedFilters,
     search: "",
     selectedFolderId: startup.folderId || null,
     selectedMeetingBundle: null,
@@ -123,6 +140,18 @@ export function App() {
       statusLabel: label,
       statusTone: tone,
     });
+  };
+
+  const updatePreferences = (
+    updater: (preferences: WebWorkspacePreferences) => WebWorkspacePreferences,
+  ) => {
+    const next = updater({
+      recentMeetings: state.recentMeetings,
+      savedFilters: state.savedFilters,
+    });
+    window.localStorage.setItem(granolaWebWorkspaceStorageKey, serialiseWorkspacePreferences(next));
+    setState("recentMeetings", next.recentMeetings);
+    setState("savedFilters", next.savedFilters);
   };
 
   const mergeAuthState = async (authState?: GranolaAppAuthState) => {
@@ -219,6 +248,9 @@ export function App() {
       const bundle = await client.getMeeting(meetingId);
       setState("selectedMeetingBundle", bundle);
       setState("selectedMeeting", bundle.meeting);
+      updatePreferences((preferences) =>
+        rememberRecentMeeting(preferences, bundle.meeting.meeting),
+      );
     } catch (error) {
       setState("selectedMeetingBundle", null);
       setState("selectedMeeting", null);
@@ -440,6 +472,94 @@ export function App() {
     }
   };
 
+  const clearFilters = async () => {
+    setState("search", "");
+    setState("sort", "updated-desc");
+    setState("updatedFrom", "");
+    setState("updatedTo", "");
+    setState("selectedFolderId", null);
+    setState("selectedMeetingId", null);
+    setState("selectedMeeting", null);
+    setState("selectedMeetingBundle", null);
+    await loadMeetings();
+    setStatus("Filters cleared", "ok");
+  };
+
+  const saveCurrentFilter = () => {
+    updatePreferences((preferences) =>
+      saveWorkspaceFilter(
+        preferences,
+        {
+          folders: state.folders,
+          search: state.search,
+          selectedFolderId: state.selectedFolderId,
+          sort: state.sort,
+          updatedFrom: state.updatedFrom,
+          updatedTo: state.updatedTo,
+        },
+        {
+          idFactory: () => `filter-${Date.now()}`,
+        },
+      ),
+    );
+    setStatus("Saved filter", "ok");
+  };
+
+  const applySavedFilterPreset = async (id: string) => {
+    const preset = state.savedFilters.find((candidate) => candidate.id === id);
+    if (!preset) {
+      return;
+    }
+
+    const nextFilters = applyWorkspaceFilter(preset);
+    setState("search", nextFilters.search);
+    setState("selectedFolderId", nextFilters.selectedFolderId);
+    setState("sort", nextFilters.sort as GranolaMeetingSort);
+    setState("updatedFrom", nextFilters.updatedFrom);
+    setState("updatedTo", nextFilters.updatedTo);
+    setState("selectedMeetingId", null);
+    setState("selectedMeeting", null);
+    setState("selectedMeetingBundle", null);
+    await loadMeetings();
+    setStatus(`Applied ${preset.label}`, "ok");
+  };
+
+  const removeSavedFilterPreset = (id: string) => {
+    updatePreferences((preferences) => removeWorkspaceFilter(preferences, id));
+    setStatus("Removed saved filter", "ok");
+  };
+
+  const openRecentMeeting = async (meetingId: string, folderId?: string) => {
+    if (folderId !== undefined) {
+      setState("selectedFolderId", folderId || null);
+      setState("selectedMeetingId", null);
+      setState("selectedMeeting", null);
+      setState("selectedMeetingBundle", null);
+      await loadMeetings({
+        preferredMeetingId: meetingId,
+      });
+      return;
+    }
+
+    await loadMeeting(meetingId);
+  };
+
+  const meetingEmptyHint = () => {
+    if (!state.appState) {
+      return "Connect to the local server to load meetings.";
+    }
+
+    if (state.appState.auth.lastError) {
+      return "Resolve auth first, then sync again.";
+    }
+
+    if (!state.appState.documents.loaded && !state.appState.sync.lastCompletedAt) {
+      return "Run Sync now to populate your local meeting index.";
+    }
+
+    return "Try a different folder or filter, or sync again.";
+  };
+
   const exportTranscripts = async () => {
     if (!client) {
       return;
@@ -625,6 +745,26 @@ export function App() {
           updatedFrom={state.updatedFrom}
           updatedTo={state.updatedTo}
         />
+        <SavedFiltersPanel
+          folders={state.folders}
+          onApply={(preset) => {
+            void applySavedFilterPreset(preset.id);
+          }}
+          onRemove={removeSavedFilterPreset}
+          onSaveCurrent={saveCurrentFilter}
+          savedFilters={state.savedFilters}
+          search={state.search}
+          selectedFolderId={state.selectedFolderId}
+          sort={state.sort}
+          updatedFrom={state.updatedFrom}
+          updatedTo={state.updatedTo}
+        />
+        <RecentMeetingsPanel
+          onOpen={(meeting) => {
+            void openRecentMeeting(meeting.id, meeting.folderId);
+          }}
+          recentMeetings={state.recentMeetings}
+        />
         <FolderList
           error={state.folderError}
           folders={state.folders}
@@ -639,6 +779,7 @@ export function App() {
         />
         <MeetingList
           error={state.listError}
+          emptyHint={meetingEmptyHint()}
           folders={state.folders}
           meetings={state.meetings}
           onSelect={(meetingId) => {
@@ -667,6 +808,15 @@ export function App() {
               type="button"
             >
               Sync now
+            </button>
+            <button
+              class="button button--secondary"
+              onClick={() => {
+                void clearFilters();
+              }}
+              type="button"
+            >
+              Clear Filters
             </button>
             <button
               class="button button--secondary"

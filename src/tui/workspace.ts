@@ -103,6 +103,7 @@ export class GranolaTuiWorkspace implements Component {
   #meetingSource: MeetingSummarySource = "live";
   #meetings: MeetingSummaryRecord[] = [];
   #overlay?: OverlayHandle;
+  #recentMeetingIds: string[] = [];
   #selectedFolderId?: string;
   #selectedMeeting?: GranolaMeetingBundle;
   #selectedMeetingId?: string;
@@ -371,6 +372,10 @@ export class GranolaTuiWorkspace implements Component {
 
       this.#selectedMeeting = bundle;
       this.#selectedMeetingId = bundle.document.id;
+      this.#recentMeetingIds = [
+        bundle.document.id,
+        ...this.#recentMeetingIds.filter((candidate) => candidate !== bundle.document.id),
+      ].slice(0, 5);
       if (options.ensureMeetingVisible) {
         this.ensureMeetingVisible(bundle.meeting.meeting);
       }
@@ -648,6 +653,10 @@ export class GranolaTuiWorkspace implements Component {
 
     const palette = new GranolaTuiQuickOpenPalette({
       meetings: this.#meetings,
+      onAction: async (actionId) => {
+        closeOverlay();
+        await this.runQuickOpenAction(actionId);
+      },
       onCancel: closeOverlay,
       onPick: async (meetingId) => {
         closeOverlay();
@@ -662,6 +671,7 @@ export class GranolaTuiWorkspace implements Component {
           resolveQuery: true,
         });
       },
+      recentMeetingIds: this.#recentMeetingIds,
     });
 
     this.#overlay = this.tui.showOverlay(palette, {
@@ -671,6 +681,37 @@ export class GranolaTuiWorkspace implements Component {
       width: "70%",
     });
     this.setStatus("Quick open");
+  }
+
+  private async runQuickOpenAction(actionId: "auth" | "automation" | "clear-scope" | "sync") {
+    switch (actionId) {
+      case "auth":
+        this.openAuthPanel();
+        return;
+      case "automation":
+        this.openAutomationPanel();
+        return;
+      case "clear-scope":
+        this.#selectedFolderId = undefined;
+        this.#selectedMeeting = undefined;
+        this.#detailError = "";
+        this.#detailScroll = 0;
+        this.#selectedMeetingId = undefined;
+        await this.loadMeetings({
+          preferredMeetingId: this.#recentMeetingIds[0],
+          setStatus: false,
+        });
+        if (this.#selectedMeetingId) {
+          await this.loadMeeting(this.#selectedMeetingId, {
+            ensureMeetingVisible: true,
+          });
+        }
+        this.setStatus("Showing all meetings");
+        return;
+      case "sync":
+      default:
+        await this.refresh(true);
+    }
   }
 
   private openAutomationPanel(): void {
@@ -840,6 +881,9 @@ export class GranolaTuiWorkspace implements Component {
   private renderListPane(width: number, height: number): string[] {
     const lines: string[] = [];
     const innerWidth = Math.max(1, width - 2);
+    const recentMeetings = this.#recentMeetingIds
+      .map((meetingId) => this.#meetings.find((meeting) => meeting.id === meetingId))
+      .filter((meeting): meeting is MeetingSummaryRecord => meeting !== undefined);
     const folderEntries = [
       {
         id: undefined,
@@ -857,7 +901,9 @@ export class GranolaTuiWorkspace implements Component {
       Math.max(3, Math.min(8, Math.floor(availableRows * 0.35))),
       Math.max(1, availableRows - 1),
     );
-    const meetingWindowSize = Math.max(1, availableRows - folderWindowSize);
+    const recentWindowSize =
+      recentMeetings.length > 0 ? Math.min(Math.max(2, recentMeetings.length), 3) : 0;
+    const meetingWindowSize = Math.max(1, availableRows - folderWindowSize - recentWindowSize);
 
     const folderHeader = `${
       this.#activePane === "folders"
@@ -918,6 +964,22 @@ export class GranolaTuiWorkspace implements Component {
 
     lines.push(padLine(granolaTuiTheme.dim(""), innerWidth));
 
+    if (recentWindowSize > 0) {
+      lines.push(padLine(granolaTuiTheme.strong("Recent"), innerWidth));
+      for (const meeting of recentMeetings.slice(0, recentWindowSize)) {
+        const prefix = meeting.id === this.#selectedMeetingId ? "> " : "  ";
+        const dateLabel = meeting.updatedAt.slice(0, 10);
+        const maxTitleWidth = Math.max(6, innerWidth - visibleWidth(prefix) - dateLabel.length - 1);
+        const title = truncateToWidth(meeting.title || meeting.id, maxTitleWidth, "");
+        const titleBlock = `${prefix}${title}`;
+        const gap = " ".repeat(
+          Math.max(1, innerWidth - visibleWidth(titleBlock) - visibleWidth(dateLabel)),
+        );
+        lines.push(padLine(`${titleBlock}${gap}${granolaTuiTheme.dim(dateLabel)}`, innerWidth));
+      }
+      lines.push(padLine(granolaTuiTheme.dim(""), innerWidth));
+    }
+
     const meetingsHeader = `${
       this.#activePane === "meetings"
         ? granolaTuiTheme.accent("Meetings")
@@ -939,9 +1001,12 @@ export class GranolaTuiWorkspace implements Component {
     }
 
     if (this.#meetings.length === 0) {
-      lines.push(
-        ...wrapBlock("No meetings available yet.", innerWidth).slice(0, meetingWindowSize),
-      );
+      const emptyMessage = this.#appState.auth.lastError
+        ? "Auth needs attention. Press a to fix credentials."
+        : this.#appState.sync.lastCompletedAt
+          ? "No meetings in this scope. Press / to quick open or Tab to change panes."
+          : "No meetings yet. Press r to sync, or a to configure auth.";
+      lines.push(...wrapBlock(emptyMessage, innerWidth).slice(0, meetingWindowSize));
       while (lines.length < height) {
         lines.push(" ".repeat(innerWidth));
       }
@@ -1051,7 +1116,7 @@ export class GranolaTuiWorkspace implements Component {
     const footerStatus = padLine(toneText(this.#statusTone, this.#statusMessage), width);
     const footerHints = padLine(
       granolaTuiTheme.dim(
-        "h/l or Tab pane  j/k move  / quick open  a auth  u automation  r sync  1-4 tabs  PgUp/PgDn scroll  q quit",
+        "h/l or Tab pane  j/k move  / palette  a auth  u automation  r sync  1-4 tabs  PgUp/PgDn scroll  q quit",
       ),
       width,
     );
