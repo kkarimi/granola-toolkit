@@ -53,7 +53,7 @@ export const granolaWebMarkup = String.raw`
     </section>
     <section class="toolbar">
       <div class="toolbar-actions">
-        <button class="button button--primary" data-refresh>Refresh</button>
+        <button class="button button--primary" data-refresh>Sync now</button>
         <button class="button button--secondary" data-export-notes>Export Notes</button>
         <button class="button button--secondary" data-export-transcripts>Export Transcripts</button>
       </div>

@@ -239,7 +239,9 @@ export class GranolaServerClient implements GranolaAppApi {
     });
   }
 
-  async sync(options: { forceRefresh?: boolean } = {}): Promise<GranolaAppSyncResult> {
+  async sync(
+    options: { forceRefresh?: boolean; foreground?: boolean } = {},
+  ): Promise<GranolaAppSyncResult> {
     return await this.requestJson(granolaTransportPaths.syncRun, {
       body: JSON.stringify(options),
       headers: {

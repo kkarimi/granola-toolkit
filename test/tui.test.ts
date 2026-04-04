@@ -246,6 +246,7 @@ describe("buildGranolaTuiSummary", () => {
     );
 
     expect(summary).toContain("3 folders");
+    expect(summary).toContain("sync 12:00");
     expect(summary).toContain("list live");
   });
 });

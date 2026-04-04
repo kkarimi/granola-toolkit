@@ -8,11 +8,14 @@ import { meetingCommand } from "../src/commands/meeting.ts";
 import { notesCommand } from "../src/commands/notes.ts";
 import { serveCommand } from "../src/commands/serve.ts";
 import { syncCommand } from "../src/commands/sync.ts";
+import { tuiCommand } from "../src/commands/tui.ts";
 import { transcriptsCommand } from "../src/commands/transcripts.ts";
 import * as appModule from "../src/app/index.ts";
 import * as configModule from "../src/config.ts";
 import * as serverModule from "../src/server/http.ts";
 import * as sharedModule from "../src/commands/shared.ts";
+import * as syncLoopModule from "../src/sync-loop.ts";
+import * as tuiWorkspaceModule from "../src/tui/workspace.ts";
 
 function makeConfig(): AppConfig {
   return {
@@ -340,6 +343,7 @@ describe("command execution", () => {
       }),
     };
     const close = vi.fn(async () => {});
+    const stopSyncLoop = vi.fn(async () => {});
     const startGranolaServer = vi.spyOn(serverModule, "startGranolaServer").mockResolvedValue({
       app: app as never,
       close,
@@ -348,6 +352,12 @@ describe("command execution", () => {
       server: {} as never,
       url: new URL("http://0.0.0.0:4096"),
     });
+    const createGranolaSyncLoop = vi
+      .spyOn(syncLoopModule, "createGranolaSyncLoop")
+      .mockReturnValue({
+        start: vi.fn(),
+        stop: stopSyncLoop,
+      });
     const waitForShutdown = vi
       .spyOn(sharedModule, "waitForShutdown")
       .mockImplementation(async (shutdown) => {
@@ -377,9 +387,16 @@ describe("command execution", () => {
         trustedOrigins: ["https://app.example", "https://admin.example"],
       },
     });
+    expect(createGranolaSyncLoop).toHaveBeenCalledWith({
+      app,
+      intervalMs: 60_000,
+      logger: console,
+    });
     expect(waitForShutdown).toHaveBeenCalled();
+    expect(stopSyncLoop).toHaveBeenCalled();
     expect(close).toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith("Server password protection: enabled");
+    expect(log).toHaveBeenCalledWith("Background sync: enabled (60000ms)");
     expect(log).toHaveBeenCalledWith("Trusted origins: https://app.example, https://admin.example");
   });
 
@@ -443,5 +460,103 @@ describe("command execution", () => {
     );
     expect(log).toHaveBeenCalledWith("  created          Alpha Sync (doc-alpha-1111)");
     expect(log).toHaveBeenCalledWith("  transcript-ready Beta Review (doc-beta-2222)");
+  });
+
+  test("sync command starts the watch loop when requested", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const app = {
+      getState: () => ({
+        auth: {
+          mode: "stored-session",
+        },
+      }),
+      sync: vi.fn().mockResolvedValue({
+        changes: [],
+        state: {
+          lastChanges: [],
+          lastCompletedAt: "2024-03-01T12:00:00.000Z",
+          running: false,
+          summary: {
+            changedCount: 0,
+            createdCount: 0,
+            folderCount: 0,
+            meetingCount: 0,
+            removedCount: 0,
+            transcriptReadyCount: 0,
+          },
+        },
+        summary: {
+          changedCount: 0,
+          createdCount: 0,
+          folderCount: 0,
+          meetingCount: 0,
+          removedCount: 0,
+          transcriptReadyCount: 0,
+        },
+      }),
+    };
+    const start = vi.fn();
+    const stop = vi.fn(async () => {});
+
+    vi.spyOn(configModule, "loadConfig").mockResolvedValue(makeConfig());
+    vi.spyOn(appModule, "createGranolaApp").mockResolvedValue(app as never);
+    vi.spyOn(syncLoopModule, "createGranolaSyncLoop").mockReturnValue({ start, stop });
+    vi.spyOn(sharedModule, "waitForShutdown").mockImplementation(async (shutdown) => {
+      await shutdown();
+    });
+
+    const exitCode = await syncCommand.run(
+      makeContext({
+        commandFlags: {
+          interval: "90s",
+          watch: true,
+        },
+      }),
+    );
+
+    expect(exitCode).toBe(0);
+    expect(start).toHaveBeenCalledWith({ immediate: false });
+    expect(stop).toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      "Watching for Granola changes every 90000ms. Press Ctrl+C to stop.",
+    );
+  });
+
+  test("tui command reuses the background sync loop and stops it on exit", async () => {
+    const app = {
+      getState: () => ({
+        auth: {
+          mode: "stored-session",
+        },
+      }),
+    };
+    const start = vi.fn();
+    const stop = vi.fn(async () => {});
+    const runGranolaTui = vi
+      .spyOn(tuiWorkspaceModule, "runGranolaTui")
+      .mockImplementation(async (_app, options = {}) => {
+        await options.onClose?.();
+        return 0;
+      });
+
+    vi.spyOn(configModule, "loadConfig").mockResolvedValue(makeConfig());
+    vi.spyOn(appModule, "createGranolaApp").mockResolvedValue(app as never);
+    vi.spyOn(syncLoopModule, "createGranolaSyncLoop").mockReturnValue({ start, stop });
+
+    const exitCode = await tuiCommand.run(
+      makeContext({
+        commandFlags: {
+          meeting: "doc-alpha-1111",
+        },
+      }),
+    );
+
+    expect(exitCode).toBe(0);
+    expect(start).toHaveBeenCalledWith();
+    expect(stop).toHaveBeenCalled();
+    expect(runGranolaTui).toHaveBeenCalledWith(app, {
+      initialMeetingId: "doc-alpha-1111",
+      onClose: expect.any(Function),
+    });
   });
 });

@@ -1,13 +1,16 @@
 import { createGranolaApp } from "../app/index.ts";
 import { loadConfig } from "../config.ts";
 import { startGranolaServer } from "../server/http.ts";
+import { createGranolaSyncLoop } from "../sync-loop.ts";
 
 import {
   debug,
   parseNetworkMode,
   parsePort,
+  parseSyncInterval,
   parseTrustedOrigins,
   resolveServerHostname,
+  syncEnabled,
   waitForShutdown,
 } from "./shared.ts";
 import type { CommandDefinition } from "./types.ts";
@@ -23,6 +26,8 @@ Options:
   --hostname <value>      Hostname to bind (overrides network default)
   --port <value>          Port to bind (default: 0 for any available port)
   --password <value>      Optional server password for API and browser access
+  --sync-interval <value> Background sync interval, e.g. 60s or 5m (default: 60s)
+  --no-sync               Disable the background sync loop
   --trusted-origins <v>   Comma-separated extra browser origins to trust
   --cache <path>          Path to Granola cache JSON
   --timeout <value>       Request timeout, e.g. 2m, 30s, 120000 (default: 2m)
@@ -40,8 +45,10 @@ export const serveCommand: CommandDefinition = {
     help: { type: "boolean" },
     hostname: { type: "string" },
     network: { type: "string" },
+    "no-sync": { type: "boolean" },
     password: { type: "string" },
     port: { type: "string" },
+    "sync-interval": { type: "string" },
     timeout: { type: "string" },
     "trusted-origins": { type: "string" },
   },
@@ -68,6 +75,8 @@ export const serveCommand: CommandDefinition = {
       typeof commandFlags.password === "string" && commandFlags.password.trim()
         ? commandFlags.password
         : undefined;
+    const backgroundSyncEnabled = syncEnabled(commandFlags);
+    const syncIntervalMs = parseSyncInterval(commandFlags["sync-interval"]);
     const trustedOrigins = parseTrustedOrigins(commandFlags["trusted-origins"]);
     const server = await startGranolaServer(app, {
       hostname,
@@ -77,6 +86,14 @@ export const serveCommand: CommandDefinition = {
         trustedOrigins,
       },
     });
+    const syncLoop = backgroundSyncEnabled
+      ? createGranolaSyncLoop({
+          app,
+          intervalMs: syncIntervalMs,
+          logger: console,
+        })
+      : undefined;
+    syncLoop?.start();
 
     console.log(`Granola server listening on ${server.url.href}`);
     console.log(`Network mode: ${networkMode}`);
@@ -88,6 +105,11 @@ export const serveCommand: CommandDefinition = {
     if (trustedOrigins.length > 0) {
       console.log(`Trusted origins: ${trustedOrigins.join(", ")}`);
     }
+    console.log(
+      backgroundSyncEnabled
+        ? `Background sync: enabled (${syncIntervalMs}ms)`
+        : "Background sync: disabled",
+    );
     console.log("Endpoints:");
     console.log("  GET  /health");
     console.log("  GET  /server/info");
@@ -112,7 +134,10 @@ export const serveCommand: CommandDefinition = {
       console.log("Attach password: add --password <value>");
     }
 
-    await waitForShutdown(async () => await server.close());
+    await waitForShutdown(async () => {
+      await syncLoop?.stop();
+      await server.close();
+    });
 
     return 0;
   },

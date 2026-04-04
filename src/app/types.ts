@@ -239,7 +239,7 @@ export interface GranolaAppApi {
   logoutAuth(): Promise<GranolaAppAuthState>;
   refreshAuth(): Promise<GranolaAppAuthState>;
   switchAuthMode(mode: GranolaAppAuthMode): Promise<GranolaAppAuthState>;
-  sync(options?: { forceRefresh?: boolean }): Promise<GranolaAppSyncResult>;
+  sync(options?: { forceRefresh?: boolean; foreground?: boolean }): Promise<GranolaAppSyncResult>;
   listFolders(options?: GranolaFolderListOptions): Promise<GranolaFolderListResult>;
   getFolder(id: string): Promise<FolderRecord>;
   findFolder(query: string): Promise<FolderRecord>;

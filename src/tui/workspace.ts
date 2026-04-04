@@ -378,6 +378,11 @@ export class GranolaTuiWorkspace implements Component {
 
   private async refresh(forceRefresh: boolean): Promise<void> {
     try {
+      if (forceRefresh) {
+        this.setStatus("Syncing…");
+        await this.app.sync();
+      }
+
       await this.loadFolders({
         forceRefresh,
         setStatus: false,
@@ -392,8 +397,10 @@ export class GranolaTuiWorkspace implements Component {
           ensureMeetingVisible: true,
         });
       }
-    } catch {
-      // Status is already updated by the underlying loaders.
+    } catch (error) {
+      if (error instanceof Error && error.message) {
+        this.setStatus(error.message, "error");
+      }
     }
   }
 
@@ -980,7 +987,7 @@ export class GranolaTuiWorkspace implements Component {
     const footerStatus = padLine(toneText(this.#statusTone, this.#statusMessage), width);
     const footerHints = padLine(
       granolaTuiTheme.dim(
-        "h/l or Tab pane  j/k move  / quick open  a auth  r refresh  1-4 tabs  PgUp/PgDn scroll  q quit",
+        "h/l or Tab pane  j/k move  / quick open  a auth  r sync  1-4 tabs  PgUp/PgDn scroll  q quit",
       ),
       width,
     );
@@ -991,7 +998,10 @@ export class GranolaTuiWorkspace implements Component {
 
 export async function runGranolaTui(
   app: GranolaTuiApp,
-  options: { initialMeetingId?: string } = {},
+  options: {
+    initialMeetingId?: string;
+    onClose?: () => Promise<void> | void;
+  } = {},
 ): Promise<number> {
   const tui = new TUI(new ProcessTerminal());
 
@@ -1001,7 +1011,8 @@ export async function runGranolaTui(
       onExit: () => {
         workspace.dispose();
         tui.stop();
-        Promise.resolve(app.close?.())
+        Promise.resolve(options.onClose?.())
+          .then(() => Promise.resolve(app.close?.()))
           .catch(() => {
             // Best-effort shutdown for remote clients.
           })
@@ -1016,9 +1027,11 @@ export async function runGranolaTui(
         await workspace.initialise();
       } catch (error) {
         workspace.dispose();
-        await Promise.resolve(app.close?.()).catch(() => {
-          // Best-effort shutdown for remote clients.
-        });
+        await Promise.resolve(options.onClose?.())
+          .then(() => Promise.resolve(app.close?.()))
+          .catch(() => {
+            // Best-effort shutdown for remote clients.
+          });
         reject(error);
         return;
       }

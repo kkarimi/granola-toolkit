@@ -1,8 +1,9 @@
 import { createGranolaApp } from "../app/index.ts";
 import { loadConfig } from "../config.ts";
+import { createGranolaSyncLoop } from "../sync-loop.ts";
 import { runGranolaTui } from "../tui/workspace.ts";
 
-import { debug } from "./shared.ts";
+import { debug, parseSyncInterval, syncEnabled } from "./shared.ts";
 import type { CommandDefinition } from "./types.ts";
 
 function tuiHelp(): string {
@@ -13,6 +14,8 @@ Usage:
 
 Options:
   --meeting <id>     Open the workspace focused on a specific meeting
+  --sync-interval <value> Background sync interval, e.g. 60s or 5m (default: 60s)
+  --no-sync          Disable the background sync loop
   --cache <path>     Path to Granola cache JSON
   --timeout <value>  Request timeout, e.g. 2m, 30s, 120000 (default: 2m)
   --supabase <path>  Path to supabase.json
@@ -28,6 +31,8 @@ export const tuiCommand: CommandDefinition = {
     cache: { type: "string" },
     help: { type: "boolean" },
     meeting: { type: "string" },
+    "no-sync": { type: "boolean" },
+    "sync-interval": { type: "string" },
     timeout: { type: "string" },
   },
   help: tuiHelp,
@@ -50,9 +55,27 @@ export const tuiCommand: CommandDefinition = {
       typeof commandFlags.meeting === "string" && commandFlags.meeting.trim()
         ? commandFlags.meeting.trim()
         : undefined;
+    const backgroundSyncEnabled = syncEnabled(commandFlags);
+    const syncIntervalMs = parseSyncInterval(commandFlags["sync-interval"]);
+    const syncLoop = backgroundSyncEnabled
+      ? createGranolaSyncLoop({
+          app,
+          intervalMs: syncIntervalMs,
+          logger: console,
+        })
+      : undefined;
+    syncLoop?.start();
+    debug(
+      config.debug,
+      "backgroundSync",
+      backgroundSyncEnabled ? `${syncIntervalMs}ms` : "disabled",
+    );
 
     return await runGranolaTui(app, {
       initialMeetingId,
+      onClose: async () => {
+        await syncLoop?.stop();
+      },
     });
   },
 };

@@ -1,3 +1,5 @@
+import { parseDuration } from "../utils.ts";
+
 export function debug(enabled: boolean, ...values: unknown[]): void {
   if (enabled) {
     console.error("[debug]", ...values);
@@ -62,6 +64,25 @@ export function parseTrustedOrigins(value: string | boolean | undefined): string
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
+}
+
+export function parseSyncInterval(
+  value: string | boolean | undefined,
+  fallbackMs = 60_000,
+): number {
+  if (value === undefined) {
+    return fallbackMs;
+  }
+
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error("invalid sync interval: expected a duration like 60s or 5m");
+  }
+
+  return parseDuration(value);
+}
+
+export function syncEnabled(commandFlags: Record<string, string | boolean | undefined>): boolean {
+  return commandFlags["no-sync"] !== true;
 }
 
 export async function waitForShutdown(close: () => Promise<void>): Promise<void> {

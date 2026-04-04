@@ -135,12 +135,20 @@ function renderAppState() {
   const folderStatus = appState.folders.loaded
     ? appState.folders.count + " folders"
     : "not loaded";
+  const syncStatus = appState.sync.running
+    ? "running"
+    : appState.sync.lastError
+      ? "error"
+      : appState.sync.lastCompletedAt
+        ? "last " + appState.sync.lastCompletedAt.slice(11, 19)
+        : "idle";
 
   els.appState.innerHTML = [
     '<div class="status-grid">',
     '<div><span class="status-label">Surface</span><strong>' + escapeHtml(appState.ui.surface) + "</strong></div>",
     '<div><span class="status-label">View</span><strong>' + escapeHtml(appState.ui.view) + "</strong></div>",
     '<div><span class="status-label">Auth</span><strong>' + escapeHtml(authMode) + "</strong></div>",
+    '<div><span class="status-label">Sync</span><strong>' + escapeHtml(syncStatus) + "</strong></div>",
     '<div><span class="status-label">Documents</span><strong>' + escapeHtml(docs) + "</strong></div>",
     '<div><span class="status-label">Folders</span><strong>' + escapeHtml(folderStatus) + "</strong></div>",
     '<div><span class="status-label">Cache</span><strong>' + escapeHtml(cache) + "</strong></div>",
@@ -287,7 +295,7 @@ function renderMeetingList() {
     });
     const message = filterSummary
       ? "No meetings match " + filterSummary + "."
-      : "No meetings yet. Try Refresh.";
+      : "No meetings yet. Try Sync now.";
     els.list.innerHTML = '<div class="meeting-empty">' + escapeHtml(message) + "</div>";
     renderMeetingDetail();
     return;
@@ -566,8 +574,16 @@ async function quickOpenMeeting() {
 }
 
 async function refreshAll(forceLiveMeetings = false) {
-  setStatus("Refreshing…", "busy");
+  setStatus(forceLiveMeetings ? "Syncing…" : "Refreshing…", "busy");
   try {
+    if (forceLiveMeetings) {
+      await fetchJson("/sync", {
+        body: JSON.stringify({ forceRefresh: true }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+    }
+
     await loadFolders({ refresh: forceLiveMeetings });
     const [appState, authState] = await Promise.all([fetchJson("/state"), fetchJson("/auth/status")]);
     await loadMeetings({ refresh: forceLiveMeetings });
@@ -577,7 +593,14 @@ async function refreshAll(forceLiveMeetings = false) {
       auth: authState,
     };
     renderAppState();
-    setStatus(forceLiveMeetings ? "Live data refreshed" : state.meetingSource === "index" ? "Loaded from index" : "Connected", "ok");
+    setStatus(
+      forceLiveMeetings
+        ? "Sync complete"
+        : state.meetingSource === "index"
+          ? "Loaded from index"
+          : "Connected",
+      "ok",
+    );
   } catch (error) {
     if (error.authRequired) {
       setStatus("Server locked", "error");

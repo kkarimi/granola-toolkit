@@ -445,6 +445,7 @@ export async function startGranolaServer(
         sendJson(
           response,
           await app.sync({
+            foreground: typeof body.foreground === "boolean" ? body.foreground : undefined,
             forceRefresh: typeof body.forceRefresh === "boolean" ? body.forceRefresh : undefined,
           }),
           { headers: originHeaders },

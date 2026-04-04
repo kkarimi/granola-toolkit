@@ -7,6 +7,7 @@ import {
 import * as browserModule from "../src/browser.ts";
 import * as serverModule from "../src/server/http.ts";
 import * as sharedModule from "../src/commands/shared.ts";
+import * as syncLoopModule from "../src/sync-loop.ts";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -29,6 +30,8 @@ describe("web workspace helpers", () => {
       openBrowser: false,
       password: "secret-pass",
       port: 4096,
+      syncEnabled: true,
+      syncIntervalMs: 60_000,
       trustedOrigins: ["https://app.example", "https://admin.example"],
     });
   });
@@ -38,6 +41,7 @@ describe("web workspace helpers", () => {
     const openExternalUrl = vi.spyOn(browserModule, "openExternalUrl").mockResolvedValue();
     const app = {} as never;
     const close = vi.fn(async () => {});
+    const stopSyncLoop = vi.fn(async () => {});
     const startGranolaServer = vi.spyOn(serverModule, "startGranolaServer").mockResolvedValue({
       app,
       close,
@@ -45,6 +49,11 @@ describe("web workspace helpers", () => {
       port: 4096,
       server: {} as never,
       url: new URL("http://127.0.0.1:4096"),
+    });
+    const startSyncLoop = vi.fn();
+    vi.spyOn(syncLoopModule, "createGranolaSyncLoop").mockReturnValue({
+      start: startSyncLoop,
+      stop: stopSyncLoop,
     });
     vi.spyOn(sharedModule, "waitForShutdown").mockImplementation(async (shutdown) => {
       await shutdown();
@@ -55,6 +64,8 @@ describe("web workspace helpers", () => {
       networkMode: "local",
       openBrowser: true,
       port: 4096,
+      syncEnabled: true,
+      syncIntervalMs: 60_000,
       targetMeetingId: "doc-alpha-1111",
       trustedOrigins: [],
     });
@@ -72,9 +83,12 @@ describe("web workspace helpers", () => {
     expect(String(openExternalUrl.mock.calls[0]?.[0])).toBe(
       "http://127.0.0.1:4096/?meeting=doc-alpha-1111",
     );
+    expect(startSyncLoop).toHaveBeenCalledWith();
+    expect(stopSyncLoop).toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith(
       "Focused meeting URL: http://127.0.0.1:4096/?meeting=doc-alpha-1111",
     );
+    expect(log).toHaveBeenCalledWith("Background sync: enabled (60000ms)");
     expect(close).toHaveBeenCalled();
   });
 
@@ -90,6 +104,10 @@ describe("web workspace helpers", () => {
       server: {} as never,
       url: new URL("http://0.0.0.0:4096"),
     });
+    vi.spyOn(syncLoopModule, "createGranolaSyncLoop").mockReturnValue({
+      start: vi.fn(),
+      stop: vi.fn(async () => {}),
+    });
     vi.spyOn(sharedModule, "waitForShutdown").mockResolvedValue();
 
     const exitCode = await runGranolaWebWorkspace(app, {
@@ -98,6 +116,8 @@ describe("web workspace helpers", () => {
       openBrowser: true,
       password: undefined,
       port: 4096,
+      syncEnabled: true,
+      syncIntervalMs: 60_000,
       trustedOrigins: [],
     });
 

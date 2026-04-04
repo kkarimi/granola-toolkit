@@ -17,6 +17,8 @@ Options:
   --hostname <value>      Hostname to bind (overrides network default)
   --port <value>          Port to bind (default: 0 for any available port)
   --password <value>      Optional server password for API and browser access
+  --sync-interval <value> Background sync interval, e.g. 60s or 5m (default: 60s)
+  --no-sync               Disable the background sync loop
   --trusted-origins <v>   Comma-separated extra browser origins to trust
   --cache <path>          Path to Granola cache JSON
   --timeout <value>       Request timeout, e.g. 2m, 30s, 120000 (default: 2m)
@@ -36,9 +38,11 @@ export const webCommand: CommandDefinition = {
     hostname: { type: "string" },
     meeting: { type: "string" },
     network: { type: "string" },
+    "no-sync": { type: "boolean" },
     open: { type: "boolean" },
     password: { type: "string" },
     port: { type: "string" },
+    "sync-interval": { type: "string" },
     timeout: { type: "string" },
     "trusted-origins": { type: "string" },
   },

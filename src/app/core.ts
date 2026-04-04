@@ -750,10 +750,12 @@ export class GranolaApp implements GranolaAppApi {
     }
   }
 
-  async sync(options: { forceRefresh?: boolean } = {}): Promise<GranolaAppSyncResult> {
+  async sync(
+    options: { forceRefresh?: boolean; foreground?: boolean } = {},
+  ): Promise<GranolaAppSyncResult> {
     return await this.runSync({
       forceRefresh: options.forceRefresh,
-      foreground: true,
+      foreground: options.foreground ?? true,
     });
   }
 

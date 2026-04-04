@@ -2,13 +2,16 @@ import type { GranolaApp } from "../app/core.ts";
 import { openExternalUrl } from "../browser.ts";
 import type { FlagValues } from "../config.ts";
 import { startGranolaServer } from "../server/http.ts";
+import { createGranolaSyncLoop } from "../sync-loop.ts";
 import { buildGranolaMeetingUrl } from "../web-url.ts";
 
 import {
   parseNetworkMode,
   parsePort,
+  parseSyncInterval,
   parseTrustedOrigins,
   resolveServerHostname,
+  syncEnabled,
   type ServerNetworkMode,
   waitForShutdown,
 } from "./shared.ts";
@@ -19,6 +22,8 @@ export interface GranolaWebWorkspaceOptions {
   openBrowser: boolean;
   password?: string;
   port?: number;
+  syncEnabled: boolean;
+  syncIntervalMs: number;
   targetMeetingId?: string;
   trustedOrigins: string[];
 }
@@ -34,6 +39,8 @@ export function resolveGranolaWebWorkspaceOptions(
     typeof commandFlags.password === "string" && commandFlags.password.trim()
       ? commandFlags.password.trim()
       : undefined;
+  const backgroundSyncEnabled = syncEnabled(commandFlags);
+  const syncIntervalMs = parseSyncInterval(commandFlags["sync-interval"]);
   const trustedOrigins = parseTrustedOrigins(commandFlags["trusted-origins"]);
 
   return {
@@ -42,6 +49,8 @@ export function resolveGranolaWebWorkspaceOptions(
     openBrowser,
     password,
     port,
+    syncEnabled: backgroundSyncEnabled,
+    syncIntervalMs,
     trustedOrigins,
   };
 }
@@ -86,6 +95,14 @@ export async function runGranolaWebWorkspace(
       trustedOrigins: options.trustedOrigins,
     },
   });
+  const syncLoop = options.syncEnabled
+    ? createGranolaSyncLoop({
+        app,
+        intervalMs: options.syncIntervalMs,
+        logger: console,
+      })
+    : undefined;
+  syncLoop?.start();
   const targetUrl = options.targetMeetingId
     ? buildGranolaMeetingUrl(server.url, options.targetMeetingId)
     : new URL(server.url);
@@ -103,6 +120,11 @@ export async function runGranolaWebWorkspace(
   if (options.trustedOrigins.length > 0) {
     console.log(`Trusted origins: ${options.trustedOrigins.join(", ")}`);
   }
+  console.log(
+    options.syncEnabled
+      ? `Background sync: enabled (${options.syncIntervalMs}ms)`
+      : "Background sync: disabled",
+  );
   printWebRoutes();
   console.log(`Attach: granola attach ${server.url.href}`);
   if (options.password) {
@@ -119,6 +141,9 @@ export async function runGranolaWebWorkspace(
     }
   }
 
-  await waitForShutdown(async () => await server.close());
+  await waitForShutdown(async () => {
+    await syncLoop?.stop();
+    await server.close();
+  });
   return 0;
 }

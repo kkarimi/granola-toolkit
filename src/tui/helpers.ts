@@ -144,6 +144,13 @@ export function buildGranolaTuiSummary(
       ? "cache configured"
       : "cache missing";
   const index = state.index.loaded ? `${state.index.meetingCount} indexed` : "index pending";
+  const sync = state.sync.running
+    ? "sync running"
+    : state.sync.lastError
+      ? "sync error"
+      : state.sync.lastCompletedAt
+        ? `sync ${state.sync.lastCompletedAt.slice(11, 16)}`
+        : "sync idle";
 
-  return `auth ${authMode} | ${documents} | ${folders} | ${cache} | ${index} | list ${meetingSource}`;
+  return `auth ${authMode} | ${documents} | ${folders} | ${cache} | ${index} | ${sync} | list ${meetingSource}`;
 }
