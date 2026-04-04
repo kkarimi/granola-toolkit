@@ -45,6 +45,7 @@ Global options:
 Examples:
   granola attach http://127.0.0.1:4123
   granola folder list
+  granola sync
   granola notes --supabase "${granolaSupabaseCandidates()[0] ?? "/path/to/supabase.json"}"
   granola transcripts --cache "${granolaCacheCandidates()[0] ?? "/path/to/cache-v3.json"}"
 `;

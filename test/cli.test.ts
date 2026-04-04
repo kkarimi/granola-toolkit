@@ -108,6 +108,17 @@ describe("runCli", () => {
     expect(error).not.toHaveBeenCalled();
   });
 
+  test("shows sync help from the command module", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const exitCode = await runCli(["sync", "--help"]);
+
+    expect(exitCode).toBe(0);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("Granola sync"));
+    expect(error).not.toHaveBeenCalled();
+  });
+
   test("shows tui help from the command module", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const error = vi.spyOn(console, "error").mockImplementation(() => {});

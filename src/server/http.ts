@@ -300,12 +300,14 @@ export async function startGranolaServer(
       exports: true,
       folders: true,
       meetingOpen: true,
+      sync: true,
       webClient: enableWebClient,
     },
     persistence: {
       exportJobs: true,
       meetingIndex: true,
       sessionStore: defaultGranolaToolkitPersistenceLayout().sessionStoreKind,
+      syncState: true,
     },
     product: "granola-toolkit",
     protocolVersion: GRANOLA_TRANSPORT_PROTOCOL_VERSION,
@@ -435,6 +437,18 @@ export async function startGranolaServer(
 
       if (method === "GET" && path === granolaTransportPaths.authStatus) {
         sendJson(response, await app.inspectAuth(), { headers: originHeaders });
+        return;
+      }
+
+      if (method === "POST" && path === granolaTransportPaths.syncRun) {
+        const body = await readJsonBody(request);
+        sendJson(
+          response,
+          await app.sync({
+            forceRefresh: typeof body.forceRefresh === "boolean" ? body.forceRefresh : undefined,
+          }),
+          { headers: originHeaders },
+        );
         return;
       }
 

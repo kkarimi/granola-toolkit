@@ -106,6 +106,7 @@ export const serveCommand: CommandDefinition = {
     console.log("  POST /exports/notes");
     console.log("  POST /exports/jobs/:id/rerun");
     console.log("  POST /exports/transcripts");
+    console.log("  POST /sync");
     console.log(`Attach: granola attach ${server.url.href}`);
     if (password) {
       console.log("Attach password: add --password <value>");

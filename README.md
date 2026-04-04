@@ -21,6 +21,7 @@ The published package exposes both `granola` and `granola-toolkit` as executable
 
 ```bash
 granola auth login
+granola sync
 granola folder list
 granola meeting list --limit 10
 granola notes --folder Team

@@ -7,6 +7,7 @@ import { describe, expect, test, vi } from "vite-plus/test";
 import { GranolaApp } from "../src/app/core.ts";
 import { MemoryExportJobStore } from "../src/export-jobs.ts";
 import { MemoryMeetingIndexStore } from "../src/meeting-index.ts";
+import { MemorySyncStateStore } from "../src/sync-state.ts";
 import type { GranolaAppAuthState } from "../src/app/index.ts";
 import type { CacheData, GranolaDocument, GranolaFolder } from "../src/types.ts";
 
@@ -167,6 +168,164 @@ describe("GranolaApp", () => {
     expect(meetings.meetings).toHaveLength(1);
     expect(meeting.meeting.meeting.folders[0]?.id).toBe("folder-team-1111");
     expect(listFolders).toHaveBeenCalledTimes(1);
+  });
+
+  test("syncs the local meeting index and persists structured sync state", async () => {
+    const meetingIndexStore = new MemoryMeetingIndexStore();
+    const syncStateStore = new MemorySyncStateStore({
+      filePath: "/tmp/granola-sync-state.json",
+    });
+    const cacheFile = join(await mkdtemp(join(tmpdir(), "granola-app-sync-cache-")), "cache.json");
+    await writeFile(cacheFile, "{}\n", "utf8");
+    await meetingIndexStore.writeIndex([
+      {
+        createdAt: "2024-01-01T09:00:00Z",
+        folders: [],
+        id: "doc-alpha-1111",
+        noteContentSource: "notes",
+        tags: ["team", "alpha"],
+        title: "Alpha Sync",
+        transcriptLoaded: false,
+        transcriptSegmentCount: 0,
+        updatedAt: "2024-01-03T10:00:00Z",
+      },
+    ]);
+
+    const syncedDocuments: GranolaDocument[] = [
+      documents[0]!,
+      {
+        content: "Beta note body",
+        createdAt: "2024-01-05T09:00:00Z",
+        id: "doc-beta-2222",
+        notes: {
+          content: [
+            {
+              content: [{ text: "Beta notes", type: "text" }],
+              type: "paragraph",
+            },
+          ],
+          type: "doc",
+        },
+        notesPlain: "",
+        tags: ["ops"],
+        title: "Beta Review",
+        updatedAt: "2024-01-06T10:00:00Z",
+      },
+    ];
+
+    const syncedFolders: GranolaFolder[] = [
+      folders[0]!,
+      {
+        createdAt: "2024-01-05T08:00:00Z",
+        documentIds: ["doc-beta-2222"],
+        id: "folder-ops-2222",
+        isFavourite: false,
+        name: "Ops",
+        updatedAt: "2024-01-06T10:00:00Z",
+        workspaceId: "workspace-1",
+      },
+    ];
+
+    const syncedCacheData: CacheData = {
+      documents: {
+        ...cacheData.documents,
+        "doc-beta-2222": {
+          createdAt: "2024-01-05T09:00:00Z",
+          id: "doc-beta-2222",
+          title: "Beta Review",
+          updatedAt: "2024-01-06T10:00:00Z",
+        },
+      },
+      transcripts: {
+        ...cacheData.transcripts,
+        "doc-beta-2222": [
+          {
+            documentId: "doc-beta-2222",
+            endTimestamp: "2024-01-05T09:00:03Z",
+            id: "segment-beta-1",
+            isFinal: true,
+            source: "microphone",
+            startTimestamp: "2024-01-05T09:00:01Z",
+            text: "Hello ops",
+          },
+        ],
+      },
+    };
+
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile,
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          mode: "supabase-file",
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: true,
+          supabasePath: "/tmp/supabase.json",
+        },
+        cacheLoader: async () => syncedCacheData,
+        granolaClient: {
+          listDocuments: async () => syncedDocuments,
+          listFolders: async () => syncedFolders,
+        },
+        meetingIndex: await meetingIndexStore.readIndex(),
+        meetingIndexStore,
+        now: () => new Date("2024-03-01T12:00:00Z"),
+        syncState: await syncStateStore.readState(),
+        syncStateStore,
+      },
+      { surface: "server" },
+    );
+
+    const result = await app.sync();
+    const persistedIndex = await meetingIndexStore.readIndex();
+    const persistedSyncState = await syncStateStore.readState();
+
+    expect(result.summary).toEqual({
+      changedCount: 1,
+      createdCount: 1,
+      folderCount: 2,
+      meetingCount: 2,
+      removedCount: 0,
+      transcriptReadyCount: 2,
+    });
+    expect(result.changes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "changed",
+          meetingId: "doc-alpha-1111",
+        }),
+        expect.objectContaining({
+          kind: "transcript-ready",
+          meetingId: "doc-alpha-1111",
+        }),
+        expect.objectContaining({
+          kind: "created",
+          meetingId: "doc-beta-2222",
+        }),
+      ]),
+    );
+    expect(persistedIndex).toHaveLength(2);
+    expect(persistedSyncState.summary).toEqual(result.summary);
+    expect(persistedSyncState.lastCompletedAt).toBe("2024-03-01T12:00:00.000Z");
+    expect(app.getState().sync).toEqual(
+      expect.objectContaining({
+        lastCompletedAt: "2024-03-01T12:00:00.000Z",
+        running: false,
+        summary: result.summary,
+      }),
+    );
+    expect(app.getState().ui.view).toBe("sync");
   });
 
   test("tracks note exports in application state", async () => {

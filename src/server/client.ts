@@ -3,6 +3,8 @@ import type {
   GranolaAppApi,
   GranolaAppAuthMode,
   GranolaAppAuthState,
+  GranolaAppSyncResult,
+  GranolaAppSyncState,
   GranolaExportJobRunResult,
   GranolaAppState,
   GranolaAppStateEvent,
@@ -201,6 +203,10 @@ export class GranolaServerClient implements GranolaAppApi {
     return await this.requestJson(granolaTransportPaths.authStatus);
   }
 
+  async inspectSync(): Promise<GranolaAppSyncState> {
+    return cloneValue(this.#state.sync);
+  }
+
   async loginAuth(options: { supabasePath?: string } = {}): Promise<GranolaAppAuthState> {
     return await this.requestJson(granolaTransportPaths.authLogin, {
       body: JSON.stringify(options),
@@ -226,6 +232,16 @@ export class GranolaServerClient implements GranolaAppApi {
   async switchAuthMode(mode: GranolaAppAuthMode): Promise<GranolaAppAuthState> {
     return await this.requestJson(granolaTransportPaths.authMode, {
       body: JSON.stringify({ mode }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    });
+  }
+
+  async sync(options: { forceRefresh?: boolean } = {}): Promise<GranolaAppSyncResult> {
+    return await this.requestJson(granolaTransportPaths.syncRun, {
+      body: JSON.stringify(options),
       headers: {
         "content-type": "application/json",
       },

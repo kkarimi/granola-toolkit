@@ -7,6 +7,7 @@ import { exportsCommand } from "../src/commands/exports.ts";
 import { meetingCommand } from "../src/commands/meeting.ts";
 import { notesCommand } from "../src/commands/notes.ts";
 import { serveCommand } from "../src/commands/serve.ts";
+import { syncCommand } from "../src/commands/sync.ts";
 import { transcriptsCommand } from "../src/commands/transcripts.ts";
 import * as appModule from "../src/app/index.ts";
 import * as configModule from "../src/config.ts";
@@ -380,5 +381,67 @@ describe("command execution", () => {
     expect(close).toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith("Server password protection: enabled");
     expect(log).toHaveBeenCalledWith("Trusted origins: https://app.example, https://admin.example");
+  });
+
+  test("sync command prints a structured sync summary", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const app = {
+      getState: () => ({
+        auth: {
+          mode: "stored-session",
+        },
+      }),
+      sync: vi.fn(async () => ({
+        changes: [
+          {
+            kind: "created",
+            meetingId: "doc-alpha-1111",
+            title: "Alpha Sync",
+            updatedAt: "2024-01-03T10:00:00Z",
+          },
+          {
+            kind: "transcript-ready",
+            meetingId: "doc-beta-2222",
+            title: "Beta Review",
+            updatedAt: "2024-01-04T10:00:00Z",
+          },
+        ],
+        state: {
+          filePath: "/tmp/sync-state.json",
+          lastChanges: [],
+          lastCompletedAt: "2024-03-01T12:00:00.000Z",
+          running: false,
+          summary: {
+            changedCount: 1,
+            createdCount: 1,
+            folderCount: 2,
+            meetingCount: 2,
+            removedCount: 0,
+            transcriptReadyCount: 1,
+          },
+        },
+        summary: {
+          changedCount: 1,
+          createdCount: 1,
+          folderCount: 2,
+          meetingCount: 2,
+          removedCount: 0,
+          transcriptReadyCount: 1,
+        },
+      })),
+    };
+
+    vi.spyOn(configModule, "loadConfig").mockResolvedValue(makeConfig());
+    vi.spyOn(appModule, "createGranolaApp").mockResolvedValue(app as never);
+
+    const exitCode = await syncCommand.run(makeContext());
+
+    expect(exitCode).toBe(0);
+    expect(app.sync).toHaveBeenCalledWith();
+    expect(log).toHaveBeenCalledWith(
+      "✓ Synced 2 meetings across 2 folders (1 created, 1 updated, 0 removed, 1 transcript ready)",
+    );
+    expect(log).toHaveBeenCalledWith("  created          Alpha Sync (doc-alpha-1111)");
+    expect(log).toHaveBeenCalledWith("  transcript-ready Beta Review (doc-beta-2222)");
   });
 });

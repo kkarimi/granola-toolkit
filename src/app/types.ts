@@ -15,6 +15,7 @@ export type GranolaAppSurface = "cli" | "server" | "tui" | "web";
 export type GranolaMeetingSort = "title-asc" | "title-desc" | "updated-asc" | "updated-desc";
 export type GranolaExportJobKind = "notes" | "transcripts";
 export type GranolaExportJobStatus = "completed" | "failed" | "running";
+export type GranolaSyncChangeKind = "changed" | "created" | "removed" | "transcript-ready";
 export type GranolaExportScope =
   | {
       mode: "all";
@@ -33,6 +34,7 @@ export type GranolaAppView =
   | "meeting-detail"
   | "meeting-list"
   | "notes-export"
+  | "sync"
   | "transcripts-export";
 
 export interface GranolaAppAuthState extends GranolaSessionMetadata {}
@@ -64,6 +66,34 @@ export interface GranolaAppIndexState {
   loaded: boolean;
   loadedAt?: string;
   meetingCount: number;
+}
+
+export interface GranolaAppSyncChange {
+  kind: GranolaSyncChangeKind;
+  meetingId: string;
+  previousUpdatedAt?: string;
+  title: string;
+  updatedAt?: string;
+}
+
+export interface GranolaAppSyncSummary {
+  changedCount: number;
+  createdCount: number;
+  folderCount: number;
+  meetingCount: number;
+  removedCount: number;
+  transcriptReadyCount: number;
+}
+
+export interface GranolaAppSyncState {
+  filePath?: string;
+  lastChanges: GranolaAppSyncChange[];
+  lastCompletedAt?: string;
+  lastError?: string;
+  lastFailedAt?: string;
+  lastStartedAt?: string;
+  running: boolean;
+  summary?: GranolaAppSyncSummary;
 }
 
 export interface GranolaAppExportRunState {
@@ -116,6 +146,7 @@ export interface GranolaAppState {
     transcripts?: GranolaAppExportRunState;
   };
   index: GranolaAppIndexState;
+  sync: GranolaAppSyncState;
   ui: GranolaAppUIState;
 }
 
@@ -185,6 +216,12 @@ export interface GranolaExportJobsResult {
   jobs: GranolaAppExportJobState[];
 }
 
+export interface GranolaAppSyncResult {
+  changes: GranolaAppSyncChange[];
+  state: GranolaAppSyncState;
+  summary: GranolaAppSyncSummary;
+}
+
 export interface GranolaAppStateEvent {
   state: GranolaAppState;
   timestamp: string;
@@ -197,10 +234,12 @@ export interface GranolaAppApi {
   getState(): GranolaAppState;
   subscribe(listener: (event: GranolaAppStateEvent) => void): () => void;
   inspectAuth(): Promise<GranolaAppAuthState>;
+  inspectSync(): Promise<GranolaAppSyncState>;
   loginAuth(options?: { supabasePath?: string }): Promise<GranolaAppAuthState>;
   logoutAuth(): Promise<GranolaAppAuthState>;
   refreshAuth(): Promise<GranolaAppAuthState>;
   switchAuthMode(mode: GranolaAppAuthMode): Promise<GranolaAppAuthState>;
+  sync(options?: { forceRefresh?: boolean }): Promise<GranolaAppSyncResult>;
   listFolders(options?: GranolaFolderListOptions): Promise<GranolaFolderListResult>;
   getFolder(id: string): Promise<FolderRecord>;
   findFolder(query: string): Promise<FolderRecord>;

@@ -223,6 +223,20 @@ describe("buildGranolaTuiSummary", () => {
           loadedAt: "2024-03-01T12:00:00Z",
           meetingCount: 2,
         },
+        sync: {
+          filePath: "/tmp/sync-state.json",
+          lastChanges: [],
+          lastCompletedAt: "2024-03-01T12:00:00Z",
+          running: false,
+          summary: {
+            changedCount: 0,
+            createdCount: 0,
+            folderCount: 3,
+            meetingCount: 2,
+            removedCount: 0,
+            transcriptReadyCount: 0,
+          },
+        },
         ui: {
           surface: "tui",
           view: "meeting-list",

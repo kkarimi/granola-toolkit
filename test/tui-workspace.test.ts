@@ -326,6 +326,20 @@ function createAppState(): GranolaAppState {
       loadedAt: "2024-03-01T12:00:00Z",
       meetingCount: 2,
     },
+    sync: {
+      filePath: "/tmp/sync-state.json",
+      lastChanges: [],
+      lastCompletedAt: "2024-03-01T12:00:00Z",
+      running: false,
+      summary: {
+        changedCount: 0,
+        createdCount: 0,
+        folderCount: 2,
+        meetingCount: 2,
+        removedCount: 0,
+        transcriptReadyCount: 0,
+      },
+    },
     ui: {
       surface: "tui",
       view: "meeting-list",
@@ -405,6 +419,7 @@ function createWorkspaceHarness(options: { failNextRefresh?: boolean } = {}) {
     getMeeting,
     getState: () => state,
     inspectAuth: vi.fn(async () => state.auth),
+    inspectSync: vi.fn(async () => state.sync),
     listExportJobs: vi.fn(async () => ({ jobs: [] })),
     listFolders,
     listMeetings,
@@ -412,6 +427,18 @@ function createWorkspaceHarness(options: { failNextRefresh?: boolean } = {}) {
     logoutAuth: vi.fn(async () => state.auth),
     refreshAuth: vi.fn(async () => state.auth),
     rerunExportJob: vi.fn(),
+    sync: vi.fn(async () => ({
+      changes: [],
+      state: state.sync,
+      summary: state.sync.summary ?? {
+        changedCount: 0,
+        createdCount: 0,
+        folderCount: 0,
+        meetingCount: 0,
+        removedCount: 0,
+        transcriptReadyCount: 0,
+      },
+    })),
     subscribe(listener) {
       listeners.add(listener);
       return () => {

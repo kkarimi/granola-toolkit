@@ -9,6 +9,7 @@ export interface GranolaToolkitPersistenceLayout {
   meetingIndexFile: string;
   sessionFile: string;
   sessionStoreKind: GranolaToolkitSessionStoreKind;
+  syncStateFile: string;
 }
 
 export function defaultGranolaToolkitDataDirectory(
@@ -38,5 +39,6 @@ export function defaultGranolaToolkitPersistenceLayout(
     meetingIndexFile: join(dataDirectory, "meeting-index.json"),
     sessionFile: join(dataDirectory, "session.json"),
     sessionStoreKind: targetPlatform === "darwin" ? "keychain" : "file",
+    syncStateFile: join(dataDirectory, "sync-state.json"),
   };
 }

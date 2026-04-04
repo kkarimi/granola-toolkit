@@ -32,6 +32,7 @@ describe("defaultGranolaToolkitPersistenceLayout", () => {
       meetingIndexFile: "/home/nima/.config/granola-toolkit/meeting-index.json",
       sessionFile: "/home/nima/.config/granola-toolkit/session.json",
       sessionStoreKind: "file",
+      syncStateFile: "/home/nima/.config/granola-toolkit/sync-state.json",
     });
   });
 

@@ -15,12 +15,14 @@ export interface GranolaServerInfo {
     exports: boolean;
     folders: boolean;
     meetingOpen: boolean;
+    sync: boolean;
     webClient: boolean;
   };
   persistence: {
     exportJobs: boolean;
     meetingIndex: boolean;
     sessionStore: GranolaToolkitSessionStoreKind;
+    syncState: boolean;
   };
   product: "granola-toolkit";
   protocolVersion: number;
@@ -46,6 +48,7 @@ export const granolaTransportPaths = {
   meetings: "/meetings",
   root: "/",
   serverInfo: "/server/info",
+  syncRun: "/sync",
   state: "/state",
 } as const;
 

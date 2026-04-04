@@ -70,6 +70,7 @@ function printWebRoutes(): void {
   console.log("  POST /exports/notes");
   console.log("  POST /exports/jobs/:id/rerun");
   console.log("  POST /exports/transcripts");
+  console.log("  POST /sync");
 }
 
 export async function runGranolaWebWorkspace(

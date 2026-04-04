@@ -156,6 +156,7 @@ describe("startGranolaServer", () => {
         persistence: expect.objectContaining({
           exportJobs: true,
           meetingIndex: true,
+          syncState: true,
         }),
         product: "granola-toolkit",
         protocolVersion: GRANOLA_TRANSPORT_PROTOCOL_VERSION,

@@ -41,6 +41,12 @@ import {
   type MeetingIndexStore,
 } from "../meeting-index.ts";
 import { writeNotes } from "../notes.ts";
+import {
+  createDefaultSyncStateStore,
+  defaultSyncStateFilePath,
+  type SyncStateStore,
+} from "../sync-state.ts";
+import { diffMeetingSummaries } from "../sync.ts";
 import { writeTranscripts } from "../transcripts.ts";
 import type {
   AppConfig,
@@ -57,6 +63,9 @@ import type {
   GranolaAppAuthState,
   GranolaAppExportJobState,
   GranolaAppExportRunState,
+  GranolaAppSyncChange,
+  GranolaAppSyncResult,
+  GranolaAppSyncState,
   GranolaExportRunOptions,
   GranolaExportScope,
   GranolaExportJobsListOptions,
@@ -91,6 +100,8 @@ interface GranolaAppDependencies {
   meetingIndex?: MeetingSummaryRecord[];
   meetingIndexStore?: MeetingIndexStore;
   now?: () => Date;
+  syncState?: GranolaAppSyncState;
+  syncStateStore?: SyncStateStore;
 }
 
 function transcriptCount(cacheData: CacheData): number {
@@ -115,6 +126,18 @@ function cloneExportJob(job: GranolaAppExportJobState): GranolaAppExportJobState
 
 function cloneFolderSummary(folder: FolderSummaryRecord): FolderSummaryRecord {
   return { ...folder };
+}
+
+function cloneSyncChange(change: GranolaAppSyncChange): GranolaAppSyncChange {
+  return { ...change };
+}
+
+function cloneSyncState(state: GranolaAppSyncState): GranolaAppSyncState {
+  return {
+    ...state,
+    lastChanges: state.lastChanges.map(cloneSyncChange),
+    summary: state.summary ? { ...state.summary } : undefined,
+  };
 }
 
 function cloneMeetingSummary(meeting: MeetingSummaryRecord): MeetingSummaryRecord {
@@ -144,6 +167,7 @@ function cloneState(state: GranolaAppState): GranolaAppState {
       transcripts: cloneExportState(state.exports.transcripts),
     },
     index: { ...state.index },
+    sync: cloneSyncState(state.sync),
     ui: { ...state.ui },
   };
 }
@@ -184,6 +208,11 @@ function defaultState(
       loaded: false,
       meetingCount: 0,
     },
+    sync: {
+      filePath: defaultSyncStateFilePath(),
+      lastChanges: [],
+      running: false,
+    },
     ui: {
       surface,
       view: "idle",
@@ -217,6 +246,16 @@ export class GranolaApp implements GranolaAppApi {
       loadedAt: this.#meetingIndex.length > 0 ? this.nowIso() : undefined,
       meetingCount: this.#meetingIndex.length,
     };
+    this.#state.sync = {
+      ...this.#state.sync,
+      ...cloneSyncState(
+        deps.syncState ?? {
+          filePath: defaultSyncStateFilePath(),
+          lastChanges: [],
+          running: false,
+        },
+      ),
+    };
   }
 
   getState(): GranolaAppState {
@@ -243,14 +282,44 @@ export class GranolaApp implements GranolaAppApi {
     this.#granolaClient = undefined;
     this.#folders = undefined;
     this.#documents = undefined;
+    this.resetDocumentsState();
+    this.resetFoldersState();
+  }
+
+  private resetDocumentsState(): void {
+    this.#documents = undefined;
     this.#state.documents = {
       count: 0,
       loaded: false,
     };
+  }
+
+  private resetFoldersState(): void {
+    this.#folders = undefined;
     this.#state.folders = {
       count: 0,
       loaded: false,
     };
+  }
+
+  private resetCacheState(): void {
+    this.#cacheData = undefined;
+    this.#cacheResolved = false;
+    this.#state.cache = {
+      configured: Boolean(this.config.transcripts.cacheFile),
+      documentCount: 0,
+      filePath: this.config.transcripts.cacheFile || undefined,
+      loaded: false,
+      transcriptCount: 0,
+    };
+  }
+
+  private async persistSyncState(): Promise<void> {
+    if (!this.deps.syncStateStore) {
+      return;
+    }
+
+    await this.deps.syncStateStore.writeState(this.#state.sync);
   }
 
   private applyAuthState(
@@ -292,17 +361,34 @@ export class GranolaApp implements GranolaAppApi {
     this.emitStateUpdate();
   }
 
-  private async refreshMeetingIndexFromLiveData(): Promise<void> {
-    const cacheData = await this.loadCache();
-    const documents = await this.listDocuments();
-    const folders = await this.loadFolders();
+  private async liveMeetingSnapshot(options: { forceRefresh?: boolean } = {}): Promise<{
+    cacheData?: CacheData;
+    documents: GranolaDocument[];
+    folders?: GranolaFolder[];
+    meetings: MeetingSummaryRecord[];
+  }> {
+    const cacheData = await this.loadCache({
+      forceRefresh: options.forceRefresh,
+    });
+    const documents = await this.listDocuments({
+      forceRefresh: options.forceRefresh,
+    });
+    const folders = await this.loadFolders({
+      forceRefresh: options.forceRefresh,
+    });
     const meetings = listMeetings(documents, {
       cacheData,
       foldersByDocumentId: this.buildFoldersByDocumentId(folders),
-      limit: documents.length || 1,
+      limit: Math.max(documents.length, 1),
       sort: "updated-desc",
     });
-    await this.persistMeetingIndex(meetings);
+
+    return {
+      cacheData,
+      documents,
+      folders,
+      meetings,
+    };
   }
 
   private triggerMeetingIndexRefresh(): void {
@@ -312,9 +398,9 @@ export class GranolaApp implements GranolaAppApi {
 
     this.#refreshingMeetingIndex = (async () => {
       try {
-        await this.refreshMeetingIndexFromLiveData();
+        await this.runSync({ foreground: false });
       } catch {
-        // Index refresh is opportunistic. Keep the current list if live refresh fails.
+        // Opportunistic background sync should not break the foreground view.
       } finally {
         this.#refreshingMeetingIndex = undefined;
       }
@@ -394,7 +480,7 @@ export class GranolaApp implements GranolaAppApi {
     } = {},
   ): Promise<GranolaFolder[] | undefined> {
     if (options.forceRefresh) {
-      this.resetRemoteState();
+      this.resetFoldersState();
       this.emitStateUpdate();
     }
 
@@ -548,6 +634,10 @@ export class GranolaApp implements GranolaAppApi {
     return this.applyAuthState(auth, { view: "auth" });
   }
 
+  async inspectSync(): Promise<GranolaAppSyncState> {
+    return cloneSyncState(this.#state.sync);
+  }
+
   async loginAuth(options: { supabasePath?: string } = {}): Promise<GranolaAppAuthState> {
     const controller = this.requireAuthController();
 
@@ -604,9 +694,72 @@ export class GranolaApp implements GranolaAppApi {
     }
   }
 
+  private async runSync(options: {
+    forceRefresh?: boolean;
+    foreground: boolean;
+  }): Promise<GranolaAppSyncResult> {
+    const previousMeetings = this.#meetingIndex.map((meeting) => cloneMeetingSummary(meeting));
+    this.#state.sync = {
+      ...this.#state.sync,
+      lastError: undefined,
+      lastStartedAt: this.nowIso(),
+      running: true,
+    };
+    if (options.foreground) {
+      this.setUiState({ view: "sync" });
+    } else {
+      this.emitStateUpdate();
+    }
+
+    try {
+      const snapshot = await this.liveMeetingSnapshot({
+        forceRefresh: options.forceRefresh ?? true,
+      });
+      await this.persistMeetingIndex(snapshot.meetings);
+      const { changes, summary } = diffMeetingSummaries(
+        previousMeetings,
+        snapshot.meetings,
+        snapshot.folders?.length ?? 0,
+      );
+      this.#state.sync = {
+        ...this.#state.sync,
+        lastChanges: changes.slice(0, 50).map(cloneSyncChange),
+        lastCompletedAt: this.nowIso(),
+        lastError: undefined,
+        running: false,
+        summary: { ...summary },
+      };
+      await this.persistSyncState();
+      this.emitStateUpdate();
+
+      return {
+        changes: changes.map(cloneSyncChange),
+        state: cloneSyncState(this.#state.sync),
+        summary: { ...summary },
+      };
+    } catch (error) {
+      this.#state.sync = {
+        ...this.#state.sync,
+        lastError: error instanceof Error ? error.message : String(error),
+        lastFailedAt: this.nowIso(),
+        running: false,
+      };
+      await this.persistSyncState();
+      this.emitStateUpdate();
+      throw error;
+    }
+  }
+
+  async sync(options: { forceRefresh?: boolean } = {}): Promise<GranolaAppSyncResult> {
+    return await this.runSync({
+      forceRefresh: options.forceRefresh,
+      foreground: true,
+    });
+  }
+
   async listDocuments(options: { forceRefresh?: boolean } = {}): Promise<GranolaDocument[]> {
     if (options.forceRefresh) {
-      this.resetRemoteState();
+      this.resetDocumentsState();
       this.emitStateUpdate();
     }
 
@@ -630,7 +783,14 @@ export class GranolaApp implements GranolaAppApi {
     return documents;
   }
 
-  async loadCache(options: { required?: boolean } = {}): Promise<CacheData | undefined> {
+  async loadCache(
+    options: { forceRefresh?: boolean; required?: boolean } = {},
+  ): Promise<CacheData | undefined> {
+    if (options.forceRefresh) {
+      this.resetCacheState();
+      this.emitStateUpdate();
+    }
+
     if (this.#cacheResolved) {
       if (options.required && !this.#cacheData) {
         throw this.missingCacheError();
@@ -757,16 +917,17 @@ export class GranolaApp implements GranolaAppApi {
       };
     }
 
-    const cacheData = await this.loadCache();
-    const documents = await this.listDocuments({ forceRefresh: options.forceRefresh });
-    const folders = await this.loadFolders({
+    const snapshot = await this.liveMeetingSnapshot({
       forceRefresh: options.forceRefresh,
-      required: Boolean(options.folderId),
     });
-    const meetings = listMeetings(documents, {
-      cacheData,
+    if (options.folderId && !snapshot.folders) {
+      throw new Error("Granola folder API is not configured");
+    }
+
+    const meetings = listMeetings(snapshot.documents, {
+      cacheData: snapshot.cacheData,
       folderId: options.folderId,
-      foldersByDocumentId: this.buildFoldersByDocumentId(folders),
+      foldersByDocumentId: this.buildFoldersByDocumentId(snapshot.folders),
       limit: options.limit,
       search: options.search,
       sort: options.sort,
@@ -774,14 +935,7 @@ export class GranolaApp implements GranolaAppApi {
       updatedTo: options.updatedTo,
     });
 
-    await this.persistMeetingIndex(
-      listMeetings(documents, {
-        cacheData,
-        foldersByDocumentId: this.buildFoldersByDocumentId(folders),
-        limit: Math.max(documents.length, 1),
-        sort: "updated-desc",
-      }),
-    );
+    await this.persistMeetingIndex(snapshot.meetings);
 
     this.setUiState({
       folderSearch: undefined,
@@ -1116,6 +1270,8 @@ export async function createGranolaApp(
   const exportJobs = await exportJobStore.readJobs();
   const meetingIndexStore = createDefaultMeetingIndexStore();
   const meetingIndex = await meetingIndexStore.readIndex();
+  const syncStateStore = createDefaultSyncStateStore();
+  const syncState = await syncStateStore.readState();
 
   return new GranolaApp(
     config,
@@ -1132,6 +1288,8 @@ export async function createGranolaApp(
       meetingIndex,
       meetingIndexStore,
       now: options.now,
+      syncState,
+      syncStateStore,
     },
     { surface: options.surface },
   );
