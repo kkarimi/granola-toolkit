@@ -147,3 +147,22 @@ export interface GranolaAppStateEvent {
   timestamp: string;
   type: "state.updated";
 }
+
+export type GranolaExportJobRunResult = GranolaNotesExportResult | GranolaTranscriptsExportResult;
+
+export interface GranolaAppApi {
+  getState(): GranolaAppState;
+  subscribe(listener: (event: GranolaAppStateEvent) => void): () => void;
+  inspectAuth(): Promise<GranolaAppAuthState>;
+  loginAuth(options?: { supabasePath?: string }): Promise<GranolaAppAuthState>;
+  logoutAuth(): Promise<GranolaAppAuthState>;
+  refreshAuth(): Promise<GranolaAppAuthState>;
+  switchAuthMode(mode: GranolaAppAuthMode): Promise<GranolaAppAuthState>;
+  listMeetings(options?: GranolaMeetingListOptions): Promise<GranolaMeetingListResult>;
+  getMeeting(id: string, options?: { requireCache?: boolean }): Promise<GranolaMeetingBundle>;
+  findMeeting(query: string, options?: { requireCache?: boolean }): Promise<GranolaMeetingBundle>;
+  listExportJobs(options?: GranolaExportJobsListOptions): Promise<GranolaExportJobsResult>;
+  exportNotes(format?: NoteOutputFormat): Promise<GranolaNotesExportResult>;
+  exportTranscripts(format?: TranscriptOutputFormat): Promise<GranolaTranscriptsExportResult>;
+  rerunExportJob(id: string): Promise<GranolaExportJobRunResult>;
+}

@@ -53,6 +53,17 @@ describe("runCli", () => {
     expect(error).not.toHaveBeenCalled();
   });
 
+  test("shows attach help from the command module", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const exitCode = await runCli(["attach", "--help"]);
+
+    expect(exitCode).toBe(0);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("Granola attach"));
+    expect(error).not.toHaveBeenCalled();
+  });
+
   test("shows meeting help from the command module", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const error = vi.spyOn(console, "error").mockImplementation(() => {});

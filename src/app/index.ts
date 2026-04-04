@@ -15,10 +15,12 @@ export type {
   TranscriptOutputFormat,
 } from "./models.ts";
 export type {
+  GranolaAppApi,
   GranolaAppAuthMode,
   GranolaAppAuthState,
   GranolaAppCacheState,
   GranolaAppExportJobState,
+  GranolaExportJobRunResult,
   GranolaAppDocumentsState,
   GranolaAppExportRunState,
   GranolaAppIndexState,

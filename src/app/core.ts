@@ -38,6 +38,7 @@ import type {
 import { granolaCacheCandidates } from "../utils.ts";
 
 import type {
+  GranolaAppApi,
   GranolaAppAuthMode,
   GranolaAppAuthState,
   GranolaAppExportJobState,
@@ -144,7 +145,7 @@ function defaultState(
   };
 }
 
-export class GranolaApp {
+export class GranolaApp implements GranolaAppApi {
   #cacheData?: CacheData;
   #cacheResolved = false;
   #granolaClient?: GranolaDocumentsClient;

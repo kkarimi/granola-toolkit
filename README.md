@@ -32,6 +32,7 @@ Installed command:
 
 ```bash
 granola --help
+granola attach --help
 granola auth login
 granola exports --help
 granola meeting --help
@@ -49,6 +50,7 @@ Local build:
 ```bash
 vp pack
 node dist/cli.js --help
+node dist/cli.js attach --help
 node dist/cli.js exports --help
 node dist/cli.js meeting --help
 node dist/cli.js notes --help
@@ -109,6 +111,9 @@ granola serve
 granola serve --port 4096
 granola serve --hostname 0.0.0.0 --port 4096
 granola serve --network lan --password "change-me"
+granola attach http://127.0.0.1:4096
+granola attach http://127.0.0.1:4096 --meeting 1234abcd
+granola attach http://127.0.0.1:4096 --password "change-me"
 
 granola web
 granola web --open=false --port 4096
@@ -218,7 +223,7 @@ The initial server API includes:
 - `POST /exports/jobs/:id/rerun`
 - `POST /exports/transcripts`
 
-This is the foundation for the future `granola web` client and any attachable TUI flows.
+This is the shared runtime for `granola web` and `granola attach`.
 
 Server hardening now includes:
 
@@ -247,9 +252,21 @@ The initial browser client includes:
 - stronger empty and error states for list/detail failures
 - a server-access panel that can unlock or lock a password-protected local server
 
+### Attach
+
+`attach` connects the terminal workspace to an already running `granola serve` or `granola web` instance instead of starting a second isolated app.
+
+Use it when you want:
+
+- two terminal workspaces attached to the same live app state
+- one terminal workspace and one browser workspace sharing auth, meeting index, and export-job history
+- a password-protected local server to remain the single source of truth
+
+The attach flow uses the existing local HTTP API plus `GET /events` for live state updates.
+
 ### TUI
 
-`tui` starts a full-screen terminal workspace on the shared app core, without requiring the local server or browser client.
+`tui` starts a full-screen terminal workspace on the shared app core, without requiring the local server or browser client. Use `attach` when you want the same workspace against an existing shared server instance instead.
 
 The initial terminal workspace includes:
 

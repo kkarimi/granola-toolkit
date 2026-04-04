@@ -10,7 +10,7 @@ import {
 } from "@mariozechner/pi-tui";
 
 import type {
-  GranolaApp,
+  GranolaAppApi,
   GranolaAppState,
   GranolaAppStateEvent,
   GranolaMeetingBundle,
@@ -27,6 +27,10 @@ interface GranolaTuiWorkspaceOptions {
   initialMeetingId?: string;
   maxMeetings?: number;
   onExit: () => void;
+}
+
+interface GranolaTuiApp extends GranolaAppApi {
+  close?: () => Promise<void> | void;
 }
 
 type GranolaTuiStatusTone = "error" | "info" | "warning";
@@ -86,7 +90,7 @@ class GranolaTuiWorkspace implements Component {
 
   constructor(
     private readonly tui: TUI,
-    private readonly app: GranolaApp,
+    private readonly app: GranolaTuiApp,
     private readonly options: GranolaTuiWorkspaceOptions,
   ) {
     this.#appState = app.getState();
@@ -620,7 +624,7 @@ class GranolaTuiWorkspace implements Component {
 }
 
 export async function runGranolaTui(
-  app: GranolaApp,
+  app: GranolaTuiApp,
   options: { initialMeetingId?: string } = {},
 ): Promise<number> {
   const tui = new TUI(new ProcessTerminal());
@@ -631,7 +635,13 @@ export async function runGranolaTui(
       onExit: () => {
         workspace.dispose();
         tui.stop();
-        resolve(0);
+        Promise.resolve(app.close?.())
+          .catch(() => {
+            // Best-effort shutdown for remote clients.
+          })
+          .finally(() => {
+            resolve(0);
+          });
       },
     });
 
@@ -640,6 +650,9 @@ export async function runGranolaTui(
         await workspace.initialise();
       } catch (error) {
         workspace.dispose();
+        await Promise.resolve(app.close?.()).catch(() => {
+          // Best-effort shutdown for remote clients.
+        });
         reject(error);
         return;
       }

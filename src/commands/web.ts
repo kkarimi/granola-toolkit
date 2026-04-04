@@ -112,6 +112,10 @@ export const webCommand: CommandDefinition = {
     console.log("  POST /exports/notes");
     console.log("  POST /exports/jobs/:id/rerun");
     console.log("  POST /exports/transcripts");
+    console.log(`Attach: granola attach ${server.url.href}`);
+    if (password) {
+      console.log("Attach password: add --password <value>");
+    }
 
     if (openBrowser) {
       try {

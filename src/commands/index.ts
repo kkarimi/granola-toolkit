@@ -1,3 +1,4 @@
+import { attachCommand } from "./attach.ts";
 import { authCommand } from "./auth.ts";
 import { exportsCommand } from "./exports.ts";
 import { meetingCommand } from "./meeting.ts";
@@ -8,6 +9,7 @@ import { transcriptsCommand } from "./transcripts.ts";
 import { webCommand } from "./web.ts";
 
 export const commands = [
+  attachCommand,
   authCommand,
   exportsCommand,
   meetingCommand,
