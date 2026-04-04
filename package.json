@@ -1,6 +1,6 @@
 {
   "name": "granola-toolkit",
-  "version": "0.24.0",
+  "version": "0.25.0",
   "description": "Toolkit for exporting and working with Granola meetings, notes, and transcripts",
   "keywords": [
     "cli",
