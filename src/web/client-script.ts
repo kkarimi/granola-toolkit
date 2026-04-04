@@ -1,5 +1,6 @@
 export const granolaWebClientScript = String.raw`
 const serverConfig = window.__GRANOLA_SERVER__ || { passwordRequired: false };
+const workspaceTabs = ["notes", "transcript", "metadata", "raw"];
 
 const state = {
   appState: null,
@@ -43,6 +44,40 @@ const els = {
   updatedTo: document.querySelector("[data-updated-to]"),
   workspaceTabs: document.querySelectorAll("[data-workspace-tab]"),
 };
+
+function parseWorkspaceTab(value) {
+  return workspaceTabs.includes(value) ? value : "notes";
+}
+
+function startupSelection() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    meetingId: params.get("meeting")?.trim() || "",
+    workspaceTab: parseWorkspaceTab(params.get("tab")),
+  };
+}
+
+function syncBrowserUrl() {
+  const url = new URL(window.location.href);
+
+  if (state.selectedMeetingId) {
+    url.searchParams.set("meeting", state.selectedMeetingId);
+  } else {
+    url.searchParams.delete("meeting");
+  }
+
+  if (state.workspaceTab !== "notes") {
+    url.searchParams.set("tab", state.workspaceTab);
+  } else {
+    url.searchParams.delete("tab");
+  }
+
+  const nextPath = url.pathname + url.search + url.hash;
+  const currentPath = window.location.pathname + window.location.search + window.location.hash;
+  if (nextPath !== currentPath) {
+    history.replaceState(null, "", nextPath);
+  }
+}
 
 function escapeHtml(value) {
   return value
@@ -207,6 +242,7 @@ function renderMeetingList() {
     state.selectedMeetingId = null;
     state.selectedMeeting = null;
     state.selectedMeetingBundle = null;
+    syncBrowserUrl();
     const filterSummary = currentFilterSummary();
     const message = filterSummary
       ? "No meetings match " + filterSummary + "."
@@ -220,6 +256,7 @@ function renderMeetingList() {
   if (!state.selectedMeetingId || !visibleIds.has(state.selectedMeetingId)) {
     state.selectedMeetingId = state.meetings[0]?.id || null;
   }
+  syncBrowserUrl();
 
   els.list.innerHTML = state.meetings
     .map((meeting) => {
@@ -418,6 +455,7 @@ async function loadMeetings(options = {}) {
 
 async function loadMeeting(id) {
   state.selectedMeetingId = id;
+  syncBrowserUrl();
   renderMeetingList();
 
   try {
@@ -776,6 +814,7 @@ els.quickOpenButton.addEventListener("click", () => {
 els.workspaceTabs.forEach((button) => {
   button.addEventListener("click", () => {
     state.workspaceTab = button.dataset.workspaceTab || "notes";
+    syncBrowserUrl();
     renderMeetingDetail();
   });
 });
@@ -792,24 +831,28 @@ document.addEventListener("keydown", (event) => {
   const tabs = ["notes", "transcript", "metadata", "raw"];
   if (event.key === "1") {
     state.workspaceTab = "notes";
+    syncBrowserUrl();
     renderMeetingDetail();
     return;
   }
 
   if (event.key === "2") {
     state.workspaceTab = "transcript";
+    syncBrowserUrl();
     renderMeetingDetail();
     return;
   }
 
   if (event.key === "3") {
     state.workspaceTab = "metadata";
+    syncBrowserUrl();
     renderMeetingDetail();
     return;
   }
 
   if (event.key === "4") {
     state.workspaceTab = "raw";
+    syncBrowserUrl();
     renderMeetingDetail();
     return;
   }
@@ -817,14 +860,20 @@ document.addEventListener("keydown", (event) => {
   const currentIndex = tabs.indexOf(state.workspaceTab);
   if (event.key === "]") {
     state.workspaceTab = tabs[(currentIndex + 1) % tabs.length];
+    syncBrowserUrl();
     renderMeetingDetail();
   }
 
   if (event.key === "[") {
     state.workspaceTab = tabs[(currentIndex + tabs.length - 1) % tabs.length];
+    syncBrowserUrl();
     renderMeetingDetail();
   }
 });
+
+const initialSelection = startupSelection();
+state.selectedMeetingId = initialSelection.meetingId || null;
+state.workspaceTab = initialSelection.workspaceTab;
 
 const events = new EventSource("/events");
 events.addEventListener("state.updated", (event) => {

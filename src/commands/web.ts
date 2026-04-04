@@ -1,17 +1,9 @@
 import { createGranolaApp } from "../app/index.ts";
-import { openExternalUrl } from "../browser.ts";
 import { loadConfig } from "../config.ts";
-import { startGranolaServer } from "../server/http.ts";
 
-import {
-  debug,
-  parseNetworkMode,
-  parsePort,
-  parseTrustedOrigins,
-  resolveServerHostname,
-  waitForShutdown,
-} from "./shared.ts";
+import { debug } from "./shared.ts";
 import type { CommandDefinition } from "./types.ts";
+import { resolveGranolaWebWorkspaceOptions, runGranolaWebWorkspace } from "./web-shared.ts";
 
 function webHelp(): string {
   return `Granola web
@@ -20,6 +12,7 @@ Usage:
   granola web [options]
 
 Options:
+  --meeting <id>         Open a specific meeting on load
   --network <mode>        Network mode: local or lan (default: local)
   --hostname <value>      Hostname to bind (overrides network default)
   --port <value>          Port to bind (default: 0 for any available port)
@@ -41,6 +34,7 @@ export const webCommand: CommandDefinition = {
     cache: { type: "string" },
     help: { type: "boolean" },
     hostname: { type: "string" },
+    meeting: { type: "string" },
     network: { type: "string" },
     open: { type: "boolean" },
     password: { type: "string" },
@@ -64,71 +58,15 @@ export const webCommand: CommandDefinition = {
     const app = await createGranolaApp(config, {
       surface: "web",
     });
-    const networkMode = parseNetworkMode(commandFlags.network);
-    const hostname = resolveServerHostname(networkMode, commandFlags.hostname);
-    const port = parsePort(commandFlags.port);
-    const openBrowser = commandFlags.open !== false;
-    const password =
-      typeof commandFlags.password === "string" && commandFlags.password.trim()
-        ? commandFlags.password
+    const options = resolveGranolaWebWorkspaceOptions(commandFlags);
+    const targetMeetingId =
+      typeof commandFlags.meeting === "string" && commandFlags.meeting.trim()
+        ? commandFlags.meeting.trim()
         : undefined;
-    const trustedOrigins = parseTrustedOrigins(commandFlags["trusted-origins"]);
 
-    const server = await startGranolaServer(app, {
-      enableWebClient: true,
-      hostname,
-      port,
-      security: {
-        password,
-        trustedOrigins,
-      },
+    return await runGranolaWebWorkspace(app, {
+      ...options,
+      targetMeetingId,
     });
-
-    console.log(`Granola Toolkit web workspace listening on ${server.url.href}`);
-    console.log(`Network mode: ${networkMode}`);
-    if (password) {
-      console.log("Server password protection: enabled");
-    } else if (networkMode === "lan") {
-      console.log("Warning: LAN mode is enabled without a server password");
-    }
-    if (trustedOrigins.length > 0) {
-      console.log(`Trusted origins: ${trustedOrigins.join(", ")}`);
-    }
-    console.log("Routes:");
-    console.log("  GET  /");
-    console.log("  GET  /health");
-    console.log("  POST /auth/unlock");
-    console.log("  POST /auth/lock");
-    console.log("  GET  /auth/status");
-    console.log("  GET  /state");
-    console.log("  GET  /events");
-    console.log("  GET  /meetings");
-    console.log("  GET  /meetings/:id");
-    console.log("  GET  /exports/jobs");
-    console.log("  POST /auth/login");
-    console.log("  POST /auth/logout");
-    console.log("  POST /auth/mode");
-    console.log("  POST /auth/refresh");
-    console.log("  POST /exports/notes");
-    console.log("  POST /exports/jobs/:id/rerun");
-    console.log("  POST /exports/transcripts");
-    console.log(`Attach: granola attach ${server.url.href}`);
-    if (password) {
-      console.log("Attach password: add --password <value>");
-    }
-
-    if (openBrowser) {
-      try {
-        await openExternalUrl(server.url);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(`failed to open browser automatically: ${message}`);
-        console.error(`open ${server.url.href} manually`);
-      }
-    }
-
-    await waitForShutdown(async () => await server.close());
-
-    return 0;
   },
 };

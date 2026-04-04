@@ -71,7 +71,7 @@ describe("runCli", () => {
     const exitCode = await runCli(["meeting", "--help"]);
 
     expect(exitCode).toBe(0);
-    expect(log).toHaveBeenCalledWith(expect.stringContaining("Granola meeting"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("open <id>"));
     expect(error).not.toHaveBeenCalled();
   });
 
@@ -115,7 +115,7 @@ describe("runCli", () => {
     const exitCode = await runCli(["web", "--help"]);
 
     expect(exitCode).toBe(0);
-    expect(log).toHaveBeenCalledWith(expect.stringContaining("Granola web"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("--meeting <id>"));
     expect(error).not.toHaveBeenCalled();
   });
 

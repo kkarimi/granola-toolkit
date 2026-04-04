@@ -100,6 +100,7 @@ granola meeting view 1234abcd
 granola meeting notes 1234abcd
 granola meeting transcript 1234abcd --format json
 granola meeting export 1234abcd --format yaml
+granola meeting open 1234abcd
 granola tui
 granola tui --meeting 1234abcd
 ```
@@ -116,6 +117,7 @@ granola attach http://127.0.0.1:4096 --meeting 1234abcd
 granola attach http://127.0.0.1:4096 --password "change-me"
 
 granola web
+granola web --meeting 1234abcd
 granola web --open=false --port 4096
 granola web --network lan --password "change-me" --trusted-origins "https://trusted.example"
 ```
@@ -191,6 +193,7 @@ The focused meeting subcommands are:
 
 - `meeting notes` for just the selected note output
 - `meeting transcript` for just the selected transcript output
+- `meeting open` to start the web workspace focused on one meeting
 
 The machine-readable `export` command includes:
 
@@ -236,6 +239,11 @@ Server hardening now includes:
 ### Web
 
 `web` starts the same local server as `serve`, enables the browser client at `/`, and opens that workspace in your default browser unless you pass `--open=false`.
+
+You can deep-link into a specific meeting with either:
+
+- `granola web --meeting <id>`
+- `granola meeting open <id>`
 
 The initial browser client includes:
 

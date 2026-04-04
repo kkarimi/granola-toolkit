@@ -15,12 +15,13 @@ import {
 
 import { debug } from "./shared.ts";
 import type { CommandDefinition } from "./types.ts";
+import { resolveGranolaWebWorkspaceOptions, runGranolaWebWorkspace } from "./web-shared.ts";
 
 function meetingHelp(): string {
   return `Granola meeting
 
 Usage:
-  granola meeting <list|view|export|notes|transcript> [options]
+  granola meeting <list|view|export|notes|transcript|open> [options]
 
 Subcommands:
   list                List meetings from the Granola API
@@ -28,13 +29,20 @@ Subcommands:
   export <id>         Export a single meeting as JSON or YAML
   notes <id>          Show a single meeting's notes
   transcript <id>     Show a single meeting's transcript
+  open <id>           Start the web workspace focused on one meeting
 
 Options:
   --cache <path>      Path to Granola cache JSON for transcript data
   --format <value>    list/view: text, json, yaml; export: json, yaml; notes: markdown, json, yaml, raw; transcript: text, json, yaml, raw
+  --network <mode>    open: local or lan (default: local)
+  --hostname <value>  open: hostname to bind (overrides network default)
   --limit <n>         Number of meetings for list (default: 20)
+  --open[=true|false] open: launch the browser automatically (default: true)
+  --password <value>  open: optional server password
+  --port <value>      open: port to bind (default: 0 for any available port)
   --search <query>    Filter list by title, id, or tag
   --timeout <value>   Request timeout, e.g. 2m, 30s, 120000 (default: 2m)
+  --trusted-origins <v> open: comma-separated extra browser origins to trust
   --supabase <path>   Path to supabase.json
   --debug             Enable debug logging
   --config <path>     Path to .granola.toml
@@ -133,9 +141,15 @@ export const meetingCommand: CommandDefinition = {
     cache: { type: "string" },
     format: { type: "string" },
     help: { type: "boolean" },
+    hostname: { type: "string" },
     limit: { type: "string" },
+    network: { type: "string" },
+    open: { type: "boolean" },
+    password: { type: "string" },
+    port: { type: "string" },
     search: { type: "string" },
     timeout: { type: "string" },
+    "trusted-origins": { type: "string" },
   },
   help: meetingHelp,
   name: "meeting",
@@ -165,12 +179,17 @@ export const meetingCommand: CommandDefinition = {
           throw new Error("meeting transcript requires an id");
         }
         return await transcript(id, commandFlags, globalFlags);
+      case "open":
+        if (!id) {
+          throw new Error("meeting open requires an id");
+        }
+        return await openMeeting(id, commandFlags, globalFlags);
       case undefined:
         console.log(meetingHelp());
         return 1;
       default:
         throw new Error(
-          "invalid meeting command: expected list, view, export, notes, or transcript",
+          "invalid meeting command: expected list, view, export, notes, transcript, or open",
         );
     }
   },
@@ -307,4 +326,33 @@ async function transcript(
 
   console.log(output.trimEnd());
   return 0;
+}
+
+async function openMeeting(
+  id: string,
+  commandFlags: Record<string, string | boolean | undefined>,
+  globalFlags: Record<string, string | boolean | undefined>,
+): Promise<number> {
+  const config = await loadConfig({
+    globalFlags,
+    subcommandFlags: commandFlags,
+  });
+  debug(config.debug, "using config", config.configFileUsed ?? "(none)");
+  debug(config.debug, "supabase", config.supabase);
+  debug(config.debug, "cacheFile", config.transcripts.cacheFile || "(none)");
+  debug(config.debug, "timeoutMs", config.notes.timeoutMs);
+
+  const app = await createGranolaApp(config, {
+    surface: "web",
+  });
+  debug(config.debug, "authMode", app.getState().auth.mode);
+
+  console.log("Resolving meeting from Granola API...");
+  const result = await app.getMeeting(id);
+  console.log(`Preparing web workspace for ${result.document.title || result.document.id}...`);
+
+  return await runGranolaWebWorkspace(app, {
+    ...resolveGranolaWebWorkspaceOptions(commandFlags),
+    targetMeetingId: result.document.id,
+  });
 }
