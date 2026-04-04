@@ -10,6 +10,7 @@ import {
 } from "@mariozechner/pi-tui";
 
 import type {
+  FolderSummaryRecord,
   GranolaAppApi,
   GranolaAppState,
   GranolaAppAuthState,
@@ -36,6 +37,7 @@ interface GranolaTuiApp extends GranolaAppApi {
 }
 
 type GranolaTuiStatusTone = "error" | "info" | "warning";
+type GranolaTuiFocusPane = "folders" | "meetings";
 
 function padLine(text: string, width: number): string {
   const clipped = truncateToWidth(text, width, "");
@@ -73,9 +75,13 @@ class GranolaTuiWorkspace implements Component {
   readonly #maxMeetings: number;
 
   #appState: GranolaAppState;
+  #activePane: GranolaTuiFocusPane = "meetings";
   #detailError = "";
   #detailScroll = 0;
   #detailToken = 0;
+  #folderError = "";
+  #folderToken = 0;
+  #folders: FolderSummaryRecord[] = [];
   #listError = "";
   #listToken = 0;
   #loadingDetail = false;
@@ -83,6 +89,7 @@ class GranolaTuiWorkspace implements Component {
   #meetingSource: MeetingSummarySource = "live";
   #meetings: MeetingSummaryRecord[] = [];
   #overlay?: OverlayHandle;
+  #selectedFolderId?: string;
   #selectedMeeting?: GranolaMeetingBundle;
   #selectedMeetingId?: string;
   #statusMessage = "Loading meetings…";
@@ -97,6 +104,7 @@ class GranolaTuiWorkspace implements Component {
   ) {
     this.#appState = app.getState();
     this.#maxMeetings = options.maxMeetings ?? 200;
+    this.#selectedFolderId = this.#appState.ui.selectedFolderId;
   }
 
   async initialise(): Promise<void> {
@@ -104,6 +112,9 @@ class GranolaTuiWorkspace implements Component {
       this.handleAppUpdate(event);
     });
 
+    await this.loadFolders({
+      setStatus: false,
+    });
     await this.loadMeetings({
       preferredMeetingId: this.options.initialMeetingId,
       setStatus: true,
@@ -128,6 +139,8 @@ class GranolaTuiWorkspace implements Component {
   private handleAppUpdate(event: GranolaAppStateEvent): void {
     const previousDocumentsLoadedAt = this.#appState.documents.loadedAt;
     this.#appState = event.state;
+    this.#selectedFolderId = event.state.ui.selectedFolderId;
+    this.#selectedMeetingId = event.state.ui.selectedMeetingId ?? this.#selectedMeetingId;
 
     if (
       this.#meetingSource === "index" &&
@@ -135,9 +148,12 @@ class GranolaTuiWorkspace implements Component {
       event.state.documents.loadedAt !== previousDocumentsLoadedAt &&
       !this.#loadingMeetings
     ) {
-      void this.loadMeetings({
-        preferredMeetingId: this.#selectedMeetingId,
-      });
+      void (async () => {
+        await this.loadFolders({ setStatus: false });
+        await this.loadMeetings({
+          preferredMeetingId: this.#selectedMeetingId,
+        });
+      })();
     }
 
     this.tui.requestRender();
@@ -161,6 +177,15 @@ class GranolaTuiWorkspace implements Component {
     return selectedIndex >= 0 ? selectedIndex : 0;
   }
 
+  private normaliseSelectedFolderIndex(): number {
+    if (!this.#selectedFolderId) {
+      return 0;
+    }
+
+    const selectedIndex = this.#folders.findIndex((folder) => folder.id === this.#selectedFolderId);
+    return selectedIndex >= 0 ? selectedIndex + 1 : 0;
+  }
+
   private ensureMeetingVisible(meeting: MeetingSummaryRecord): void {
     const existingIndex = this.#meetings.findIndex((item) => item.id === meeting.id);
     if (existingIndex >= 0) {
@@ -176,6 +201,53 @@ class GranolaTuiWorkspace implements Component {
 
       return left.title.localeCompare(right.title);
     });
+  }
+
+  private async loadFolders(
+    options: {
+      forceRefresh?: boolean;
+      setStatus?: boolean;
+    } = {},
+  ): Promise<void> {
+    const token = ++this.#folderToken;
+    this.#folderError = "";
+    if (options.setStatus) {
+      this.setStatus(options.forceRefresh ? "Refreshing folders…" : "Loading folders…");
+    }
+
+    try {
+      const result = await this.app.listFolders({
+        forceRefresh: options.forceRefresh,
+        limit: 100,
+      });
+
+      if (token !== this.#folderToken) {
+        return;
+      }
+
+      this.#folders = result.folders;
+      if (
+        this.#selectedFolderId &&
+        !this.#folders.some((folder) => folder.id === this.#selectedFolderId)
+      ) {
+        this.#selectedFolderId = undefined;
+      }
+      this.#folderError = "";
+    } catch (error) {
+      if (token !== this.#folderToken) {
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      this.#folderError = message;
+      this.#folders = [];
+      this.#selectedFolderId = undefined;
+      this.setStatus(message, "error");
+    } finally {
+      if (token === this.#folderToken) {
+        this.tui.requestRender();
+      }
+    }
   }
 
   private async loadMeetings(
@@ -194,6 +266,7 @@ class GranolaTuiWorkspace implements Component {
 
     try {
       const result = await this.app.listMeetings({
+        folderId: this.#selectedFolderId,
         forceRefresh: options.forceRefresh,
         limit: this.#maxMeetings,
         preferIndex: true,
@@ -213,9 +286,18 @@ class GranolaTuiWorkspace implements Component {
               this.#meetings.some((meeting) => meeting.id === this.#selectedMeetingId)
             ? this.#selectedMeetingId
             : this.#meetings[0]?.id;
+      if (!this.#selectedMeetingId) {
+        this.#selectedMeeting = undefined;
+        this.#detailError = "";
+        this.#detailScroll = 0;
+      }
       this.#listError = "";
       this.setStatus(
-        result.source === "index" ? "Loaded meetings from the local index" : "Connected to Granola",
+        result.source === "index"
+          ? "Loaded meetings from the local index"
+          : this.#selectedFolderId
+            ? "Connected to Granola (folder scope)"
+            : "Connected to Granola",
       );
     } catch (error) {
       if (token !== this.#listToken) {
@@ -278,6 +360,10 @@ class GranolaTuiWorkspace implements Component {
 
   private async refresh(forceRefresh: boolean): Promise<void> {
     try {
+      await this.loadFolders({
+        forceRefresh,
+        setStatus: false,
+      });
       await this.loadMeetings({
         forceRefresh,
         preferredMeetingId: this.#selectedMeetingId,
@@ -293,7 +379,7 @@ class GranolaTuiWorkspace implements Component {
     }
   }
 
-  private async moveSelection(delta: number): Promise<void> {
+  private async moveMeetingSelection(delta: number): Promise<void> {
     if (this.#meetings.length === 0) {
       return;
     }
@@ -306,6 +392,44 @@ class GranolaTuiWorkspace implements Component {
     }
 
     await this.loadMeeting(nextMeeting.id);
+  }
+
+  private async moveFolderSelection(delta: number): Promise<void> {
+    const total = this.#folders.length + 1;
+    const currentIndex = this.normaliseSelectedFolderIndex();
+    const nextIndex = Math.max(0, Math.min(total - 1, currentIndex + delta));
+    const nextFolderId = nextIndex === 0 ? undefined : this.#folders[nextIndex - 1]?.id;
+
+    if (nextFolderId === this.#selectedFolderId) {
+      return;
+    }
+
+    this.#selectedFolderId = nextFolderId;
+    this.#selectedMeeting = undefined;
+    this.#detailError = "";
+    this.#detailScroll = 0;
+    await this.loadMeetings({
+      preferredMeetingId: this.#selectedMeetingId,
+      setStatus: false,
+    });
+
+    if (this.#selectedMeetingId) {
+      await this.loadMeeting(this.#selectedMeetingId, {
+        ensureMeetingVisible: true,
+      });
+      return;
+    }
+
+    this.tui.requestRender();
+  }
+
+  private async moveSelection(delta: number): Promise<void> {
+    if (this.#activePane === "folders") {
+      await this.moveFolderSelection(delta);
+      return;
+    }
+
+    await this.moveMeetingSelection(delta);
   }
 
   private currentDetailBody(width: number): string[] {
@@ -360,6 +484,10 @@ class GranolaTuiWorkspace implements Component {
     const preferredMeetingId = this.#selectedMeeting?.document.id ?? this.#selectedMeetingId;
 
     try {
+      await this.loadFolders({
+        forceRefresh: true,
+        setStatus: false,
+      });
       await this.loadMeetings({
         forceRefresh: true,
         preferredMeetingId,
@@ -512,6 +640,24 @@ class GranolaTuiWorkspace implements Component {
       return;
     }
 
+    if (matchesKey(data, "tab")) {
+      this.#activePane = this.#activePane === "folders" ? "meetings" : "folders";
+      this.tui.requestRender();
+      return;
+    }
+
+    if (matchesKey(data, "left") || matchesKey(data, "h")) {
+      this.#activePane = "folders";
+      this.tui.requestRender();
+      return;
+    }
+
+    if (matchesKey(data, "right") || matchesKey(data, "l")) {
+      this.#activePane = "meetings";
+      this.tui.requestRender();
+      return;
+    }
+
     if (matchesKey(data, "up") || matchesKey(data, "k")) {
       void this.moveSelection(-1);
       return;
@@ -597,12 +743,97 @@ class GranolaTuiWorkspace implements Component {
   private renderListPane(width: number, height: number): string[] {
     const lines: string[] = [];
     const innerWidth = Math.max(1, width - 2);
-    const header = `${granolaTuiTheme.strong("Meetings")} ${granolaTuiTheme.dim(`(${this.#meetings.length})`)}`;
-    lines.push(padLine(header, innerWidth));
+    const folderEntries = [
+      {
+        id: undefined,
+        label: "All meetings",
+        meta: this.#folders.length > 0 ? `${this.#folders.length} folders` : "global scope",
+      },
+      ...this.#folders.map((folder) => ({
+        id: folder.id,
+        label: `${folder.isFavourite ? "★ " : ""}${folder.name || folder.id}`,
+        meta: `${folder.documentCount} meetings`,
+      })),
+    ];
+    const availableRows = Math.max(2, height - 3);
+    const folderWindowSize = Math.min(
+      Math.max(3, Math.min(8, Math.floor(availableRows * 0.35))),
+      Math.max(1, availableRows - 1),
+    );
+    const meetingWindowSize = Math.max(1, availableRows - folderWindowSize);
+
+    const folderHeader = `${
+      this.#activePane === "folders"
+        ? granolaTuiTheme.accent("Folders")
+        : granolaTuiTheme.strong("Folders")
+    } ${granolaTuiTheme.dim(`(${this.#folders.length})`)}`;
+    lines.push(padLine(folderHeader, innerWidth));
+
+    if (this.#folderError) {
+      lines.push(
+        ...wrapBlock(granolaTuiTheme.error(this.#folderError), innerWidth).slice(
+          0,
+          folderWindowSize,
+        ),
+      );
+      while (lines.length < 1 + folderWindowSize) {
+        lines.push(" ".repeat(innerWidth));
+      }
+    } else {
+      const selectedFolderIndex = this.normaliseSelectedFolderIndex();
+      const folderStartIndex = Math.max(
+        0,
+        Math.min(
+          selectedFolderIndex - Math.floor(folderWindowSize / 2),
+          folderEntries.length - folderWindowSize,
+        ),
+      );
+      const visibleFolders = folderEntries.slice(
+        folderStartIndex,
+        folderStartIndex + folderWindowSize,
+      );
+
+      for (const [offset, folder] of visibleFolders.entries()) {
+        const actualIndex = folderStartIndex + offset;
+        const selected = actualIndex === selectedFolderIndex;
+        const prefix = selected ? "> " : "  ";
+        const maxLabelWidth = Math.max(
+          6,
+          innerWidth - visibleWidth(prefix) - visibleWidth(folder.meta) - 1,
+        );
+        const label = truncateToWidth(folder.label, maxLabelWidth, "");
+        const labelBlock = `${prefix}${label}`;
+        const gap = " ".repeat(
+          Math.max(1, innerWidth - visibleWidth(labelBlock) - visibleWidth(folder.meta)),
+        );
+        const line = `${labelBlock}${gap}${granolaTuiTheme.dim(folder.meta)}`;
+        lines.push(
+          selected
+            ? padLine(granolaTuiTheme.selected(line), innerWidth)
+            : padLine(line, innerWidth),
+        );
+      }
+
+      while (lines.length < 1 + folderWindowSize) {
+        lines.push(" ".repeat(innerWidth));
+      }
+    }
+
+    lines.push(padLine(granolaTuiTheme.dim(""), innerWidth));
+
+    const meetingsHeader = `${
+      this.#activePane === "meetings"
+        ? granolaTuiTheme.accent("Meetings")
+        : granolaTuiTheme.strong("Meetings")
+    } ${granolaTuiTheme.dim(`(${this.#meetings.length})`)}`;
+    lines.push(padLine(meetingsHeader, innerWidth));
 
     if (this.#listError) {
       lines.push(
-        ...wrapBlock(granolaTuiTheme.error(this.#listError), innerWidth).slice(0, height - 1),
+        ...wrapBlock(granolaTuiTheme.error(this.#listError), innerWidth).slice(
+          0,
+          meetingWindowSize,
+        ),
       );
       while (lines.length < height) {
         lines.push(" ".repeat(innerWidth));
@@ -611,7 +842,9 @@ class GranolaTuiWorkspace implements Component {
     }
 
     if (this.#meetings.length === 0) {
-      lines.push(...wrapBlock("No meetings available yet.", innerWidth).slice(0, height - 1));
+      lines.push(
+        ...wrapBlock("No meetings available yet.", innerWidth).slice(0, meetingWindowSize),
+      );
       while (lines.length < height) {
         lines.push(" ".repeat(innerWidth));
       }
@@ -619,12 +852,14 @@ class GranolaTuiWorkspace implements Component {
     }
 
     const selectedIndex = this.normaliseSelectedIndex();
-    const windowSize = Math.max(1, height - 1);
     const startIndex = Math.max(
       0,
-      Math.min(selectedIndex - Math.floor(windowSize / 2), this.#meetings.length - windowSize),
+      Math.min(
+        selectedIndex - Math.floor(meetingWindowSize / 2),
+        this.#meetings.length - meetingWindowSize,
+      ),
     );
-    const visibleMeetings = this.#meetings.slice(startIndex, startIndex + windowSize);
+    const visibleMeetings = this.#meetings.slice(startIndex, startIndex + meetingWindowSize);
 
     for (const [offset, meeting] of visibleMeetings.entries()) {
       const actualIndex = startIndex + offset;
@@ -718,7 +953,9 @@ class GranolaTuiWorkspace implements Component {
 
     const footerStatus = padLine(toneText(this.#statusTone, this.#statusMessage), width);
     const footerHints = padLine(
-      granolaTuiTheme.dim("/ quick open  a auth  r refresh  1-4 tabs  PgUp/PgDn scroll  q quit"),
+      granolaTuiTheme.dim(
+        "h/l or Tab pane  j/k move  / quick open  a auth  r refresh  1-4 tabs  PgUp/PgDn scroll  q quit",
+      ),
       width,
     );
 

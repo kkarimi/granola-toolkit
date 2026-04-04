@@ -319,6 +319,7 @@ That keeps the current single-package repo simple, while making a future split i
 
 The initial terminal workspace includes:
 
+- a folder scope inside the navigation pane, including an explicit All meetings view
 - a meeting list pane with keyboard navigation
 - a detail pane with notes, transcript, metadata, and raw views
 - an auth session overlay for import, refresh, source switching, and sign-out
@@ -327,7 +328,8 @@ The initial terminal workspace includes:
 
 The main keyboard controls are:
 
-- `j` / `k` or arrow keys to move between meetings
+- `h` / `l`, left / right, or `Tab` to switch between folders and meetings
+- `j` / `k` or arrow keys to move within the active folder or meeting list
 - `/` or `Ctrl+P` to open quick open
 - `a` to open auth session actions
 - `1`-`4` to switch detail tabs

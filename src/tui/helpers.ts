@@ -109,6 +109,7 @@ export function renderGranolaTuiMeetingTab(
         `ID: ${summary.id}`,
         `Created: ${summary.createdAt}`,
         `Updated: ${summary.updatedAt}`,
+        `Folders: ${summary.folders.length > 0 ? summary.folders.map((folder) => folder.name).join(", ") : "none"}`,
         `Tags: ${summary.tags.length > 0 ? summary.tags.join(", ") : "none"}`,
         `Notes source: ${summary.noteContentSource}`,
         `Transcript loaded: ${summary.transcriptLoaded ? "yes" : "no"}`,
@@ -136,6 +137,7 @@ export function buildGranolaTuiSummary(
 ): string {
   const authMode = state.auth.mode === "stored-session" ? "stored" : "supabase";
   const documents = state.documents.loaded ? `${state.documents.count} docs` : "docs pending";
+  const folders = state.folders.loaded ? `${state.folders.count} folders` : "folders pending";
   const cache = state.cache.loaded
     ? `${state.cache.transcriptCount} transcript sets`
     : state.cache.configured
@@ -143,5 +145,5 @@ export function buildGranolaTuiSummary(
       : "cache missing";
   const index = state.index.loaded ? `${state.index.meetingCount} indexed` : "index pending";
 
-  return `auth ${authMode} | ${documents} | ${cache} | ${index} | list ${meetingSource}`;
+  return `auth ${authMode} | ${documents} | ${folders} | ${cache} | ${index} | list ${meetingSource}`;
 }

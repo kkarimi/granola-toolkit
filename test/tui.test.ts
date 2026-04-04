@@ -6,13 +6,26 @@ import type {
   MeetingSummaryRecord,
 } from "../src/app/index.ts";
 import { buildGranolaTuiAuthActions, renderGranolaTuiAuthState } from "../src/tui/auth.ts";
-import { buildGranolaTuiQuickOpenItems, renderGranolaTuiMeetingTab } from "../src/tui/helpers.ts";
+import {
+  buildGranolaTuiQuickOpenItems,
+  buildGranolaTuiSummary,
+  renderGranolaTuiMeetingTab,
+} from "../src/tui/helpers.ts";
 import type { CacheData, GranolaDocument } from "../src/types.ts";
 
 const meetings: MeetingSummaryRecord[] = [
   {
     createdAt: "2024-01-01T09:00:00Z",
-    folders: [],
+    folders: [
+      {
+        createdAt: "2024-01-01T08:00:00Z",
+        documentCount: 1,
+        id: "folder-team-1111",
+        isFavourite: true,
+        name: "Team",
+        updatedAt: "2024-01-04T10:00:00Z",
+      },
+    ],
     id: "doc-alpha-1111",
     noteContentSource: "notes",
     tags: ["team", "alpha"],
@@ -155,12 +168,71 @@ describe("buildGranolaTuiQuickOpenItems", () => {
 describe("renderGranolaTuiMeetingTab", () => {
   test("renders metadata and transcript views for the TUI detail pane", () => {
     expect(renderGranolaTuiMeetingTab(bundle, "metadata")).toContain("Notes source: notes");
+    expect(renderGranolaTuiMeetingTab(bundle, "metadata")).toContain("Folders: Team");
     expect(renderGranolaTuiMeetingTab(bundle, "transcript")).toContain("Hello team");
   });
 
   test("renders note and raw views", () => {
     expect(renderGranolaTuiMeetingTab(bundle, "notes")).toContain("# Alpha Sync");
     expect(renderGranolaTuiMeetingTab(bundle, "raw")).toContain('"meeting"');
+  });
+});
+
+describe("buildGranolaTuiSummary", () => {
+  test("includes folder status in the header summary", () => {
+    const summary = buildGranolaTuiSummary(
+      {
+        auth: storedAuthState,
+        cache: {
+          configured: true,
+          documentCount: 1,
+          filePath: "/tmp/cache.json",
+          loaded: true,
+          loadedAt: "2024-03-01T12:00:00Z",
+          transcriptCount: 1,
+        },
+        config: {
+          debug: false,
+          notes: {
+            output: "/tmp/notes",
+            timeoutMs: 120_000,
+          },
+          supabase: "/tmp/supabase.json",
+          transcripts: {
+            cacheFile: "/tmp/cache.json",
+            output: "/tmp/transcripts",
+          },
+        },
+        documents: {
+          count: 2,
+          loaded: true,
+          loadedAt: "2024-03-01T12:00:00Z",
+        },
+        exports: {
+          jobs: [],
+        },
+        folders: {
+          count: 3,
+          loaded: true,
+          loadedAt: "2024-03-01T12:00:00Z",
+        },
+        index: {
+          available: true,
+          filePath: "/tmp/index.json",
+          loaded: true,
+          loadedAt: "2024-03-01T12:00:00Z",
+          meetingCount: 2,
+        },
+        ui: {
+          surface: "tui",
+          view: "meeting-list",
+        },
+      },
+      "live",
+    );
+
+    expect(summary).toContain("3 folders");
+    expect(summary).toContain("list live");
   });
 });
 
