@@ -24,12 +24,18 @@ jobs:
           cache: true
       - name: Install
         run: vp install --frozen-lockfile
+      - name: Install Docs Dependencies
+        run: npm ci --prefix docs
       - name: Check
         run: vp check
       - name: Test
         run: vp test
+      - name: Coverage
+        run: npm run coverage
       - name: Pack
         run: vp pack
+      - name: Build Docs
+        run: npm run docs:check
       - name: Pack Dry Run
         run: npm pack --dry-run
 

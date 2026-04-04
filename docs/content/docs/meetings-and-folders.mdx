@@ -1,0 +1,55 @@
+---
+title: Meetings and Folders
+description: Browse meetings from folder context instead of one flat global list.
+---
+
+## Folders
+
+`folder` makes Granola folders a first-class concept in the toolkit.
+
+The current surface includes:
+
+- `granola folder list`
+- `granola folder view <id|name>`
+- `granola meeting list --folder <id|name>`
+- `granola notes --folder <id|name>`
+- `granola transcripts --folder <id|name>`
+
+Examples:
+
+```bash
+granola folder list
+granola folder view Team
+granola meeting list --folder Team
+```
+
+## Meetings
+
+`meeting` combines API-backed notes with the local transcript cache so you can inspect one meeting
+at a time.
+
+Examples:
+
+```bash
+granola meeting list --limit 10
+granola meeting list --search planning
+granola meeting view 1234abcd
+granola meeting notes 1234abcd
+granola meeting transcript 1234abcd --format json
+granola meeting export 1234abcd --format yaml
+granola meeting open 1234abcd
+```
+
+## Browser and TUI Navigation
+
+Folders also drive interactive navigation:
+
+- the browser workspace has a dedicated folder pane plus an All meetings scope
+- the TUI keeps folders inside the navigation flow instead of treating them as an afterthought
+- URL state and attach flows preserve folder and meeting selection
+
+## Why This Matters
+
+Most real users do not want one undifferentiated list of every meeting they have ever recorded.
+Treating folders as first-class keeps exports, scripts, and interactive browsing aligned with how
+Granola is actually organised.

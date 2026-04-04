@@ -67,7 +67,9 @@ const release = () => {
 
   run("vp check");
   run("vp test");
+  run("npm run coverage");
   run("vp pack");
+  run("npm run docs:check");
   run("npm pack --dry-run");
   run(`npm version ${kind} --no-git-tag-version`);
 

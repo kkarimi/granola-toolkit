@@ -1,0 +1,88 @@
+---
+title: Exporting
+description: Export notes or transcripts, filter by folder, and rely on stable incremental output state.
+---
+
+## Notes
+
+`granola notes` exports Granola's generated meeting notes, not the raw transcript.
+
+The flow is:
+
+1. Read a stored Granola session, or fall back to `supabase.json`.
+2. Extract the WorkOS access token.
+3. Call Granola's paginated documents API.
+4. Normalise each document into a structured note export.
+5. Choose the best available note content.
+6. Render Markdown, JSON, YAML, or raw JSON.
+7. Write one file per document into the output directory.
+
+Content is chosen in this order:
+
+1. `notes`
+2. `last_viewed_panel.content`
+3. `last_viewed_panel.original_content`
+4. raw `content`
+
+Examples:
+
+```bash
+granola notes
+granola notes --folder Team
+granola notes --format json --output ./notes-json
+```
+
+## Transcripts
+
+`granola transcripts` exports locally cached transcript segments.
+
+The flow is:
+
+1. Read Granola's cache JSON from disk.
+2. Parse the cache payload.
+3. Normalise transcript data into a structured export per document.
+4. Match segments to documents by document id.
+5. Render text, JSON, YAML, or raw JSON.
+6. Write one file per document into the output directory.
+
+Examples:
+
+```bash
+granola transcripts
+granola transcripts --folder Team
+granola transcripts --format yaml --output ./transcripts-yaml
+```
+
+## Folder-Scoped Exports
+
+When you pass `--folder <id|name>`, the export is filtered to that folder and, by default, written
+into a stable per-folder subdirectory under the output root.
+
+Examples:
+
+```bash
+granola notes --folder Team
+granola transcripts --folder Team
+```
+
+## Export Jobs
+
+Exports are tracked as jobs with persistent history, scope metadata, status, progress counters, and
+rerun support.
+
+```bash
+granola exports list
+granola exports rerun notes-1234abcd
+```
+
+## Incremental Writes
+
+The exporter keeps a hidden state file in the output directory to track:
+
+- document id to filename
+- content hash
+- source timestamp
+- last export time
+
+That state is used to keep filenames stable, skip unchanged renders, migrate format changes, and
+delete stale files.

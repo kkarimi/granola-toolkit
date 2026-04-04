@@ -25,7 +25,7 @@ describe("loadConfig", () => {
     );
 
     const config = await loadConfig({
-      env: {},
+      env: { NODE_ENV: "test" },
       globalFlags: { config: configPath },
       subcommandFlags: {},
     });
@@ -44,7 +44,7 @@ describe("loadConfig", () => {
 
     await expect(
       loadConfig({
-        env: {},
+        env: { NODE_ENV: "test" },
         globalFlags: { config: configPath },
         subcommandFlags: {},
       }),

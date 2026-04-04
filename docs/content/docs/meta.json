@@ -1,0 +1,12 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "index",
+    "getting-started",
+    "exporting",
+    "meetings-and-folders",
+    "server-web-and-tui",
+    "auth-and-configuration",
+    "development"
+  ]
+}

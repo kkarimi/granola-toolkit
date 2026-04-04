@@ -1,0 +1,82 @@
+---
+title: Server, Web, and TUI
+description: Share one local app across terminal, browser, and attached clients.
+---
+
+## Server
+
+`granola serve` starts a long-lived local Granola Toolkit server on one shared app instance.
+
+High-level API surface:
+
+- health and server info
+- auth login, refresh, lock, unlock, and mode switching
+- shared state and live event streaming
+- folder and meeting queries
+- export job listing and reruns
+- notes and transcript export triggers
+
+Security defaults:
+
+- `local` network mode by default
+- optional password protection
+- trusted-origin checks for browser requests
+- warnings when you expose the server on `lan` without a password
+
+## Web
+
+`granola web` starts the same local server, enables the browser client at `/`, and opens it in your
+default browser unless you pass `--open=false`.
+
+Examples:
+
+```bash
+granola web
+granola web --meeting 1234abcd
+granola web --open=false --port 4096
+granola web --network lan --password "change-me"
+```
+
+The browser workspace includes:
+
+- folder-aware meeting navigation
+- search, sort, and updated-date filters
+- quick open by id or title
+- notes, transcript, metadata, and raw tabs
+- export actions and recent export jobs
+- auth session controls
+
+## TUI
+
+`granola tui` starts a full-screen terminal workspace on the shared app core.
+
+Main controls:
+
+- `h` / `l`, left / right, or `Tab` to switch focus
+- `j` / `k` or arrow keys to move within lists
+- `/` or `Ctrl+P` to open quick open
+- `a` to open auth session actions
+- `1`-`4` to switch detail tabs
+- `r` to refresh
+- `q` to quit
+
+## Attach
+
+`granola attach` connects a terminal workspace to an existing local server instead of starting a
+second isolated app.
+
+Examples:
+
+```bash
+granola serve --port 4096
+granola attach http://127.0.0.1:4096
+granola attach http://127.0.0.1:4096 --meeting 1234abcd
+```
+
+## Runtime Boundaries
+
+The current single-package repo still keeps transport and persistence boundaries explicit:
+
+- one shared local data directory
+- one versioned local HTTP transport contract
+- one client handshake that validates protocol compatibility before attaching

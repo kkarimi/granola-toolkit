@@ -1,0 +1,63 @@
+---
+title: Auth and Configuration
+description: Reuse desktop auth, switch sources, and configure the toolkit without repeating flags.
+---
+
+## Auth
+
+Import the desktop app session once:
+
+```bash
+granola auth login
+granola auth status
+granola auth refresh
+granola auth use stored
+granola auth use supabase
+granola auth logout
+```
+
+`granola auth` supports:
+
+- `login` to import the desktop app session into the toolkit store
+- `status` to inspect the active source, stored-session availability, refresh support, and last auth error
+- `refresh` to refresh the stored session explicitly
+- `use stored` or `use supabase` to switch the active auth source
+- `logout` to delete the stored session
+
+The same auth actions are also available from the browser workspace.
+
+## Configuration Precedence
+
+The CLI reads configuration in this order:
+
+1. command-line flags
+2. environment variables
+3. `.granola.toml`
+4. platform defaults
+
+## Config File
+
+```toml
+debug = true
+supabase = "/Users/yourname/Library/Application Support/Granola/supabase.json"
+output = "./notes"
+timeout = "2m"
+cache-file = "/Users/yourname/Library/Application Support/Granola/cache-v3.json"
+transcript-output = "./transcripts"
+```
+
+## Environment Variables
+
+- `DEBUG_MODE`
+- `SUPABASE_FILE`
+- `OUTPUT`
+- `TIMEOUT`
+- `CACHE_FILE`
+- `TRANSCRIPT_OUTPUT`
+- `GRANOLA_CLIENT_VERSION`
+
+## Notes on Live Data
+
+The preferred auth path is the stored session because it avoids repeatedly passing `--supabase` and
+handles refreshable access more cleanly. The `supabase.json` fallback remains useful when you want a
+stateless one-off run or when the stored session is unavailable.

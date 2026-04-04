@@ -1,0 +1,52 @@
+---
+title: Development
+description: Build, test, package, and now verify the docs app as part of the normal repo workflow.
+---
+
+## Toolkit QA
+
+Before pushing changes, run:
+
+```bash
+vp check
+vp test
+npm run coverage
+vp pack
+npm pack --dry-run
+```
+
+What those do:
+
+- `vp check`: formatting, linting, and type checks
+- `vp test`: unit tests
+- `npm run coverage`: unit tests plus a local coverage report in `coverage/coverage-summary.json`
+- `vp pack`: builds the CLI bundle into `dist/cli.js`
+- `npm pack --dry-run`: shows the exact npm package contents without publishing
+
+`vp build` is for web apps. This repo is a CLI package, so the build step here is `vp pack`.
+
+## Docs QA
+
+The docs app now lives in `docs/` and should be treated as a first-class build target.
+
+```bash
+npm run docs:dev
+npm run docs:check
+```
+
+`docs:check` runs the Fumadocs content build, Next.js type generation, TypeScript checking, and the
+Next production build.
+
+## Release Flow
+
+Normal release flow:
+
+1. Finish the change on `main`.
+2. Run toolkit QA plus `npm run docs:check`.
+3. Run `npm run release:patch`, `release:minor`, or `release:major`.
+4. Let GitHub Actions publish the already-bumped version.
+
+## Repo Shape
+
+The repo intentionally stays single-package for the toolkit itself. The docs app is a separate
+`docs/` directory, not a full workspace split.

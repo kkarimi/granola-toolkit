@@ -1,0 +1,40 @@
+---
+title: Overview
+description: One toolkit for Granola exports, folders, meetings, browser workspaces, and terminal workspaces.
+---
+
+Granola Toolkit started as an exporter and is now a local workbench for Granola meetings.
+
+It has three user-facing surfaces on one shared TypeScript core:
+
+- batch CLI commands
+- a browser workspace from `granola web`
+- a terminal workspace from `granola tui`
+
+## Start Here
+
+<Cards>
+  <Card title="Getting started" href="/docs/getting-started" />
+  <Card title="Exporting notes and transcripts" href="/docs/exporting" />
+  <Card title="Meetings and folders" href="/docs/meetings-and-folders" />
+  <Card title="Server, web, and TUI" href="/docs/server-web-and-tui" />
+  <Card title="Auth and configuration" href="/docs/auth-and-configuration" />
+  <Card title="Development" href="/docs/development" />
+</Cards>
+
+## Core Ideas
+
+### Shared app core
+
+CLI commands, the browser workspace, and the TUI all talk to the same application core for auth,
+meeting discovery, folders, transcripts, notes, and export jobs.
+
+### Local-first server
+
+`granola serve` is the seam that lets different clients share one live stateful app instead of
+repeating the same work in separate processes.
+
+### Folders are first-class
+
+Folders are not bolted on as a filter. They are part of the shared domain model and are available
+through CLI commands, the browser, the TUI, and export flows.

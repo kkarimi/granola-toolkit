@@ -1,0 +1,60 @@
+---
+title: Getting Started
+description: Install the toolkit, import auth once, and start from folders or meetings instead of raw files.
+---
+
+## Install
+
+```bash
+npm install -g granola-toolkit
+granola --help
+```
+
+If you do not want a global install:
+
+```bash
+npx granola-toolkit --help
+```
+
+The package exposes both `granola` and `granola-toolkit` as executable names.
+
+## First Run
+
+Import the desktop app session once:
+
+```bash
+granola auth login
+granola auth status
+```
+
+Then verify that folders and meetings resolve cleanly:
+
+```bash
+granola folder list
+granola meeting list --limit 10
+granola meeting view 1234abcd
+```
+
+## Typical Starting Commands
+
+```bash
+granola notes
+granola notes --folder Team
+granola transcripts
+granola web
+granola tui
+```
+
+## When to Use Which Surface
+
+- Use the CLI when you want scripts, exports, or stable machine-readable output.
+- Use `granola web` when you want quick navigation, tabs, and export actions in a browser.
+- Use `granola tui` when you want the same workspace model with a keyboard-first terminal UI.
+
+## Next
+
+<Cards>
+  <Card title="Exporting" href="/docs/exporting" />
+  <Card title="Meetings and folders" href="/docs/meetings-and-folders" />
+  <Card title="Auth and configuration" href="/docs/auth-and-configuration" />
+</Cards>
