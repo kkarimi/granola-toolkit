@@ -95,17 +95,3 @@ jobs:
         run: vp install --frozen-lockfile
       - name: Publish
         run: npm publish --provenance --access public
-      - name: Tag release
-        env:
-          VERSION: ${{ needs.prepare-publish.outputs.package_version }}
-        run: |
-          git fetch --tags
-          TAG="v${VERSION}"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists"
-            exit 1
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "$TAG"
-          git push origin "$TAG"

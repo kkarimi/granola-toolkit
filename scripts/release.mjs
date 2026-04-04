@@ -29,6 +29,14 @@ const ensureMainBranch = () => {
   }
 };
 
+const ensureTagMissing = (version) => {
+  const tag = `v${version}`;
+  const existing = execText(`git tag --list "${tag}"`);
+  if (existing) {
+    throw new Error(`Git tag ${tag} already exists. Resolve it before releasing again.`);
+  }
+};
+
 const ensurePublishedBaseline = () => {
   const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
 
@@ -65,10 +73,12 @@ const release = () => {
 
   const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
   const next = pkg.version;
+  ensureTagMissing(next);
 
   run("git add package.json package-lock.json");
   run(`git commit -m "chore: release v${next}"`);
-  run("git push origin main");
+  run(`git tag -a "v${next}" -m "v${next}"`);
+  run(`git push origin main "v${next}"`);
 };
 
 try {
