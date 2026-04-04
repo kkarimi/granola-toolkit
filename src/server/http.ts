@@ -219,14 +219,24 @@ export async function startGranolaServer(
 
       if (method === "GET" && path === "/meetings") {
         const limit = parseInteger(url.searchParams.get("limit"));
+        const refresh = url.searchParams.get("refresh") === "true";
         const search = url.searchParams.get("search")?.trim() || undefined;
         const sort = parseMeetingSort(url.searchParams.get("sort"));
         const updatedFrom = url.searchParams.get("updatedFrom")?.trim() || undefined;
         const updatedTo = url.searchParams.get("updatedTo")?.trim() || undefined;
-        const meetings = await app.listMeetings({ limit, search, sort, updatedFrom, updatedTo });
-        sendJson(response, {
-          meetings,
+        const result = await app.listMeetings({
+          forceRefresh: refresh,
+          limit,
           search,
+          sort,
+          updatedFrom,
+          updatedTo,
+        });
+        sendJson(response, {
+          meetings: result.meetings,
+          refresh,
+          search,
+          source: result.source,
           sort,
           updatedFrom,
           updatedTo,

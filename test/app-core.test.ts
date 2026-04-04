@@ -6,6 +6,7 @@ import { describe, expect, test, vi } from "vite-plus/test";
 
 import { GranolaApp } from "../src/app/core.ts";
 import { MemoryExportJobStore } from "../src/export-jobs.ts";
+import { MemoryMeetingIndexStore } from "../src/meeting-index.ts";
 import type { GranolaAppAuthState } from "../src/app/index.ts";
 import type { CacheData, GranolaDocument } from "../src/types.ts";
 
@@ -90,7 +91,8 @@ describe("GranolaApp", () => {
     const list = await app.listMeetings({ limit: 10, search: "alpha" });
     const meeting = await app.getMeeting("doc-alpha");
 
-    expect(list).toHaveLength(1);
+    expect(list.meetings).toHaveLength(1);
+    expect(list.source).toBe("live");
     expect(meeting.meeting.meeting.id).toBe("doc-alpha-1111");
     expect(meeting.meeting.transcriptText).toContain("Hello team");
     expect(listDocuments).toHaveBeenCalledTimes(1);
@@ -249,7 +251,8 @@ describe("GranolaApp", () => {
     });
     const meeting = await app.findMeeting("Alpha Sync");
 
-    expect(list).toHaveLength(1);
+    expect(list.meetings).toHaveLength(1);
+    expect(list.source).toBe("live");
     expect(meeting.meeting.meeting.id).toBe("doc-alpha-1111");
     expect(app.getState().ui).toEqual(
       expect.objectContaining({
@@ -341,5 +344,71 @@ describe("GranolaApp", () => {
     const loggedOut = await app.logoutAuth();
     expect(loggedOut.storedSessionAvailable).toBe(false);
     expect(app.getState().auth.mode).toBe("supabase-file");
+  });
+
+  test("uses the local meeting index as a fast path for web surfaces", async () => {
+    const listDocuments = vi.fn(async () => documents);
+    const meetingIndexStore = new MemoryMeetingIndexStore();
+    await meetingIndexStore.writeIndex([
+      {
+        createdAt: "2024-01-01T09:00:00Z",
+        id: "doc-alpha-1111",
+        noteContentSource: "notes",
+        tags: ["team", "alpha"],
+        title: "Alpha Sync",
+        transcriptLoaded: false,
+        transcriptSegmentCount: 0,
+        updatedAt: "2024-01-03T10:00:00Z",
+      },
+    ]);
+
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile: "",
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          mode: "supabase-file",
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: true,
+          supabasePath: "/tmp/supabase.json",
+        },
+        cacheLoader: async () => undefined,
+        granolaClient: {
+          listDocuments,
+        },
+        meetingIndex: await meetingIndexStore.readIndex(),
+        meetingIndexStore,
+        now: () => new Date("2024-03-01T12:00:00Z"),
+      },
+      { surface: "web" },
+    );
+
+    const indexed = await app.listMeetings({ limit: 10 });
+    expect(indexed.source).toBe("index");
+    expect(indexed.meetings[0]?.id).toBe("doc-alpha-1111");
+    expect(listDocuments).not.toHaveBeenCalled();
+
+    const refreshed = await app.listMeetings({ forceRefresh: true, limit: 10 });
+    expect(refreshed.source).toBe("live");
+    expect(listDocuments.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(app.getState().ui.meetingListSource).toBe("live");
+    expect(app.getState().index).toEqual(
+      expect.objectContaining({
+        available: true,
+        loaded: true,
+        meetingCount: 1,
+      }),
+    );
   });
 });

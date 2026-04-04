@@ -9,6 +9,7 @@ const state = {
   selectedMeeting: null,
   selectedMeetingBundle: null,
   selectedMeetingId: null,
+  meetingSource: "live",
   sort: "updated-desc",
   updatedFrom: "",
   updatedTo: "",
@@ -96,6 +97,11 @@ function renderAppState() {
     : appState.cache.configured
       ? "configured"
       : "not configured";
+  const indexStatus = appState.index.loaded
+    ? appState.index.meetingCount + " meetings"
+    : appState.index.available
+      ? "available"
+      : "not built";
 
   els.appState.innerHTML = [
     '<div class="status-grid">',
@@ -104,6 +110,7 @@ function renderAppState() {
     '<div><span class="status-label">Auth</span><strong>' + escapeHtml(authMode) + "</strong></div>",
     '<div><span class="status-label">Documents</span><strong>' + escapeHtml(docs) + "</strong></div>",
     '<div><span class="status-label">Cache</span><strong>' + escapeHtml(cache) + "</strong></div>",
+    '<div><span class="status-label">Index</span><strong>' + escapeHtml(indexStatus) + "</strong></div>",
     "</div>",
   ].join("");
 
@@ -333,7 +340,7 @@ async function fetchJson(path, init) {
   return payload;
 }
 
-function buildMeetingsQuery(limit = 100) {
+function buildMeetingsQuery(limit = 100, refresh = false) {
   const params = new URLSearchParams();
   params.set("limit", String(limit));
   params.set("sort", state.sort);
@@ -350,16 +357,22 @@ function buildMeetingsQuery(limit = 100) {
     params.set("updatedTo", state.updatedTo);
   }
 
+  if (refresh) {
+    params.set("refresh", "true");
+  }
+
   return "?" + params.toString();
 }
 
 async function loadMeetings(options = {}) {
   const preferredMeetingId = options.preferredMeetingId || state.selectedMeetingId;
+  const refresh = options.refresh === true;
 
   try {
     state.listError = "";
-    const payload = await fetchJson("/meetings" + buildMeetingsQuery());
+    const payload = await fetchJson("/meetings" + buildMeetingsQuery(100, refresh));
     state.meetings = payload.meetings || [];
+    state.meetingSource = payload.source || "live";
 
     if (preferredMeetingId && state.meetings.some((meeting) => meeting.id === preferredMeetingId)) {
       state.selectedMeetingId = preferredMeetingId;
@@ -428,15 +441,19 @@ async function quickOpenMeeting() {
   }
 }
 
-async function refreshAll() {
+async function refreshAll(forceLiveMeetings = false) {
   setStatus("Refreshing…", "busy");
-  const [appState, authState] = await Promise.all([fetchJson("/state"), fetchJson("/auth/status"), loadMeetings()]);
+  const [appState, authState] = await Promise.all([
+    fetchJson("/state"),
+    fetchJson("/auth/status"),
+    loadMeetings({ refresh: forceLiveMeetings }),
+  ]);
   state.appState = {
     ...appState,
     auth: authState,
   };
   renderAppState();
-  setStatus("Connected", "ok");
+  setStatus(forceLiveMeetings ? "Live data refreshed" : state.meetingSource === "index" ? "Loaded from index" : "Connected", "ok");
 }
 
 async function syncAuthState() {
@@ -592,7 +609,7 @@ els.authPanel.addEventListener("click", (event) => {
 });
 
 els.refreshButton.addEventListener("click", () => {
-  void refreshAll();
+  void refreshAll(true);
 });
 
 els.noteButton.addEventListener("click", () => {
@@ -717,9 +734,20 @@ document.addEventListener("keydown", (event) => {
 
 const events = new EventSource("/events");
 events.addEventListener("state.updated", (event) => {
+  const previousLoadedAt = state.appState?.documents?.loadedAt;
   const payload = JSON.parse(event.data);
   state.appState = payload.state;
   renderAppState();
+
+  if (
+    state.meetingSource === "index" &&
+    payload.state.documents?.loadedAt &&
+    payload.state.documents.loadedAt !== previousLoadedAt
+  ) {
+    void loadMeetings({
+      preferredMeetingId: state.selectedMeetingId,
+    });
+  }
 });
 events.addEventListener("error", () => {
   setStatus("Disconnected", "error");

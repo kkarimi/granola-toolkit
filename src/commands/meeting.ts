@@ -195,10 +195,15 @@ async function list(
   const app = await createGranolaApp(config);
   debug(config.debug, "authMode", app.getState().auth.mode);
 
-  console.log("Fetching meetings from Granola API...");
-  const meetings = await app.listMeetings({ limit, search });
+  console.log("Loading meetings...");
+  const result = await app.listMeetings({ limit, search });
+  console.log(
+    result.source === "index"
+      ? "Loaded meetings from the local index"
+      : "Fetched meetings from Granola API",
+  );
 
-  console.log(renderMeetingList(meetings, format).trimEnd());
+  console.log(renderMeetingList(result.meetings, format).trimEnd());
   return 0;
 }
 

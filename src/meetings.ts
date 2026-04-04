@@ -92,6 +92,47 @@ function compareMeetingDocumentsBySort(
   }
 }
 
+function compareMeetingSummariesByUpdated(
+  left: MeetingSummaryRecord,
+  right: MeetingSummaryRecord,
+): number {
+  return (
+    compareTimestampsDescending(left.updatedAt, right.updatedAt) ||
+    compareTimestampsDescending(left.createdAt, right.createdAt) ||
+    compareStrings(left.title || left.id, right.title || right.id) ||
+    compareStrings(left.id, right.id)
+  );
+}
+
+function compareMeetingSummariesByTitle(
+  left: MeetingSummaryRecord,
+  right: MeetingSummaryRecord,
+): number {
+  return (
+    compareStrings(left.title || left.id, right.title || right.id) ||
+    compareTimestampsDescending(left.updatedAt, right.updatedAt) ||
+    compareStrings(left.id, right.id)
+  );
+}
+
+function compareMeetingSummariesBySort(
+  left: MeetingSummaryRecord,
+  right: MeetingSummaryRecord,
+  sort: GranolaMeetingSort,
+): number {
+  switch (sort) {
+    case "title-asc":
+      return compareMeetingSummariesByTitle(left, right);
+    case "title-desc":
+      return -compareMeetingSummariesByTitle(left, right);
+    case "updated-asc":
+      return -compareMeetingSummariesByUpdated(left, right);
+    case "updated-desc":
+    default:
+      return compareMeetingSummariesByUpdated(left, right);
+  }
+}
+
 function serialiseNote(note: NoteExportRecord): MeetingNoteRecord {
   return {
     content: note.content,
@@ -183,6 +224,17 @@ function matchesMeetingSearch(document: GranolaDocument, search: string): boolea
   );
 }
 
+function matchesMeetingSummarySearch(meeting: MeetingSummaryRecord, search: string): boolean {
+  const query = search.trim().toLowerCase();
+  if (!query) {
+    return true;
+  }
+
+  return [meeting.id, meeting.title, ...meeting.tags].some((value) =>
+    value.toLowerCase().includes(query),
+  );
+}
+
 function parseDateFilter(
   value: string | undefined,
   label: "updatedFrom" | "updatedTo",
@@ -211,6 +263,29 @@ function matchesUpdatedRange(
   const from = parseDateFilter(updatedFrom, "updatedFrom");
   const to = parseDateFilter(updatedTo, "updatedTo");
   const updatedAt = parseTimestamp(latestDocumentTimestamp(document));
+  if (updatedAt == null) {
+    return from == null && to == null;
+  }
+
+  if (from != null && updatedAt < from) {
+    return false;
+  }
+
+  if (to != null && updatedAt > to) {
+    return false;
+  }
+
+  return true;
+}
+
+function matchesMeetingSummaryUpdatedRange(
+  meeting: MeetingSummaryRecord,
+  updatedFrom?: string,
+  updatedTo?: string,
+): boolean {
+  const from = parseDateFilter(updatedFrom, "updatedFrom");
+  const to = parseDateFilter(updatedTo, "updatedTo");
+  const updatedAt = parseTimestamp(meeting.updatedAt || meeting.createdAt);
   if (updatedAt == null) {
     return from == null && to == null;
   }
@@ -327,6 +402,31 @@ export function listMeetings(
     .slice(0, limit);
 
   return filtered.map((document) => buildMeetingSummary(document, options.cacheData));
+}
+
+export function filterMeetingSummaries(
+  meetings: MeetingSummaryRecord[],
+  options: {
+    limit?: number;
+    search?: string;
+    sort?: GranolaMeetingSort;
+    updatedFrom?: string;
+    updatedTo?: string;
+  } = {},
+): MeetingSummaryRecord[] {
+  const limit = options.limit ?? 20;
+  const sort = options.sort ?? "updated-desc";
+
+  return meetings
+    .filter((meeting) =>
+      options.search ? matchesMeetingSummarySearch(meeting, options.search) : true,
+    )
+    .filter((meeting) =>
+      matchesMeetingSummaryUpdatedRange(meeting, options.updatedFrom, options.updatedTo),
+    )
+    .sort((left, right) => compareMeetingSummariesBySort(left, right, sort))
+    .slice(0, limit)
+    .map((meeting) => ({ ...meeting, tags: [...meeting.tags] }));
 }
 
 export function resolveMeetingQuery(documents: GranolaDocument[], query: string): GranolaDocument {

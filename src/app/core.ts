@@ -16,10 +16,16 @@ import {
 } from "../export-jobs.ts";
 import {
   buildMeetingRecord,
+  filterMeetingSummaries,
   listMeetings,
   resolveMeeting,
   resolveMeetingQuery,
 } from "../meetings.ts";
+import {
+  createDefaultMeetingIndexStore,
+  defaultMeetingIndexFilePath,
+  type MeetingIndexStore,
+} from "../meeting-index.ts";
 import { writeNotes } from "../notes.ts";
 import { writeTranscripts } from "../transcripts.ts";
 import type {
@@ -43,9 +49,11 @@ import type {
   GranolaAppSurface,
   GranolaMeetingBundle,
   GranolaMeetingListOptions,
+  GranolaMeetingListResult,
   GranolaNotesExportResult,
   GranolaTranscriptsExportResult,
 } from "./types.ts";
+import type { MeetingSummaryRecord } from "./models.ts";
 
 type GranolaDocumentsClient = Pick<GranolaApiClient, "listDocuments">;
 
@@ -60,6 +68,8 @@ interface GranolaAppDependencies {
   exportJobStore?: ExportJobStore;
   exportJobs?: GranolaAppExportJobState[];
   granolaClient?: GranolaDocumentsClient;
+  meetingIndex?: MeetingSummaryRecord[];
+  meetingIndexStore?: MeetingIndexStore;
   now?: () => Date;
 }
 
@@ -90,6 +100,7 @@ function cloneState(state: GranolaAppState): GranolaAppState {
       notes: cloneExportState(state.exports.notes),
       transcripts: cloneExportState(state.exports.transcripts),
     },
+    index: { ...state.index },
     ui: { ...state.ui },
   };
 }
@@ -120,6 +131,12 @@ function defaultState(
     exports: {
       jobs: [],
     },
+    index: {
+      available: false,
+      filePath: defaultMeetingIndexFilePath(),
+      loaded: false,
+      meetingCount: 0,
+    },
     ui: {
       surface,
       view: "idle",
@@ -132,7 +149,9 @@ export class GranolaApp {
   #cacheResolved = false;
   #granolaClient?: GranolaDocumentsClient;
   #documents?: GranolaDocument[];
+  #meetingIndex: MeetingSummaryRecord[];
   #listeners = new Set<(event: GranolaAppStateEvent) => void>();
+  #refreshingMeetingIndex?: Promise<void>;
   readonly #state: GranolaAppState;
 
   constructor(
@@ -142,6 +161,17 @@ export class GranolaApp {
   ) {
     this.#state = defaultState(config, deps.auth, options.surface ?? "cli");
     this.#state.exports.jobs = (deps.exportJobs ?? []).map((job) => cloneExportJob(job));
+    this.#meetingIndex = (deps.meetingIndex ?? []).map((meeting) => ({
+      ...meeting,
+      tags: [...meeting.tags],
+    }));
+    this.#state.index = {
+      available: this.#meetingIndex.length > 0,
+      filePath: defaultMeetingIndexFilePath(),
+      loaded: this.#meetingIndex.length > 0,
+      loadedAt: this.#meetingIndex.length > 0 ? this.nowIso() : undefined,
+      meetingCount: this.#meetingIndex.length,
+    };
   }
 
   getState(): GranolaAppState {
@@ -193,6 +223,53 @@ export class GranolaApp {
     }
     this.emitStateUpdate();
     return { ...auth };
+  }
+
+  private async persistMeetingIndex(meetings: MeetingSummaryRecord[]): Promise<void> {
+    this.#meetingIndex = meetings.map((meeting) => ({
+      ...meeting,
+      tags: [...meeting.tags],
+    }));
+    this.#state.index = {
+      available: this.#meetingIndex.length > 0,
+      filePath: this.#state.index.filePath,
+      loaded: this.#meetingIndex.length > 0,
+      loadedAt: this.#meetingIndex.length > 0 ? this.nowIso() : undefined,
+      meetingCount: this.#meetingIndex.length,
+    };
+
+    if (this.deps.meetingIndexStore) {
+      await this.deps.meetingIndexStore.writeIndex(this.#meetingIndex);
+    }
+
+    this.emitStateUpdate();
+  }
+
+  private async refreshMeetingIndexFromLiveData(): Promise<void> {
+    const cacheData = await this.loadCache();
+    const documents = await this.listDocuments();
+    const meetings = listMeetings(documents, {
+      cacheData,
+      limit: documents.length || 1,
+      sort: "updated-desc",
+    });
+    await this.persistMeetingIndex(meetings);
+  }
+
+  private triggerMeetingIndexRefresh(): void {
+    if (this.#refreshingMeetingIndex) {
+      return;
+    }
+
+    this.#refreshingMeetingIndex = (async () => {
+      try {
+        await this.refreshMeetingIndexFromLiveData();
+      } catch {
+        // Index refresh is opportunistic. Keep the current list if live refresh fails.
+      } finally {
+        this.#refreshingMeetingIndex = undefined;
+      }
+    })();
   }
 
   private nowIso(): string {
@@ -394,7 +471,17 @@ export class GranolaApp {
     }
   }
 
-  async listDocuments(): Promise<GranolaDocument[]> {
+  async listDocuments(options: { forceRefresh?: boolean } = {}): Promise<GranolaDocument[]> {
+    if (options.forceRefresh) {
+      this.#granolaClient = undefined;
+      this.#documents = undefined;
+      this.#state.documents = {
+        count: 0,
+        loaded: false,
+      };
+      this.emitStateUpdate();
+    }
+
     if (this.#documents) {
       return this.#documents;
     }
@@ -456,9 +543,31 @@ export class GranolaApp {
     return cacheData;
   }
 
-  async listMeetings(options: GranolaMeetingListOptions = {}) {
-    const documents = await this.listDocuments();
+  async listMeetings(options: GranolaMeetingListOptions = {}): Promise<GranolaMeetingListResult> {
+    const preferIndex =
+      options.preferIndex ??
+      (this.#state.ui.surface === "web" || this.#state.ui.surface === "server");
+
+    if (!options.forceRefresh && preferIndex && !this.#documents && this.#meetingIndex.length > 0) {
+      const meetings = filterMeetingSummaries(this.#meetingIndex, options);
+      this.setUiState({
+        meetingListSource: "index",
+        meetingSearch: options.search,
+        meetingSort: options.sort,
+        meetingUpdatedFrom: options.updatedFrom,
+        meetingUpdatedTo: options.updatedTo,
+        selectedMeetingId: undefined,
+        view: "meeting-list",
+      });
+      this.triggerMeetingIndexRefresh();
+      return {
+        meetings,
+        source: "index",
+      };
+    }
+
     const cacheData = await this.loadCache();
+    const documents = await this.listDocuments({ forceRefresh: options.forceRefresh });
     const meetings = listMeetings(documents, {
       cacheData,
       limit: options.limit,
@@ -468,7 +577,16 @@ export class GranolaApp {
       updatedTo: options.updatedTo,
     });
 
+    await this.persistMeetingIndex(
+      listMeetings(documents, {
+        cacheData,
+        limit: Math.max(documents.length, 1),
+        sort: "updated-desc",
+      }),
+    );
+
     this.setUiState({
+      meetingListSource: "live",
       meetingSearch: options.search,
       meetingSort: options.sort,
       meetingUpdatedFrom: options.updatedFrom,
@@ -477,7 +595,10 @@ export class GranolaApp {
       view: "meeting-list",
     });
 
-    return meetings;
+    return {
+      meetings,
+      source: "live",
+    };
   }
 
   async getMeeting(
@@ -695,6 +816,8 @@ export async function createGranolaApp(
   const authController = createDefaultGranolaAuthController(config);
   const exportJobStore = createDefaultExportJobStore();
   const exportJobs = await exportJobStore.readJobs();
+  const meetingIndexStore = createDefaultMeetingIndexStore();
+  const meetingIndex = await meetingIndexStore.readIndex();
 
   return new GranolaApp(
     config,
@@ -708,6 +831,8 @@ export async function createGranolaApp(
         }),
       exportJobs,
       exportJobStore,
+      meetingIndex,
+      meetingIndexStore,
       now: options.now,
     },
     { surface: options.surface },

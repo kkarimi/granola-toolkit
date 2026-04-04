@@ -7,6 +7,7 @@ import { afterEach, describe, expect, test } from "vite-plus/test";
 import { GranolaApp } from "../src/app/core.ts";
 import type { GranolaAppAuthState } from "../src/app/index.ts";
 import { MemoryExportJobStore } from "../src/export-jobs.ts";
+import { MemoryMeetingIndexStore } from "../src/meeting-index.ts";
 import { startGranolaServer } from "../src/server/http.ts";
 import type { CacheData, GranolaDocument } from "../src/types.ts";
 
@@ -138,6 +139,7 @@ describe("startGranolaServer", () => {
           }),
         ],
         search: "alpha",
+        source: "live",
       }),
     );
 
@@ -370,6 +372,7 @@ describe("startGranolaServer", () => {
     expect(await filtered.json()).toEqual(
       expect.objectContaining({
         meetings: [expect.objectContaining({ id: "doc-charlie-3333" })],
+        source: "live",
         sort: "title-desc",
         updatedFrom: "2024-02-05",
         updatedTo: "2024-02-05",
@@ -522,6 +525,77 @@ describe("startGranolaServer", () => {
       expect.objectContaining({
         mode: "supabase-file",
         storedSessionAvailable: false,
+      }),
+    );
+  });
+
+  test("serves indexed meetings and can force a live refresh", async () => {
+    const listDocuments = async () => documents;
+    const meetingIndexStore = new MemoryMeetingIndexStore();
+    await meetingIndexStore.writeIndex([
+      {
+        createdAt: "2024-01-01T09:00:00Z",
+        id: "doc-alpha-1111",
+        noteContentSource: "notes",
+        tags: ["team", "alpha"],
+        title: "Alpha Sync",
+        transcriptLoaded: false,
+        transcriptSegmentCount: 0,
+        updatedAt: "2024-01-03T10:00:00Z",
+      },
+    ]);
+
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile: "",
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          mode: "supabase-file",
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: true,
+          supabasePath: "/tmp/supabase.json",
+        },
+        cacheLoader: async () => undefined,
+        granolaClient: { listDocuments },
+        meetingIndex: await meetingIndexStore.readIndex(),
+        meetingIndexStore,
+        now: () => new Date("2024-03-01T12:00:00Z"),
+      },
+      { surface: "web" },
+    );
+
+    const server = await startGranolaServer(app, {
+      enableWebClient: true,
+    });
+    closeServer = async () => await server.close();
+
+    const indexed = await fetch(new URL("/meetings?limit=10", server.url));
+    expect(indexed.ok).toBe(true);
+    expect(await indexed.json()).toEqual(
+      expect.objectContaining({
+        meetings: [expect.objectContaining({ id: "doc-alpha-1111" })],
+        source: "index",
+      }),
+    );
+
+    const refreshed = await fetch(new URL("/meetings?limit=10&refresh=true", server.url));
+    expect(refreshed.ok).toBe(true);
+    expect(await refreshed.json()).toEqual(
+      expect.objectContaining({
+        meetings: [expect.objectContaining({ id: "doc-alpha-1111" })],
+        refresh: true,
+        source: "live",
       }),
     );
   });

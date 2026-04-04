@@ -1,6 +1,7 @@
 import type {
   GranolaSessionMetadata,
   MeetingRecord,
+  MeetingSummarySource,
   MeetingSummaryRecord,
   NoteOutputFormat,
   TranscriptOutputFormat,
@@ -38,6 +39,14 @@ export interface GranolaAppCacheState {
   transcriptCount: number;
 }
 
+export interface GranolaAppIndexState {
+  available: boolean;
+  filePath?: string;
+  loaded: boolean;
+  loadedAt?: string;
+  meetingCount: number;
+}
+
 export interface GranolaAppExportRunState {
   format: string;
   itemCount: number;
@@ -63,6 +72,7 @@ export interface GranolaAppExportJobState {
 
 export interface GranolaAppUIState {
   meetingSearch?: string;
+  meetingListSource?: MeetingSummarySource;
   meetingSort?: GranolaMeetingSort;
   meetingUpdatedFrom?: string;
   meetingUpdatedTo?: string;
@@ -81,6 +91,7 @@ export interface GranolaAppState {
     notes?: GranolaAppExportRunState;
     transcripts?: GranolaAppExportRunState;
   };
+  index: GranolaAppIndexState;
   ui: GranolaAppUIState;
 }
 
@@ -91,7 +102,9 @@ export interface GranolaMeetingBundle {
 }
 
 export interface GranolaMeetingListOptions {
+  forceRefresh?: boolean;
   limit?: number;
+  preferIndex?: boolean;
   search?: string;
   sort?: GranolaMeetingSort;
   updatedFrom?: string;
@@ -117,8 +130,8 @@ export interface GranolaTranscriptsExportResult {
 }
 
 export interface GranolaMeetingListResult {
-  format?: "json" | "text" | "yaml";
   meetings: MeetingSummaryRecord[];
+  source: MeetingSummarySource;
 }
 
 export interface GranolaExportJobsListOptions {

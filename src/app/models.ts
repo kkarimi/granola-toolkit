@@ -54,6 +54,8 @@ export interface MeetingSummaryRecord {
   updatedAt: string;
 }
 
+export type MeetingSummarySource = "index" | "live";
+
 export interface MeetingNoteRecord {
   content: string;
   contentSource: NoteContentSource;

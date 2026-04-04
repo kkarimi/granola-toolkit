@@ -197,6 +197,7 @@ The initial server API includes:
 - `GET /state`
 - `GET /events` for server-sent state updates
 - `GET /meetings`
+- `GET /meetings?refresh=true` to bypass the local meeting index and force a live refresh
 - `GET /meetings/resolve?q=<query>`
 - `GET /meetings/:id`
 - `GET /exports/jobs`
@@ -217,6 +218,7 @@ This is the foundation for the future `granola web` client and any attachable TU
 The initial browser client includes:
 
 - a searchable meeting list
+- a fast local-index warm start for meeting browsing before live documents finish loading
 - sort and updated-date filters
 - quick open by meeting id or title
 - a focused meeting workspace with notes, transcript, metadata, and raw tabs
@@ -226,6 +228,18 @@ The initial browser client includes:
 - note and transcript export actions backed by the same local API
 - a recent export-jobs panel with rerun actions
 - stronger empty and error states for list/detail failures
+
+### Local Meeting Index
+
+Interactive meeting browsing now keeps a local index of meeting summaries and metadata.
+
+That index is used to:
+
+- make the web meeting list available quickly on startup
+- keep search, sort, and date filtering useful before every live document payload is fetched again
+- refresh itself after successful live loads so the next run starts warm
+
+The web client uses the index as a fast path and upgrades to live data automatically when the background refresh completes. The manual Refresh button bypasses the index and forces a live meeting fetch immediately.
 
 ### Export Jobs
 
