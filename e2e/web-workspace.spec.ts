@@ -13,74 +13,112 @@ test.describe("toolkit web workspace", () => {
     await server.close();
   });
 
-  test("connects and shows the shared workspace surfaces", async ({ page }) => {
+  test("uses page-based navigation instead of a giant meeting sidebar", async ({ page }) => {
     await page.goto(server.url);
 
-    await expect(page.getByRole("heading", { name: "Granola Toolkit" })).toBeVisible({
-      timeout: 20_000,
-    });
-    await expect(page.getByRole("heading", { name: "Home" })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Local meeting workspace" })).toBeVisible({
       timeout: 20_000,
     });
     await expect(
-      page.getByText("Start from a folder, recent meeting, or review queue."),
+      page.getByRole("heading", { name: "A quieter way to work through meetings" }),
     ).toBeVisible({
       timeout: 20_000,
     });
+    await expect(page.getByText("Start from one calm home view")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("heading", { name: "Sync health" })).toBeVisible();
-    await expect(page.getByText("Browse with a scope")).toBeVisible();
     await expect(page.locator(".meeting-list")).toHaveCount(0);
-    await page.locator(".sidebar").getByRole("button", { name: /Team/i }).first().click();
-    await expect(
-      page.locator(".meeting-list").getByRole("button", { name: /Alpha Sync/i }),
-    ).toBeVisible({
+
+    await page
+      .locator(".primary-nav")
+      .getByRole("button", { name: /Folders/i })
+      .click();
+    await expect(page.getByRole("heading", { name: "Browse by folder" })).toBeVisible({
       timeout: 20_000,
     });
     await page
-      .locator(".meeting-list")
-      .getByRole("button", { name: /Alpha Sync/i })
+      .locator(".browser-layout__sidebar")
+      .getByRole("button", { name: /Team/i })
+      .first()
       .click();
-    await expect(page.getByText("Selected meeting")).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Team" })).toBeVisible({
       timeout: 20_000,
     });
+    await page
+      .locator(".browser-layout__main")
+      .getByRole("button", { name: /Alpha Sync/i })
+      .click();
     await expect(page.getByRole("heading", { name: "Alpha Sync" })).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByRole("button", { name: "Overview" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Inbox" })).toBeVisible();
-    await expect(page.getByText("Recent Export Jobs")).toBeVisible();
-    await page.getByRole("button", { name: "Auth" }).click();
-    await expect(page.getByText("Auth Session")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Save API key" })).toBeVisible();
-    await page.getByRole("button", { name: "Advanced Search" }).click();
-    await page.getByPlaceholder("Exact title or meeting id").fill("doc-beta-2222");
-    await page.getByRole("button", { name: "Open Meeting" }).click();
+    await expect(page.getByRole("button", { name: "Back to folders" })).toBeVisible();
+    await expect(page.getByText("Selected meeting")).toHaveCount(0);
+
+    await page
+      .locator(".primary-nav")
+      .getByRole("button", { name: /Search/i })
+      .click();
+    await expect(page.getByRole("heading", { name: "Search meetings on purpose" })).toBeVisible();
+    await page
+      .getByPlaceholder("Search titles, notes, folders, tags, and transcript text")
+      .fill("Beta");
+    await page.locator(".search-panel__form").getByRole("button", { name: "Search" }).click();
+    await expect(page.getByRole("heading", { name: "Search results" })).toBeVisible({
+      timeout: 20_000,
+    });
+    await page
+      .locator(".meeting-list")
+      .getByRole("button", { name: /Beta Review/i })
+      .click();
     await expect(page.getByRole("heading", { name: "Beta Review" })).toBeVisible({
       timeout: 20_000,
     });
-    await page.getByRole("button", { name: "Diagnostics" }).click();
+
+    await page
+      .locator(".primary-nav")
+      .getByRole("button", { name: /Settings/i })
+      .click();
+    await page.locator(".settings-shell").getByRole("button", { name: "Diagnostics" }).click();
     await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
     await expect(page.getByText("Transcript cache")).toBeVisible();
-    await page.getByRole("button", { name: "Inbox" }).click();
+    await page
+      .locator(".primary-nav")
+      .getByRole("button", { name: /Review/i })
+      .click();
     await expect(page.getByText("Review Inbox")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Sync now" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Export Notes" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Export Transcripts" })).toBeVisible();
+    await expect(
+      page.locator(".primary-nav").getByRole("button", { name: "Sync now" }),
+    ).toBeVisible();
   });
 
-  test("edits and tests harnesses against the selected meeting", async ({ page }) => {
+  test("edits and tests harnesses from settings while keeping the selected meeting", async ({
+    page,
+  }) => {
     await page.goto(server.url);
 
-    await expect(page.getByRole("heading", { name: "Home" })).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "A quieter way to work through meetings" }),
+    ).toBeVisible({
       timeout: 20_000,
     });
-    await page.locator(".sidebar").getByRole("button", { name: /Team/i }).first().click();
-    await page.getByRole("button", { name: "Pipelines" }).click();
-    await expect(page.getByRole("heading", { name: "Harness Editor" })).toBeVisible();
     await page
-      .locator(".meeting-list")
+      .locator(".primary-nav")
+      .getByRole("button", { name: /Folders/i })
+      .click();
+    await page
+      .locator(".browser-layout__sidebar")
+      .getByRole("button", { name: /Team/i })
+      .first()
+      .click();
+    await page
+      .locator(".browser-layout__main")
       .getByRole("button", { name: /Alpha Sync/i })
       .click();
+    await page
+      .locator(".primary-nav")
+      .getByRole("button", { name: /Settings/i })
+      .click();
+    await page.locator(".settings-shell").getByRole("button", { name: "Automation" }).click();
+    await expect(page.getByRole("heading", { name: "Harness Editor" })).toBeVisible();
     await expect(page.getByText("Team Notes").first()).toBeVisible();
     await expect(page.getByText("Run Team Notes against Alpha Sync.")).toBeVisible({
       timeout: 20_000,
@@ -134,14 +172,20 @@ test.describe("toolkit web workspace", () => {
       await expect(page.getByText(/OpenRouter requires `OPENROUTER_API_KEY`/)).toBeVisible();
       await page.getByRole("button", { name: "Create starter pipeline" }).click();
 
-      await expect(page.getByRole("heading", { name: "Granola Toolkit" })).toBeVisible({
+      await expect(page.getByRole("heading", { name: "Local meeting workspace" })).toBeVisible({
         timeout: 20_000,
       });
-      await page.getByRole("button", { name: "Pipelines" }).click();
+      await page
+        .locator(".primary-nav")
+        .getByRole("button", { name: /Settings/i })
+        .click();
+      await page.locator(".settings-shell").getByRole("button", { name: "Automation" }).click();
       await expect(page.getByRole("heading", { name: "Starter Meeting Notes" })).toBeVisible({
         timeout: 20_000,
       });
-      await expect(page.getByRole("button", { name: "Sync now" })).toBeVisible();
+      await expect(
+        page.locator(".primary-nav").getByRole("button", { name: "Sync now" }),
+      ).toBeVisible();
     } finally {
       await page.close();
       await coldServer.close();

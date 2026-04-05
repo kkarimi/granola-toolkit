@@ -34,6 +34,43 @@ import {
 } from "../web/client-state.ts";
 
 export type WebStatusTone = "busy" | "error" | "idle" | "ok";
+export type WebMainPage = "folders" | "home" | "meeting" | "review" | "search" | "settings";
+export type WebSettingsSection = "auth" | "diagnostics" | "exports" | "pipelines";
+
+type WebNavigationPage = Exclude<WebMainPage, "meeting">;
+
+interface PrimaryNavProps {
+  activePage: WebMainPage;
+  folderCount: number;
+  onNavigate: (page: WebNavigationPage) => void;
+  onSync: () => void;
+  reviewSummary: GranolaReviewInboxSummary;
+  statusLabel: string;
+  statusTone: WebStatusTone;
+}
+
+interface PageHeaderProps {
+  actions?: JSX.Element;
+  description: string;
+  eyebrow?: string;
+  title: string;
+}
+
+interface SearchWorkspacePanelProps {
+  advancedQuery: string;
+  onAdvancedQueryChange: (value: string) => void;
+  onClear: () => void;
+  onOpenAdvanced: () => void;
+  onQueryChange: (value: string) => void;
+  onRun: () => void;
+  onSortChange: (value: GranolaMeetingSort) => void;
+  onUpdatedFromChange: (value: string) => void;
+  onUpdatedToChange: (value: string) => void;
+  query: string;
+  sort: GranolaMeetingSort;
+  updatedFrom: string;
+  updatedTo: string;
+}
 
 interface ToolbarFiltersProps {
   onSearchInput: (value: string) => void;
@@ -72,9 +109,11 @@ interface RecentMeetingsPanelProps {
 }
 
 interface MeetingListProps {
+  description?: string;
   error?: string;
   emptyHint?: string;
   folders: FolderSummaryRecord[];
+  heading?: string;
   meetings: MeetingSummaryRecord[];
   onSelect: (meetingId: string) => void;
   search: string;
@@ -390,6 +429,186 @@ export function ToolbarFilters(props: ToolbarFiltersProps): JSX.Element {
   );
 }
 
+export function PrimaryNav(props: PrimaryNavProps): JSX.Element {
+  const navItems: Array<{ id: WebNavigationPage; label: string; note: string }> = [
+    { id: "home", label: "Home", note: "Overview and next steps" },
+    { id: "folders", label: "Folders", note: "Browse meetings from folders" },
+    { id: "search", label: "Search", note: "Find one meeting on purpose" },
+    { id: "review", label: "Review", note: "Handle approvals and issues" },
+    { id: "settings", label: "Settings", note: "Auth, automation, exports, diagnostics" },
+  ];
+
+  return (
+    <aside class="pane primary-nav">
+      <div class="primary-nav__hero">
+        <p class="primary-nav__eyebrow">Granola Toolkit</p>
+        <h1>Local meeting workspace</h1>
+        <p>
+          Browse by folder, review what needs attention, and open one meeting at a time when you
+          actually need it.
+        </p>
+      </div>
+      <button class="button button--primary" onClick={props.onSync} type="button">
+        Sync now
+      </button>
+      <nav class="primary-nav__links" aria-label="Primary">
+        <For each={navItems}>
+          {(item) => (
+            <button
+              class="primary-nav__link"
+              data-selected={props.activePage === item.id ? "true" : undefined}
+              onClick={() => {
+                props.onNavigate(item.id);
+              }}
+              type="button"
+            >
+              <span class="primary-nav__link-title">{item.label}</span>
+              <span class="primary-nav__link-note">{item.note}</span>
+            </button>
+          )}
+        </For>
+      </nav>
+      <section class="primary-nav__status">
+        <div class="state-badge" data-tone={props.statusTone}>
+          {props.statusLabel}
+        </div>
+        <div class="primary-nav__stat">
+          <span class="status-label">Folders</span>
+          <strong>{String(props.folderCount)}</strong>
+        </div>
+        <div class="primary-nav__stat">
+          <span class="status-label">Needs review</span>
+          <strong>{reviewSummaryLabel(props.reviewSummary)}</strong>
+        </div>
+      </section>
+    </aside>
+  );
+}
+
+export function PageHeader(props: PageHeaderProps): JSX.Element {
+  return (
+    <section class="page-header">
+      <div>
+        <Show when={props.eyebrow}>
+          {(eyebrow) => <p class="page-header__eyebrow">{eyebrow()}</p>}
+        </Show>
+        <h2>{props.title}</h2>
+        <p>{props.description}</p>
+      </div>
+      <Show when={props.actions}>
+        <div class="page-header__actions">{props.actions}</div>
+      </Show>
+    </section>
+  );
+}
+
+export function SearchWorkspacePanel(props: SearchWorkspacePanelProps): JSX.Element {
+  return (
+    <section class="search-panel">
+      <div class="search-panel__hero">
+        <div>
+          <p class="page-header__eyebrow">Search</p>
+          <h2>Find the meeting you actually want.</h2>
+          <p>
+            Search is a dedicated page so the rest of the app can stay calm. Use text search for
+            normal browsing and exact open only when you already know the meeting title or id.
+          </p>
+        </div>
+      </div>
+      <div class="search-panel__form">
+        <input
+          class="search"
+          onInput={(event) => {
+            props.onQueryChange(event.currentTarget.value);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              props.onRun();
+            }
+          }}
+          placeholder="Search titles, notes, folders, tags, and transcript text"
+          value={props.query}
+        />
+        <div class="toolbar-actions">
+          <button class="button button--primary" onClick={props.onRun} type="button">
+            Search
+          </button>
+          <button class="button button--secondary" onClick={props.onClear} type="button">
+            Clear
+          </button>
+        </div>
+      </div>
+      <div class="search-panel__filters">
+        <label>
+          <span class="field-label">Sort</span>
+          <select
+            class="select"
+            onChange={(event) => {
+              props.onSortChange(event.currentTarget.value as GranolaMeetingSort);
+            }}
+            value={props.sort}
+          >
+            <option value="updated-desc">Newest first</option>
+            <option value="updated-asc">Oldest first</option>
+            <option value="title-asc">Title A-Z</option>
+            <option value="title-desc">Title Z-A</option>
+          </select>
+        </label>
+        <label>
+          <span class="field-label">Updated From</span>
+          <input
+            class="field-input"
+            onChange={(event) => {
+              props.onUpdatedFromChange(event.currentTarget.value);
+            }}
+            type="date"
+            value={props.updatedFrom}
+          />
+        </label>
+        <label>
+          <span class="field-label">Updated To</span>
+          <input
+            class="field-input"
+            onChange={(event) => {
+              props.onUpdatedToChange(event.currentTarget.value);
+            }}
+            type="date"
+            value={props.updatedTo}
+          />
+        </label>
+      </div>
+      <section class="advanced-search-panel advanced-search-panel--embedded">
+        <div class="advanced-search-panel__head">
+          <div>
+            <h3>Exact open</h3>
+            <p>For the rare case where you already know the exact meeting title or Granola id.</p>
+          </div>
+        </div>
+        <div class="advanced-search-panel__body">
+          <input
+            class="field-input"
+            onInput={(event) => {
+              props.onAdvancedQueryChange(event.currentTarget.value);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                props.onOpenAdvanced();
+              }
+            }}
+            placeholder="Exact title or meeting id"
+            value={props.advancedQuery}
+          />
+          <button class="button button--secondary" onClick={props.onOpenAdvanced} type="button">
+            Open
+          </button>
+        </div>
+      </section>
+    </section>
+  );
+}
+
 export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element {
   const syncStatus = () => describeSyncStatus(props.appState?.sync ?? {});
   const authStatus = () => describeAuthStatus(props.appState?.auth);
@@ -541,10 +760,10 @@ export function BrowsePromptPanel(props: {
 }): JSX.Element {
   return (
     <section class="browse-prompt">
-      <h2>Browse with a scope</h2>
+      <h2>Choose one clear path</h2>
       <p>
-        Pick a folder, open a recent meeting, or use search above. The meeting list stays hidden
-        until you narrow it down.
+        Pick a folder, open a recent meeting from Home, or switch to Search. The meeting list only
+        shows up after you intentionally narrow it down.
       </p>
       <Show when={props.foldersAvailable === 0 && !props.hasRecentMeetings}>
         <p class="browse-prompt__hint">
@@ -709,8 +928,11 @@ export function MeetingList(props: MeetingListProps): JSX.Element {
   return (
     <section class="meeting-list">
       <div class="meeting-list__head">
-        <h2>Meetings</h2>
-        <p>{summary() ? `Browsing ${summary()}.` : "Choose a meeting from this focused list."}</p>
+        <h2>{props.heading || "Meetings"}</h2>
+        <p>
+          {props.description ||
+            (summary() ? `Browsing ${summary()}.` : "Choose a meeting from this focused list.")}
+        </p>
       </div>
       <Show
         when={!props.error}
@@ -1746,37 +1968,21 @@ export function Workspace(props: WorkspaceProps): JSX.Element {
     >
       {(meeting) => (
         <>
-          <section class="meeting-context">
-            <div class="meeting-context__head">
-              <div>
-                <p class="meeting-context__eyebrow">Selected meeting</p>
-                <h2>{meeting().meeting.title || meeting().meeting.id}</h2>
-                <p class="meeting-context__summary">
-                  {`${formatDateLabel(meeting().meeting.updatedAt)} • ${formatFolderNames(
-                    meeting().meeting.folders,
-                  )} • ${
-                    meeting().meeting.transcriptLoaded
-                      ? `${meeting().meeting.transcriptSegmentCount} transcript segments`
-                      : "Transcript not loaded yet"
-                  }`}
-                </p>
-              </div>
+          <div class="detail-meta">
+            <div class="detail-chip">{`Updated ${formatDateLabel(meeting().meeting.updatedAt)}`}</div>
+            <div class="detail-chip">{`Folders: ${formatFolderNames(meeting().meeting.folders)}`}</div>
+            <div class="detail-chip">{`Notes: ${meeting().meeting.noteContentSource}`}</div>
+            <div class="detail-chip">
+              {meeting().meeting.transcriptLoaded
+                ? `${meeting().meeting.transcriptSegmentCount} transcript segments`
+                : "Transcript not loaded yet"}
             </div>
-            <div class="detail-meta">
-              <div class="detail-chip">{`Updated ${formatDateLabel(meeting().meeting.updatedAt)}`}</div>
-              <div class="detail-chip">{`Notes: ${meeting().meeting.noteContentSource}`}</div>
-              <Show when={meeting().meeting.folders.length > 0}>
-                <For each={meeting().meeting.folders}>
-                  {(folder) => <div class="detail-chip">{folder.name || folder.id}</div>}
-                </For>
-              </Show>
-              <Show when={meeting().meeting.tags.length > 0}>
-                <For each={meeting().meeting.tags}>
-                  {(tag) => <div class="detail-chip">{`#${tag}`}</div>}
-                </For>
-              </Show>
-            </div>
-          </section>
+            <Show when={meeting().meeting.tags.length > 0}>
+              <For each={meeting().meeting.tags}>
+                {(tag) => <div class="detail-chip">{`#${tag}`}</div>}
+              </For>
+            </Show>
+          </div>
           <nav class="workspace-tabs">
             <For each={["notes", "transcript", "metadata", "raw"] as const}>
               {(tab) => (
@@ -1802,16 +2008,10 @@ export function Workspace(props: WorkspaceProps): JSX.Element {
           </nav>
           <Show when={!props.detailError} fallback={<div class="empty">{props.detailError}</div>}>
             <div class="detail-body">
-              <div class="workspace-grid">
-                <aside class="detail-section workspace-sidebar">
-                  <h2>Meeting context</h2>
-                  <pre class="detail-pre">{metadataLines(meeting())}</pre>
-                </aside>
-                <section class="detail-section workspace-main">
-                  <h2>{details()?.title}</h2>
-                  <pre class="detail-pre">{details()?.body}</pre>
-                </section>
-              </div>
+              <section class="detail-section workspace-main workspace-main--single">
+                <h2>{details()?.title}</h2>
+                <pre class="detail-pre">{details()?.body}</pre>
+              </section>
             </div>
           </Show>
         </>
