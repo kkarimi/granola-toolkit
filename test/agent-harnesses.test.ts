@@ -70,6 +70,22 @@ const bundle: GranolaMeetingBundle = {
       updatedAt: "2024-01-03T10:00:00Z",
     },
     noteMarkdown: "# Alpha Sync",
+    roleHelpers: {
+      ownerCandidates: [{ id: "self", label: "You", role: "self", source: "speaker" }],
+      participants: [],
+      speakers: [
+        {
+          firstTimestamp: "2024-01-01T09:00:01Z",
+          id: "speaker:you",
+          label: "You",
+          lastTimestamp: "2024-01-01T09:00:05Z",
+          role: "self",
+          segmentCount: 1,
+          source: "microphone",
+          wordCount: 5,
+        },
+      ],
+    },
     transcript: null,
     transcriptText: "Customer asked about rollout timing.",
   },

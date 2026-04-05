@@ -3,6 +3,8 @@ import type {
   GranolaDocument,
   GranolaFolder,
   GranolaFolderMembership,
+  GranolaMeetingPeople,
+  GranolaMeetingPerson,
   LastViewedPanel,
   ProseMirrorDoc,
   TranscriptSegment,
@@ -97,6 +99,61 @@ function parseCalendarEvent(value: unknown): GranolaCalendarEvent | undefined {
   };
 }
 
+function parsePerson(value: unknown): GranolaMeetingPerson | undefined {
+  const record = asRecord(value);
+  if (!record) {
+    return undefined;
+  }
+
+  const details = asRecord(record.details);
+  const person = asRecord(details?.person);
+  const nameRecord = asRecord(person?.name);
+  const company = asRecord(details?.company);
+  const employment = asRecord(person?.employment);
+
+  const name =
+    stringValue(record.name) ||
+    stringValue(nameRecord?.fullName) ||
+    stringValue(nameRecord?.displayName);
+  const email = stringValue(record.email);
+  const companyName = stringValue(company?.name) || stringValue(employment?.name);
+  const title = stringValue(employment?.title);
+
+  if (!name && !email && !companyName && !title) {
+    return undefined;
+  }
+
+  return {
+    companyName: companyName || undefined,
+    email: email || undefined,
+    name: name || undefined,
+    title: title || undefined,
+  };
+}
+
+function parsePeople(value: unknown): GranolaMeetingPeople | undefined {
+  const record = asRecord(value);
+  if (!record) {
+    return undefined;
+  }
+
+  const creator = parsePerson(record.creator);
+  const attendees = Array.isArray(record.attendees)
+    ? record.attendees
+        .map(parsePerson)
+        .filter((person): person is GranolaMeetingPerson => Boolean(person))
+    : [];
+
+  if (!creator && attendees.length === 0) {
+    return undefined;
+  }
+
+  return {
+    attendees,
+    creator,
+  };
+}
+
 export function parseDocument(value: unknown): GranolaDocument {
   const record = asRecord(value);
   if (!record) {
@@ -111,6 +168,7 @@ export function parseDocument(value: unknown): GranolaDocument {
     lastViewedPanel: parseLastViewedPanel(record.last_viewed_panel),
     notes: parseProseMirrorDoc(record.notes),
     notesPlain: stringValue(record.notes_plain),
+    people: parsePeople(record.people),
     tags: stringArray(record.tags),
     title: stringValue(record.title),
     updatedAt: stringValue(record.updated_at),
@@ -203,6 +261,7 @@ export function parsePublicNote(value: unknown): GranolaDocument {
       : [],
     id,
     notesPlain: summaryText,
+    people: parsePeople(record.people),
     tags: [],
     title: stringValue(record.title),
     transcriptSegments: Array.isArray(record.transcript)

@@ -4,6 +4,7 @@ import type {
   TranscriptOutputFormat,
 } from "./app/models.ts";
 import { syncManagedExports } from "./export-state.ts";
+import { buildTranscriptSpeakers } from "./meeting-roles.ts";
 import { toJson, toYaml } from "./render.ts";
 import type { CacheData, CacheDocument, TranscriptSegment } from "./types.ts";
 import {
@@ -106,6 +107,7 @@ export function buildTranscriptExport(
       segments: rawSegments,
     },
     segments: renderedSegments,
+    speakers: buildTranscriptSpeakers(segments),
     title: document.title,
     updatedAt: document.updatedAt,
   };
@@ -121,6 +123,7 @@ export function renderTranscriptExport(
         createdAt: transcript.createdAt,
         id: transcript.id,
         segments: transcript.segments,
+        speakers: transcript.speakers,
         title: transcript.title,
         updatedAt: transcript.updatedAt,
       });
@@ -131,6 +134,7 @@ export function renderTranscriptExport(
         createdAt: transcript.createdAt,
         id: transcript.id,
         segments: transcript.segments,
+        speakers: transcript.speakers,
         title: transcript.title,
         updatedAt: transcript.updatedAt,
       });
@@ -153,6 +157,9 @@ function formatTranscriptText(transcript: TranscriptExportRecord): string {
     transcript.createdAt ? `Created: ${transcript.createdAt}` : "",
     transcript.updatedAt ? `Updated: ${transcript.updatedAt}` : "",
     `Segments: ${transcript.segments.length}`,
+    transcript.speakers.length > 0
+      ? `Speakers: ${transcript.speakers.map((speaker) => speaker.label).join(", ")}`
+      : "",
     "=".repeat(80),
     "",
   ].filter(Boolean);

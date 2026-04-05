@@ -1,8 +1,10 @@
 import type {
   FolderRecord,
   FolderSummaryRecord,
+  GranolaMeetingSpeakerRole,
   GranolaSessionMetadata,
   MeetingRecord,
+  MeetingRoleHelpersRecord,
   MeetingSummarySource,
   MeetingSummaryRecord,
   NoteOutputFormat,
@@ -363,7 +365,17 @@ export interface GranolaAutomationArtefactSection {
 export interface GranolaAutomationArtefactActionItem {
   dueDate?: string;
   owner?: string;
+  ownerEmail?: string;
+  ownerOriginal?: string;
+  ownerRole?: GranolaMeetingSpeakerRole;
   title: string;
+}
+
+export interface GranolaAutomationArtefactParticipantSummary {
+  actionItems: string[];
+  role?: GranolaMeetingSpeakerRole;
+  speaker: string;
+  summary: string;
 }
 
 export interface GranolaAutomationArtefactStructuredOutput {
@@ -373,6 +385,7 @@ export interface GranolaAutomationArtefactStructuredOutput {
   highlights: string[];
   markdown: string;
   metadata?: Record<string, unknown>;
+  participantSummaries?: GranolaAutomationArtefactParticipantSummary[];
   sections: GranolaAutomationArtefactSection[];
   summary?: string;
   title: string;
@@ -493,6 +506,8 @@ export interface GranolaMeetingBundle {
   document: GranolaDocument;
   meeting: MeetingRecord;
 }
+
+export type { MeetingRoleHelpersRecord };
 
 export interface GranolaMeetingListOptions {
   folderId?: string;

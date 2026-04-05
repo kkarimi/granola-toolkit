@@ -29,6 +29,10 @@ const documents: GranolaDocument[] = [
       type: "doc",
     },
     notesPlain: "",
+    people: {
+      attendees: [{ email: "alice@example.com", name: "Alice Chen" }],
+      creator: { email: "nima@example.com", name: "Nima Karimi" },
+    },
     tags: ["team", "alpha"],
     title: "Alpha Sync",
     updatedAt: "2024-01-03T10:00:00Z",
@@ -181,6 +185,13 @@ describe("meeting rendering", () => {
     expect(record.meeting.transcriptSegmentCount).toBe(1);
     expect(record.meeting.folders[0]?.name).toBe("Team");
     expect(record.note.contentSource).toBe("notes");
+    expect(record.roleHelpers.ownerCandidates).toEqual([
+      expect.objectContaining({
+        email: "nima@example.com",
+        label: "Nima Karimi",
+        role: "self",
+      }),
+    ]);
     expect(record.transcriptText).toContain("[09:00:01] You: Hello team");
   });
 

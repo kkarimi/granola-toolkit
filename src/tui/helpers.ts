@@ -188,6 +188,20 @@ export function renderGranolaTuiMeetingTab(
         `Notes source: ${summary.noteContentSource}`,
         `Transcript loaded: ${summary.transcriptLoaded ? "yes" : "no"}`,
         `Transcript segments: ${summary.transcriptSegmentCount}`,
+        `Owner candidates: ${
+          bundle.meeting.roleHelpers.ownerCandidates.length > 0
+            ? bundle.meeting.roleHelpers.ownerCandidates
+                .map((candidate) => candidate.label)
+                .join(", ")
+            : "none"
+        }`,
+        `Speakers: ${
+          bundle.meeting.roleHelpers.speakers.length > 0
+            ? bundle.meeting.roleHelpers.speakers
+                .map((speaker) => `${speaker.label} (${speaker.segmentCount})`)
+                .join(", ")
+            : "none"
+        }`,
       ].join("\n");
     case "raw":
       return JSON.stringify(bundle, null, 2);

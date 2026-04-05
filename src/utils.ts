@@ -270,5 +270,18 @@ export async function listFiles(pathname: string): Promise<string[]> {
 }
 
 export function transcriptSpeakerLabel(segment: TranscriptSegment): string {
-  return segment.source === "microphone" ? "You" : "System";
+  const source = segment.source.trim();
+  if (!source || source === "unknown") {
+    return "Unknown";
+  }
+
+  if (source === "microphone") {
+    return "You";
+  }
+
+  if (source === "system") {
+    return "System";
+  }
+
+  return source;
 }

@@ -710,6 +710,16 @@ describe("GranolaApp", () => {
         prompt: expect.stringContaining("Transcript:"),
       }),
     );
+    expect(runAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining('"roleHelpers"'),
+      }),
+    );
+    expect(runAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining("You: Hello team"),
+      }),
+    );
 
     const resolved = await app.resolveAutomationRun(pendingRun.id, "approve", {
       note: "Approved from test",

@@ -105,6 +105,22 @@ const bundle: GranolaMeetingBundle = {
       updatedAt: document.updatedAt,
     },
     noteMarkdown: "# Alpha Sync\n\nAlpha notes",
+    roleHelpers: {
+      ownerCandidates: [{ id: "self", label: "You", role: "self", source: "speaker" }],
+      participants: [],
+      speakers: [
+        {
+          firstTimestamp: "2024-01-01T09:00:01Z",
+          id: "speaker:you",
+          label: "You",
+          lastTimestamp: "2024-01-01T09:00:03Z",
+          role: "self",
+          segmentCount: 1,
+          source: "microphone",
+          wordCount: 2,
+        },
+      ],
+    },
     transcript: {
       createdAt: document.createdAt,
       id: document.id,
@@ -117,6 +133,18 @@ const bundle: GranolaMeetingBundle = {
           speaker: "You",
           startTimestamp: "2024-01-01T09:00:01Z",
           text: "Hello team",
+        },
+      ],
+      speakers: [
+        {
+          firstTimestamp: "2024-01-01T09:00:01Z",
+          id: "speaker:you",
+          label: "You",
+          lastTimestamp: "2024-01-01T09:00:03Z",
+          role: "self",
+          segmentCount: 1,
+          source: "microphone",
+          wordCount: 2,
         },
       ],
       title: document.title,

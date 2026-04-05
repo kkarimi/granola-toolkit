@@ -115,6 +115,12 @@ Each rule can contain zero or more actions. Current action kinds are:
 CLI. They append structured meeting context automatically, so a prompt file can stay focused on
 instructions such as “turn this transcript into follow-up notes”.
 
+That structured meeting context now includes speaker-aware role helpers:
+
+- calendar participants when Granola exposes them
+- transcript speaker summaries with segment counts and word counts
+- canonical owner candidates so prompts can prefer real names over vague owners like `you`
+
 Supported agent fields:
 
 - `pipeline.kind`: `notes` or `enrichment`
@@ -143,6 +149,16 @@ If you add `pipeline.kind`, the toolkit turns the agent action into a durable po
 pipeline. The model is asked for structured JSON, the parsed result is stored as an automation
 artefact, and the artefact can be re-run later without waiting for a fresh sync event.
 
+Pipeline JSON can include:
+
+- `actionItems[].ownerEmail`
+- `actionItems[].ownerRole`
+- `participantSummaries[]`
+
+The toolkit also normalises `actionItems[].owner` against the current owner candidates when it can,
+so agent outputs like `you` or `Alice` can be resolved into canonical meeting owners for downstream
+review and delivery actions.
+
 `fallbackHarnessIds` let a pipeline recover when the primary provider or harness fails. The toolkit
 tries the primary harness first, then each fallback harness in order, and records those attempts on
 the generated artefact for later review.
@@ -166,6 +182,15 @@ Approval-triggered actions are how you send reviewed notes into the rest of your
 - `command` receives the same review payload on stdin for arbitrary local tooling
 - `webhook` posts either JSON or rendered text/markdown bodies to any HTTP endpoint
 - `slack-message` posts a simple text payload to an incoming Slack webhook
+
+Delivery payloads include the artefact’s structured arrays too, so downstream actions can use:
+
+- `artefact.actionItems`
+- `artefact.participantSummaries`
+- `artefact.decisions`
+- `artefact.followUps`
+- `artefact.highlights`
+- `artefact.sections`
 
 Template fields such as `{{artefact.title}}`, `{{artefact.summary}}`, `{{meeting.title}}`, and
 `{{rule.name}}` are available in `text`, `contentTemplate`, `bodyTemplate`, and

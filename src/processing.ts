@@ -1,7 +1,10 @@
 import type {
   GranolaAutomationArtefactKind,
+  GranolaAutomationArtefactParticipantSummary,
   GranolaAutomationArtefactStructuredOutput,
+  MeetingRoleHelpersRecord,
 } from "./app/index.ts";
+import { resolveMeetingOwnerCandidate } from "./meeting-roles.ts";
 import { asRecord, parseJsonString, stringArray, stringValue } from "./utils.ts";
 
 interface StructuredPayload {
@@ -11,6 +14,7 @@ interface StructuredPayload {
   highlights?: unknown;
   markdown?: unknown;
   metadata?: unknown;
+  participantSummaries?: unknown;
   sections?: unknown;
   summary?: unknown;
   title?: unknown;
@@ -66,6 +70,7 @@ function normaliseStrings(value: unknown): string[] {
 
 function normaliseActionItems(
   value: unknown,
+  roleHelpers?: MeetingRoleHelpersRecord,
 ): GranolaAutomationArtefactStructuredOutput["actionItems"] {
   if (!Array.isArray(value)) {
     return [];
@@ -83,13 +88,69 @@ function normaliseActionItems(
         return undefined;
       }
 
+      const owner = resolveMeetingOwnerCandidate(stringValue(record.owner), roleHelpers);
+      const ownerEmail = stringValue(record.ownerEmail).trim() || owner.ownerEmail;
+      const ownerOriginal = stringValue(record.ownerOriginal).trim() || owner.ownerOriginal;
+      const ownerRoleValue = stringValue(record.ownerRole).trim();
+      const ownerRole =
+        ownerRoleValue === "attendee" ||
+        ownerRoleValue === "creator" ||
+        ownerRoleValue === "self" ||
+        ownerRoleValue === "system" ||
+        ownerRoleValue === "unknown"
+          ? ownerRoleValue
+          : owner.ownerRole;
+
       return {
         dueDate: stringValue(record.dueDate).trim() || undefined,
-        owner: stringValue(record.owner).trim() || undefined,
+        owner: owner.owner,
+        ownerEmail: ownerEmail || undefined,
+        ownerOriginal: ownerOriginal || undefined,
+        ownerRole,
         title,
       };
     })
     .filter((item) => Boolean(item)) as GranolaAutomationArtefactStructuredOutput["actionItems"];
+}
+
+function normaliseParticipantSummaries(
+  value: unknown,
+): GranolaAutomationArtefactParticipantSummary[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const summaries = value
+    .map((item) => {
+      const record = asRecord(item);
+      if (!record) {
+        return undefined;
+      }
+
+      const speaker = stringValue(record.speaker).trim();
+      const summary = stringValue(record.summary).trim();
+      if (!speaker || !summary) {
+        return undefined;
+      }
+
+      const role = stringValue(record.role).trim();
+      return {
+        actionItems: normaliseStrings(record.actionItems),
+        role:
+          role === "attendee" ||
+          role === "creator" ||
+          role === "self" ||
+          role === "system" ||
+          role === "unknown"
+            ? role
+            : undefined,
+        speaker,
+        summary,
+      };
+    })
+    .filter(Boolean) as GranolaAutomationArtefactParticipantSummary[];
+
+  return summaries.length > 0 ? summaries : undefined;
 }
 
 function normaliseSections(value: unknown): GranolaAutomationArtefactStructuredOutput["sections"] {
@@ -141,7 +202,8 @@ export function buildPipelineInstructions(
   return [
     instructions.trim(),
     task,
-    'Return JSON only. Use this exact shape: {"title":"string","summary":"string","markdown":"string","sections":[{"title":"string","body":"string"}],"actionItems":[{"title":"string","owner":"string","dueDate":"string"}],"decisions":["string"],"followUps":["string"],"highlights":["string"],"metadata":{}}',
+    'Return JSON only. Use this exact shape: {"title":"string","summary":"string","markdown":"string","sections":[{"title":"string","body":"string"}],"actionItems":[{"title":"string","owner":"string","ownerEmail":"string","ownerRole":"string","dueDate":"string"}],"participantSummaries":[{"speaker":"string","role":"string","summary":"string","actionItems":["string"]}],"decisions":["string"],"followUps":["string"],"highlights":["string"],"metadata":{}}',
+    "When meeting role helpers are provided, prefer canonical owner names and emails from those candidates instead of vague owners like 'you' or first-name fragments.",
     "Keep arrays empty instead of omitting them. markdown must contain the full Markdown result.",
   ]
     .filter(Boolean)
@@ -152,6 +214,7 @@ export function parsePipelineOutput(options: {
   kind: GranolaAutomationArtefactKind;
   meetingTitle: string;
   rawOutput: string;
+  roleHelpers?: MeetingRoleHelpersRecord;
 }): {
   parseMode: "json" | "markdown-fallback";
   structured: GranolaAutomationArtefactStructuredOutput;
@@ -166,12 +229,13 @@ export function parsePipelineOutput(options: {
       return {
         parseMode: "json",
         structured: {
-          actionItems: normaliseActionItems(payload.actionItems),
+          actionItems: normaliseActionItems(payload.actionItems, options.roleHelpers),
           decisions: normaliseStrings(payload.decisions),
           followUps: normaliseStrings(payload.followUps),
           highlights: normaliseStrings(payload.highlights),
           markdown,
           metadata: asRecord(payload.metadata),
+          participantSummaries: normaliseParticipantSummaries(payload.participantSummaries),
           sections: normaliseSections(payload.sections),
           summary: stringValue(payload.summary).trim() || firstParagraph(markdown),
           title,
@@ -192,6 +256,7 @@ export function parsePipelineOutput(options: {
       metadata: {
         fallbackKind: options.kind,
       },
+      participantSummaries: undefined,
       sections: markdownSections(markdown),
       summary: firstParagraph(markdown),
       title:

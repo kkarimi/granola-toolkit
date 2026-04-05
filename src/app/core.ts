@@ -301,9 +301,7 @@ function combinePromptSections(...values: Array<string | undefined>): string | u
 }
 
 function meetingTranscriptText(bundle: GranolaMeetingBundle): string | undefined {
-  const segments =
-    bundle.document.transcriptSegments ??
-    (bundle.cacheData ? bundle.cacheData.transcripts[bundle.document.id] : undefined);
+  const segments = bundle.meeting.transcript?.segments;
   if (!segments?.length) {
     return undefined;
   }
@@ -311,7 +309,7 @@ function meetingTranscriptText(bundle: GranolaMeetingBundle): string | undefined
   return segments
     .slice()
     .sort((left, right) => left.startTimestamp.localeCompare(right.startTimestamp))
-    .map((segment) => segment.text.trim())
+    .map((segment) => `${segment.speaker}: ${segment.text.trim()}`)
     .filter(Boolean)
     .join("\n");
 }
@@ -343,6 +341,7 @@ function buildAutomationAgentPrompt(
       ? {
           id: bundle.document.id,
           notesPlain: bundle.document.notesPlain,
+          roleHelpers: bundle.meeting.roleHelpers,
           tags: [...bundle.document.tags],
           title: bundle.document.title,
           updatedAt: bundle.document.updatedAt,
@@ -684,6 +683,10 @@ export class GranolaApp implements GranolaAppApi {
         metadata: artefact.structured.metadata
           ? structuredClone(artefact.structured.metadata)
           : undefined,
+        participantSummaries: artefact.structured.participantSummaries?.map((summary) => ({
+          ...summary,
+          actionItems: [...summary.actionItems],
+        })),
         sections: artefact.structured.sections.map((section) => ({ ...section })),
       },
     };
@@ -2475,6 +2478,7 @@ export class GranolaApp implements GranolaAppApi {
             kind: action.pipeline.kind,
             meetingTitle: match.title,
             rawOutput: result.output ?? "",
+            roleHelpers: bundle?.meeting.roleHelpers,
           });
           const createdAt = this.nowIso();
           const artefact: GranolaAutomationArtefact = {

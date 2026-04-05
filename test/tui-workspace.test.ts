@@ -249,6 +249,31 @@ function createMeetingBundle(meeting: MeetingSummaryRecord): GranolaMeetingBundl
       noteMarkdown: `# ${document.title}\n\n${
         meeting.id === "doc-alpha-1111" ? "Alpha notes" : "Bravo notes"
       }`,
+      roleHelpers: {
+        ownerCandidates: [
+          {
+            id: meeting.id === "doc-alpha-1111" ? "self" : "speaker:system",
+            label: meeting.id === "doc-alpha-1111" ? "You" : "System",
+            role: meeting.id === "doc-alpha-1111" ? "self" : "system",
+            source: "speaker",
+          },
+        ],
+        participants: [],
+        speakers: [
+          {
+            firstTimestamp:
+              meeting.id === "doc-alpha-1111" ? "2024-01-01T09:00:01Z" : "2024-02-01T09:00:01Z",
+            id: meeting.id === "doc-alpha-1111" ? "speaker:you" : "speaker:system",
+            label: meeting.id === "doc-alpha-1111" ? "You" : "System",
+            lastTimestamp:
+              meeting.id === "doc-alpha-1111" ? "2024-01-01T09:00:03Z" : "2024-02-01T09:00:03Z",
+            role: meeting.id === "doc-alpha-1111" ? "self" : "system",
+            segmentCount: 1,
+            source: meeting.id === "doc-alpha-1111" ? "microphone" : "system",
+            wordCount: meeting.id === "doc-alpha-1111" ? 2 : 4,
+          },
+        ],
+      },
       transcript: {
         createdAt: document.createdAt,
         id: document.id,
@@ -276,6 +301,20 @@ function createMeetingBundle(meeting: MeetingSummaryRecord): GranolaMeetingBundl
                   text: "Quarterly numbers look good",
                 },
               ],
+        speakers: [
+          {
+            firstTimestamp:
+              meeting.id === "doc-alpha-1111" ? "2024-01-01T09:00:01Z" : "2024-02-01T09:00:01Z",
+            id: meeting.id === "doc-alpha-1111" ? "speaker:you" : "speaker:system",
+            label: meeting.id === "doc-alpha-1111" ? "You" : "System",
+            lastTimestamp:
+              meeting.id === "doc-alpha-1111" ? "2024-01-01T09:00:03Z" : "2024-02-01T09:00:03Z",
+            role: meeting.id === "doc-alpha-1111" ? "self" : "system",
+            segmentCount: 1,
+            source: meeting.id === "doc-alpha-1111" ? "microphone" : "system",
+            wordCount: meeting.id === "doc-alpha-1111" ? 2 : 4,
+          },
+        ],
         title: document.title,
         updatedAt: document.updatedAt,
       },

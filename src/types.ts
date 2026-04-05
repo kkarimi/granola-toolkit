@@ -43,6 +43,18 @@ export interface GranolaCalendarEvent {
   url?: string;
 }
 
+export interface GranolaMeetingPerson {
+  companyName?: string;
+  email?: string;
+  name?: string;
+  title?: string;
+}
+
+export interface GranolaMeetingPeople {
+  attendees: GranolaMeetingPerson[];
+  creator?: GranolaMeetingPerson;
+}
+
 export interface GranolaDocument {
   calendarEvent?: GranolaCalendarEvent;
   content: string;
@@ -52,6 +64,7 @@ export interface GranolaDocument {
   lastViewedPanel?: LastViewedPanel;
   notes?: ProseMirrorDoc;
   notesPlain: string;
+  people?: GranolaMeetingPeople;
   tags: string[];
   title: string;
   transcriptSegments?: TranscriptSegment[];

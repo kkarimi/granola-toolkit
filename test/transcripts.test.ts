@@ -94,6 +94,12 @@ describe("formatTranscript", () => {
         text: "Hello",
       }),
     ]);
+    expect(transcript.speakers).toEqual([
+      expect.objectContaining({
+        label: "You",
+        role: "self",
+      }),
+    ]);
   });
 
   test("sorts transcript segments deterministically and prefers final segments", () => {
@@ -229,6 +235,18 @@ describe("formatTranscript", () => {
             speaker: "System",
             startTimestamp: "2024-01-01T10:00:00Z",
             text: "Hello",
+          },
+        ],
+        speakers: [
+          {
+            firstTimestamp: "2024-01-01T10:00:00Z",
+            id: "speaker:system",
+            label: "System",
+            lastTimestamp: "2024-01-01T10:00:05Z",
+            role: "system",
+            segmentCount: 1,
+            source: "system",
+            wordCount: 1,
           },
         ],
         title: "YAML transcript",

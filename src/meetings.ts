@@ -2,11 +2,13 @@ import type {
   FolderSummaryRecord,
   MeetingNoteRecord,
   MeetingRecord,
+  MeetingRoleHelpersRecord,
   MeetingSummaryRecord,
   MeetingTranscriptRecord,
   NoteExportRecord,
   TranscriptExportRecord,
 } from "./app/models.ts";
+import { buildMeetingRoleHelpers } from "./meeting-roles.ts";
 import { buildNoteExport, renderNoteExport } from "./notes.ts";
 import { toJson, toYaml } from "./render.ts";
 import {
@@ -151,6 +153,7 @@ function serialiseTranscript(transcript: TranscriptExportRecord): MeetingTranscr
     createdAt: transcript.createdAt,
     id: transcript.id,
     segments: transcript.segments.map((segment) => ({ ...segment })),
+    speakers: transcript.speakers.map((speaker) => ({ ...speaker })),
     title: transcript.title,
     updatedAt: transcript.updatedAt,
   };
@@ -213,6 +216,13 @@ function buildMeetingTranscript(
     transcriptRecord: transcript,
     transcriptText: renderTranscriptExport(transcript, "text"),
   };
+}
+
+function buildRoleHelpers(
+  document: GranolaDocument,
+  transcript: MeetingTranscriptRecord | null,
+): MeetingRoleHelpersRecord {
+  return buildMeetingRoleHelpers(document.people, transcript?.speakers ?? []);
 }
 
 function matchesMeetingSearch(document: GranolaDocument, search: string): boolean {
@@ -384,6 +394,7 @@ export function buildMeetingRecord(
 ): MeetingRecord {
   const note = buildNoteExport(document);
   const transcript = buildMeetingTranscript(document, cacheData);
+  const roleHelpers = buildRoleHelpers(document, transcript.transcript);
 
   return {
     meeting: {
@@ -399,6 +410,7 @@ export function buildMeetingRecord(
     },
     note: serialiseNote(note),
     noteMarkdown: renderNoteExport(note, "markdown"),
+    roleHelpers,
     transcript: transcript.transcript,
     transcriptText: transcript.transcriptText,
   };
@@ -595,6 +607,14 @@ export function renderMeetingView(
     : record.meeting.transcriptSegmentCount === 0
       ? "no transcript segments"
       : `${record.meeting.transcriptSegmentCount} segment(s)`;
+  const ownerCandidates =
+    record.roleHelpers.ownerCandidates.length > 0
+      ? record.roleHelpers.ownerCandidates.map((candidate) => candidate.label).join(", ")
+      : "(none)";
+  const speakers =
+    record.roleHelpers.speakers.length > 0
+      ? record.roleHelpers.speakers.map((speaker) => speaker.label).join(", ")
+      : "(none)";
 
   const lines = [
     `# ${record.meeting.title || record.meeting.id}`,
@@ -606,6 +626,8 @@ export function renderMeetingView(
     `Folders: ${folders}`,
     `Note source: ${record.meeting.noteContentSource}`,
     `Transcript: ${transcriptStatus}`,
+    `Owner candidates: ${ownerCandidates}`,
+    `Speakers: ${speakers}`,
     "",
     "## Notes",
     "",

@@ -29,13 +29,19 @@ export interface AutomationDeliveryPayload {
   };
   artefact?: {
     actionId: string;
+    actionItems: GranolaAutomationArtefact["structured"]["actionItems"];
+    decisions: string[];
+    followUps: string[];
     id: string;
+    highlights: string[];
     kind: string;
     markdown: string;
     metadata?: Record<string, unknown>;
     model: string;
+    participantSummaries?: GranolaAutomationArtefact["structured"]["participantSummaries"];
     prompt: string;
     provider: string;
+    sections: GranolaAutomationArtefact["structured"]["sections"];
     status: string;
     summary?: string;
     title: string;
@@ -140,13 +146,24 @@ export function buildAutomationDeliveryPayload(
     artefact: context.artefact
       ? {
           actionId: context.artefact.actionId,
+          actionItems: context.artefact.structured.actionItems.map((item) => ({ ...item })),
+          decisions: [...context.artefact.structured.decisions],
+          followUps: [...context.artefact.structured.followUps],
           id: context.artefact.id,
+          highlights: [...context.artefact.structured.highlights],
           kind: context.artefact.kind,
           markdown: context.artefact.structured.markdown,
           metadata: context.artefact.structured.metadata,
           model: context.artefact.model,
+          participantSummaries: context.artefact.structured.participantSummaries?.map(
+            (summary) => ({
+              ...summary,
+              actionItems: [...summary.actionItems],
+            }),
+          ),
           prompt: context.artefact.prompt,
           provider: context.artefact.provider,
+          sections: context.artefact.structured.sections.map((section) => ({ ...section })),
           status: context.artefact.status,
           summary: context.artefact.structured.summary,
           title: context.artefact.structured.title,

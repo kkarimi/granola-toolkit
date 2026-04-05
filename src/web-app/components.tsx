@@ -173,6 +173,18 @@ function metadataLines(record: MeetingRecord): string {
     }`,
     `Tags: ${record.meeting.tags.length ? record.meeting.tags.join(", ") : "none"}`,
     `Transcript loaded: ${record.meeting.transcriptLoaded ? "yes" : "no"}`,
+    `Owner candidates: ${
+      record.roleHelpers.ownerCandidates.length
+        ? record.roleHelpers.ownerCandidates.map((candidate) => candidate.label).join(", ")
+        : "none"
+    }`,
+    `Speakers: ${
+      record.roleHelpers.speakers.length
+        ? record.roleHelpers.speakers
+            .map((speaker) => `${speaker.label} (${speaker.segmentCount})`)
+            .join(", ")
+        : "none"
+    }`,
   ].join("\n");
 }
 
@@ -1094,6 +1106,44 @@ export function ArtefactReviewPanel(props: ArtefactReviewPanelProps): JSX.Elemen
                       Rerun
                     </button>
                   </div>
+                  <Show when={artefact().structured.actionItems.length > 0}>
+                    <div class="detail-section">
+                      <h3>Action Items</h3>
+                      <ul class="detail-list">
+                        <For each={artefact().structured.actionItems}>
+                          {(item) => (
+                            <li>
+                              <strong>{item.title}</strong>
+                              <Show when={item.owner}>
+                                <span>{` • ${item.owner}`}</span>
+                              </Show>
+                              <Show when={item.dueDate}>
+                                <span>{` • due ${item.dueDate}`}</span>
+                              </Show>
+                            </li>
+                          )}
+                        </For>
+                      </ul>
+                    </div>
+                  </Show>
+                  <Show when={(artefact().structured.participantSummaries?.length ?? 0) > 0}>
+                    <div class="detail-section">
+                      <h3>Participant Summaries</h3>
+                      <ul class="detail-list">
+                        <For each={artefact().structured.participantSummaries}>
+                          {(summary) => (
+                            <li>
+                              <strong>{summary.speaker}</strong>
+                              <Show when={summary.role}>
+                                <span>{` • ${summary.role}`}</span>
+                              </Show>
+                              <div>{summary.summary}</div>
+                            </li>
+                          )}
+                        </For>
+                      </ul>
+                    </div>
+                  </Show>
                 </section>
               </div>
             </Show>

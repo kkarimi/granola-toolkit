@@ -31,6 +31,46 @@ export interface TranscriptExportSegmentRecord {
   text: string;
 }
 
+export type GranolaMeetingParticipantRole = "attendee" | "creator";
+export type GranolaMeetingSpeakerRole = "attendee" | "creator" | "self" | "system" | "unknown";
+
+export interface MeetingParticipantRecord {
+  companyName?: string;
+  email?: string;
+  id: string;
+  label: string;
+  role: GranolaMeetingParticipantRole;
+  title?: string;
+}
+
+export interface MeetingSpeakerRecord {
+  firstTimestamp: string;
+  id: string;
+  label: string;
+  lastTimestamp: string;
+  matchedParticipantEmail?: string;
+  matchedParticipantId?: string;
+  matchedParticipantLabel?: string;
+  role: GranolaMeetingSpeakerRole;
+  segmentCount: number;
+  source: string;
+  wordCount: number;
+}
+
+export interface MeetingOwnerCandidateRecord {
+  email?: string;
+  id: string;
+  label: string;
+  role: GranolaMeetingSpeakerRole;
+  source: "participant" | "speaker";
+}
+
+export interface MeetingRoleHelpersRecord {
+  ownerCandidates: MeetingOwnerCandidateRecord[];
+  participants: MeetingParticipantRecord[];
+  speakers: MeetingSpeakerRecord[];
+}
+
 export interface TranscriptExportRecord {
   createdAt: string;
   id: string;
@@ -39,6 +79,7 @@ export interface TranscriptExportRecord {
     segments: TranscriptSegment[];
   };
   segments: TranscriptExportSegmentRecord[];
+  speakers: MeetingSpeakerRecord[];
   title: string;
   updatedAt: string;
 }
@@ -82,6 +123,7 @@ export interface MeetingTranscriptRecord {
   createdAt: string;
   id: string;
   segments: TranscriptExportSegmentRecord[];
+  speakers: MeetingSpeakerRecord[];
   title: string;
   updatedAt: string;
 }
@@ -90,6 +132,7 @@ export interface MeetingRecord {
   meeting: MeetingSummaryRecord;
   note: MeetingNoteRecord;
   noteMarkdown: string;
+  roleHelpers: MeetingRoleHelpersRecord;
   transcript: MeetingTranscriptRecord | null;
   transcriptText: string | null;
 }
