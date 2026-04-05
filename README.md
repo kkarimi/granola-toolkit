@@ -66,6 +66,10 @@ Key docs entry points:
 - [`Server, Web, and TUI`](https://kkarimi.github.io/granola-toolkit/docs/server-web-and-tui/)
 - [`Auth and Configuration`](https://kkarimi.github.io/granola-toolkit/docs/auth-and-configuration/)
 - [`Development`](https://kkarimi.github.io/granola-toolkit/docs/development/)
+- [`Releases`](https://kkarimi.github.io/granola-toolkit/docs/releases/)
+
+Release history is also tracked in
+[`CHANGELOG.md`](https://github.com/kkarimi/granola-toolkit/blob/main/CHANGELOG.md).
 
 ## Local Development
 

@@ -1,0 +1,37 @@
+---
+title: Releases
+description: Track shipped versions, changelog entries, installable artefacts, and GitHub Releases for granola-toolkit.
+---
+
+Every published `granola-toolkit` version now leaves behind three matching release records:
+
+- an npm package version
+- a GitHub Release with standalone binaries
+- a committed changelog entry in [`CHANGELOG.md`](https://github.com/kkarimi/granola-toolkit/blob/main/CHANGELOG.md)
+
+## Where To Look
+
+- [GitHub Releases](https://github.com/kkarimi/granola-toolkit/releases)
+- [CHANGELOG.md](https://github.com/kkarimi/granola-toolkit/blob/main/CHANGELOG.md)
+- [npm package history](https://www.npmjs.com/package/granola-toolkit?activeTab=versions)
+
+## Release Shape
+
+Each release now records:
+
+- highlights grouped by semantic commit type
+- linked commits for the shipped range
+- install and compare links
+- standalone archive assets for supported platforms
+
+The local release command still stays small:
+
+```bash
+npm run release:patch
+npm run release:minor
+npm run release:major
+```
+
+That command updates `package.json`, `package-lock.json`, and `CHANGELOG.md`, then tags and pushes.
+GitHub Actions publishes to npm, builds standalone archives, and creates or refreshes the matching
+GitHub Release.

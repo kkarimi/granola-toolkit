@@ -55,10 +55,16 @@ Normal release flow:
 
 1. Finish the change on `main`.
 2. Run toolkit QA plus `npm run docs:check`.
-3. Run `npm run release:patch`, `release:minor`, or `release:major`.
-4. Let GitHub Actions publish the already-bumped version.
-5. GitHub Actions then creates the matching GitHub Release with generated notes, package metadata,
-   commit highlights, and standalone release archives.
+3. Preview the notes with `npm run release:notes` if you want to inspect the next published summary.
+4. Run `npm run release:patch`, `release:minor`, or `release:major`.
+5. Let GitHub Actions publish the already-bumped version.
+6. GitHub Actions then creates the matching GitHub Release with generated notes, package metadata,
+   commit highlights, a committed changelog entry, and standalone release archives.
+
+Release history is published in both places:
+
+- [`CHANGELOG.md`](https://github.com/kkarimi/granola-toolkit/blob/main/CHANGELOG.md)
+- [`/docs/releases`](/docs/releases)
 
 ## Repo Shape
 

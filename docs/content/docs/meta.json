@@ -9,6 +9,7 @@
     "meetings-and-folders",
     "server-web-and-tui",
     "auth-and-configuration",
-    "development"
+    "development",
+    "releases"
   ]
 }

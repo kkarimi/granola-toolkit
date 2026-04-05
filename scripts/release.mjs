@@ -76,12 +76,13 @@ const release = () => {
   run("npm run browser:e2e");
   run("npm pack --dry-run");
   run(`npm version ${kind} --no-git-tag-version`);
+  run("node scripts/update-changelog.mjs");
 
   const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
   const next = pkg.version;
   ensureTagMissing(next);
 
-  run("git add package.json package-lock.json");
+  run("git add package.json package-lock.json CHANGELOG.md");
   run(`git commit -m "chore: release v${next}"`);
   run(`git tag -a "v${next}" -m "v${next}"`);
   run(`git push origin main "v${next}"`);

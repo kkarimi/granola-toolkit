@@ -175,15 +175,20 @@ jobs:
           tag="v${PACKAGE_VERSION}"
           title="${PACKAGE_NAME} v${PACKAGE_VERSION}"
           mapfile -t assets < <(find release-assets -maxdepth 1 -type f | sort)
+          notes_file="$(mktemp)"
+
+          node scripts/release-notes.mjs > "${notes_file}"
 
           if gh release view "${tag}" >/dev/null 2>&1; then
-            echo "GitHub Release ${tag} already exists; uploading refreshed assets."
+            echo "GitHub Release ${tag} already exists; refreshing notes and assets."
+            gh release edit "${tag}" \
+              --latest \
+              --notes-file "${notes_file}" \
+              --title "${title}"
           else
-            notes="$(node scripts/release-notes.mjs)"
             gh release create "${tag}" \
               --latest \
-              --notes "${notes}" \
-              --generate-notes \
+              --notes-file "${notes_file}" \
               --title "${title}"
           fi
 
