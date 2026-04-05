@@ -66,8 +66,7 @@ If you prefer to reuse the desktop app session, `granola auth login` still impor
 Then verify that folders and meetings resolve cleanly:
 
 ```bash
-granola sync --config ./.granola.toml
-granola sync --watch
+granola service start --config ./.granola.toml
 granola automation rules
 granola automation runs
 granola search customer onboarding
@@ -86,23 +85,36 @@ The first-run flow in the web workspace will guide you through the same setup in
 Granola API key, run the first meeting import, choose an agent provider, and create a starter
 reviewable notes pipeline before it drops you into the full workspace.
 
+After setup, prefer the background service for day-to-day use:
+
+```bash
+granola service start
+granola web
+granola attach
+granola service status
+```
+
+`granola web` will reuse the running background service when you have not asked it to start a new
+runtime with custom bind or sync flags.
+
 ## Typical Starting Commands
 
 ```bash
-granola sync --config ./.granola.toml
+granola service start
 granola search onboarding risk
 granola notes
 granola notes --folder Team
 granola transcripts
 granola web
-granola tui
+granola attach
 ```
 
 ## When to Use Which Surface
 
 - Use the CLI when you want scripts, exports, or stable machine-readable output.
+- Use `granola service start` when you want the sync loop and local workspace runtime to stay warm.
 - Use `granola web` when you want quick navigation, tabs, and export actions in a browser.
-- Use `granola tui` when you want the same workspace model with a keyboard-first terminal UI.
+- Use `granola attach` when you want the same shared runtime in a keyboard-first terminal UI.
 
 ## Next
 

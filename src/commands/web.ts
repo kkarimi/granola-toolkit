@@ -1,5 +1,8 @@
 import { createGranolaApp } from "../app/index.ts";
+import { openExternalUrl } from "../browser.ts";
 import { loadConfig } from "../config.ts";
+import { discoverGranolaService } from "../service.ts";
+import { buildGranolaMeetingUrl } from "../web-url.ts";
 
 import { debug } from "./shared.ts";
 import type { CommandDefinition } from "./types.ts";
@@ -30,6 +33,30 @@ Options:
 `;
 }
 
+function canReuseRunningService(
+  commandFlags: Record<string, string | boolean | undefined>,
+  globalFlags: Record<string, string | boolean | undefined>,
+): boolean {
+  const hasRuntimeOverride =
+    commandFlags.cache !== undefined ||
+    commandFlags.hostname !== undefined ||
+    commandFlags.network !== undefined ||
+    commandFlags["no-sync"] !== undefined ||
+    commandFlags.password !== undefined ||
+    commandFlags.port !== undefined ||
+    commandFlags["sync-interval"] !== undefined ||
+    commandFlags.timeout !== undefined ||
+    commandFlags["trusted-origins"] !== undefined;
+
+  const hasGlobalOverride =
+    globalFlags["api-key"] !== undefined ||
+    globalFlags.config !== undefined ||
+    globalFlags.rules !== undefined ||
+    globalFlags.supabase !== undefined;
+
+  return !hasRuntimeOverride && !hasGlobalOverride;
+}
+
 export const webCommand: CommandDefinition = {
   description: "Start the Granola Toolkit web workspace",
   flags: {
@@ -49,6 +76,35 @@ export const webCommand: CommandDefinition = {
   help: webHelp,
   name: "web",
   async run({ commandFlags, globalFlags }) {
+    const options = resolveGranolaWebWorkspaceOptions(commandFlags);
+    const targetMeetingId =
+      typeof commandFlags.meeting === "string" && commandFlags.meeting.trim()
+        ? commandFlags.meeting.trim()
+        : undefined;
+
+    if (canReuseRunningService(commandFlags, globalFlags)) {
+      const runningService = await discoverGranolaService();
+      if (runningService) {
+        const targetUrl = targetMeetingId
+          ? buildGranolaMeetingUrl(new URL(runningService.url), targetMeetingId)
+          : new URL(runningService.url);
+        console.log(`Granola Toolkit web workspace already running on ${runningService.url}`);
+        if (targetUrl.href !== runningService.url) {
+          console.log(`Focused meeting URL: ${targetUrl.href}`);
+        }
+        if (options.openBrowser) {
+          try {
+            await openExternalUrl(targetUrl);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error(`failed to open browser automatically: ${message}`);
+            console.error(`open ${targetUrl.href} manually`);
+          }
+        }
+        return 0;
+      }
+    }
+
     const config = await loadConfig({
       globalFlags,
       subcommandFlags: commandFlags,
@@ -62,11 +118,6 @@ export const webCommand: CommandDefinition = {
     const app = await createGranolaApp(config, {
       surface: "web",
     });
-    const options = resolveGranolaWebWorkspaceOptions(commandFlags);
-    const targetMeetingId =
-      typeof commandFlags.meeting === "string" && commandFlags.meeting.trim()
-        ? commandFlags.meeting.trim()
-        : undefined;
 
     return await runGranolaWebWorkspace(app, {
       ...options,

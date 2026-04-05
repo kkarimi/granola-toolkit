@@ -15,6 +15,8 @@ export interface GranolaToolkitPersistenceLayout {
   meetingIndexFile: string;
   pkmTargetsFile: string;
   searchIndexFile: string;
+  serviceLogFile: string;
+  serviceStateFile: string;
   sessionFile: string;
   sessionStoreKind: GranolaToolkitSessionStoreKind;
   syncEventsFile: string;
@@ -54,6 +56,8 @@ export function defaultGranolaToolkitPersistenceLayout(
     meetingIndexFile: join(dataDirectory, "meeting-index.json"),
     pkmTargetsFile: join(dataDirectory, "pkm-targets.json"),
     searchIndexFile: join(dataDirectory, "search-index.json"),
+    serviceLogFile: join(dataDirectory, "service.log"),
+    serviceStateFile: join(dataDirectory, "service.json"),
     sessionFile: join(dataDirectory, "session.json"),
     sessionStoreKind: targetPlatform === "darwin" ? "keychain" : "file",
     syncEventsFile: join(dataDirectory, "sync-events.jsonl"),

@@ -1,4 +1,5 @@
 import { createGranolaServerClient } from "../server/client.ts";
+import { discoverGranolaService } from "../service.ts";
 import { runGranolaTui } from "../tui/workspace.ts";
 
 import type { CommandDefinition } from "./types.ts";
@@ -7,7 +8,7 @@ function attachHelp(): string {
   return `Granola attach
 
 Usage:
-  granola attach <url> [options]
+  granola attach [url] [options]
 
 Options:
   --meeting <id>      Open the workspace focused on a specific meeting
@@ -26,9 +27,17 @@ export const attachCommand: CommandDefinition = {
   help: attachHelp,
   name: "attach",
   async run({ commandArgs, commandFlags }) {
-    const serverUrl = commandArgs[0];
+    let serverUrl = commandArgs[0];
     if (!serverUrl?.trim()) {
-      throw new Error("attach requires a server URL, for example http://127.0.0.1:4123");
+      const discovered = await discoverGranolaService();
+      if (!discovered) {
+        throw new Error(
+          "attach requires a server URL or a running background service. Start one with `granola service start`.",
+        );
+      }
+
+      serverUrl = discovered.url;
+      console.log(`Attaching to ${serverUrl}`);
     }
 
     const initialMeetingId =

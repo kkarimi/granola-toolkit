@@ -38,6 +38,8 @@ describe("defaultGranolaToolkitPersistenceLayout", () => {
       meetingIndexFile: "/home/nima/.config/granola-toolkit/meeting-index.json",
       pkmTargetsFile: "/home/nima/.config/granola-toolkit/pkm-targets.json",
       searchIndexFile: "/home/nima/.config/granola-toolkit/search-index.json",
+      serviceLogFile: "/home/nima/.config/granola-toolkit/service.log",
+      serviceStateFile: "/home/nima/.config/granola-toolkit/service.json",
       sessionFile: "/home/nima/.config/granola-toolkit/session.json",
       sessionStoreKind: "file",
       syncEventsFile: "/home/nima/.config/granola-toolkit/sync-events.jsonl",

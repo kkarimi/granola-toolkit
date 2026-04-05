@@ -23,10 +23,33 @@ Security defaults:
 - trusted-origin checks for browser requests
 - warnings when you expose the server on `lan` without a password
 
+## Background Service
+
+`granola service start` wraps the same local HTTP server and sync loop in a detached background
+process.
+
+Use it when you want:
+
+- continuous sync without keeping a foreground terminal busy
+- one durable local runtime for browser and terminal clients
+- a simple `start`, `status`, `stop` lifecycle instead of a manually supervised `serve`
+
+Examples:
+
+```bash
+granola service start
+granola service start --network lan --password "change-me"
+granola service status
+granola service stop
+```
+
+The service persists its discovery metadata in the shared Granola Toolkit data directory, so other
+surfaces can find it automatically.
+
 ## Web
 
-`granola web` starts the same local server, enables a Solid-based browser app at `/`, and opens it
-in your default browser unless you pass `--open=false`.
+`granola web` either reuses the running background service or starts a fresh local browser runtime
+at `/`, then opens it in your default browser unless you pass `--open=false`.
 
 Examples:
 
@@ -36,6 +59,10 @@ granola web --meeting 1234abcd
 granola web --open=false --port 4096
 granola web --network lan --password "change-me"
 ```
+
+If a background service is already running and you do not pass runtime overrides like `--port`,
+`--hostname`, `--network`, `--password`, or `--sync-interval`, `granola web` will open that
+existing service instead of starting a second one.
 
 The browser workspace includes:
 
@@ -64,11 +91,13 @@ Main controls:
 ## Attach
 
 `granola attach` connects a terminal workspace to an existing local server instead of starting a
-second isolated app.
+second isolated app. If the background service is already running, you can omit the URL entirely.
 
 Examples:
 
 ```bash
+granola service start
+granola attach
 granola serve --port 4096
 granola attach http://127.0.0.1:4096
 granola attach http://127.0.0.1:4096 --meeting 1234abcd
