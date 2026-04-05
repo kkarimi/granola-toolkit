@@ -4,6 +4,7 @@ import { join } from "node:path";
 export type GranolaToolkitSessionStoreKind = "file" | "keychain";
 
 export interface GranolaToolkitPersistenceLayout {
+  agentHarnessesFile: string;
   automationMatchesFile: string;
   automationRulesFile: string;
   automationRunsFile: string;
@@ -40,6 +41,7 @@ export function defaultGranolaToolkitPersistenceLayout(
   );
 
   return {
+    agentHarnessesFile: join(dataDirectory, "agent-harnesses.json"),
     automationMatchesFile: join(dataDirectory, "automation-matches.jsonl"),
     automationRulesFile: join(dataDirectory, "automation-rules.json"),
     automationRunsFile: join(dataDirectory, "automation-runs.jsonl"),

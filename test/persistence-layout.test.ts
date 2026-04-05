@@ -27,6 +27,7 @@ describe("defaultGranolaToolkitPersistenceLayout", () => {
         platform: "linux",
       }),
     ).toEqual({
+      agentHarnessesFile: "/home/nima/.config/granola-toolkit/agent-harnesses.json",
       apiKeyFile: "/home/nima/.config/granola-toolkit/api-key.txt",
       automationMatchesFile: "/home/nima/.config/granola-toolkit/automation-matches.jsonl",
       automationRulesFile: "/home/nima/.config/granola-toolkit/automation-rules.json",

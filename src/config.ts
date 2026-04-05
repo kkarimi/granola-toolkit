@@ -188,6 +188,11 @@ export async function loadConfig(options: {
         pickBoolean(configValues["agent-dry-run"]) ??
         pickBoolean(configValues.agentDryRun) ??
         false,
+      harnessesFile:
+        pickString(env.GRANOLA_AGENT_HARNESSES_FILE) ??
+        pickString(configValues["agent-harnesses-file"]) ??
+        pickString(configValues.agentHarnessesFile) ??
+        defaultGranolaToolkitPersistenceLayout().agentHarnessesFile,
       maxRetries:
         pickNumber(env.GRANOLA_AGENT_MAX_RETRIES) ??
         pickNumber(configValues["agent-max-retries"]) ??

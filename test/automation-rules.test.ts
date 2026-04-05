@@ -92,6 +92,7 @@ describe("automation rules", () => {
               },
               {
                 id: "meeting-agent",
+                harnessId: "customer-call",
                 kind: "agent",
                 model: "openai/gpt-5-mini",
                 promptFile: "./AGENT.md",
@@ -116,6 +117,7 @@ describe("automation rules", () => {
           }),
           expect.objectContaining({
             id: "meeting-agent",
+            harnessId: "customer-call",
             kind: "agent",
             model: "openai/gpt-5-mini",
             promptFile: "./AGENT.md",

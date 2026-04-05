@@ -52,6 +52,26 @@ describe("parseDocument", () => {
     expect(document.lastViewedPanel?.content?.type).toBe("doc");
     expect(document.lastViewedPanel?.originalContent).toBe("<p>hello</p>");
   });
+
+  test("preserves calendar metadata for recurring meeting matching", () => {
+    const document = parseDocument({
+      content: "",
+      created_at: "2024-01-01T00:00:00Z",
+      google_calendar_event: {
+        id: "event-123",
+        recurringEventId: "recurring-456",
+      },
+      id: "doc-3",
+      tags: [],
+      title: "Recurring meeting",
+      updated_at: "2024-01-02T00:00:00Z",
+    });
+
+    expect(document.calendarEvent).toEqual({
+      id: "event-123",
+      recurringEventId: "recurring-456",
+    });
+  });
 });
 
 describe("fetchDocuments", () => {

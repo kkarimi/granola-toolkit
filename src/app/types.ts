@@ -154,6 +154,7 @@ export interface GranolaAutomationAgentAction {
   cwd?: string;
   dryRun?: boolean;
   enabled?: boolean;
+  harnessId?: string;
   id: string;
   kind: "agent";
   model?: string;

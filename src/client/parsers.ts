@@ -1,4 +1,5 @@
 import type {
+  GranolaCalendarEvent,
   GranolaDocument,
   GranolaFolder,
   GranolaFolderMembership,
@@ -66,6 +67,36 @@ function parseLastViewedPanel(value: unknown): LastViewedPanel | undefined {
   };
 }
 
+function parseCalendarEvent(value: unknown): GranolaCalendarEvent | undefined {
+  const record = asRecord(value);
+  if (!record) {
+    return undefined;
+  }
+
+  const id = stringValue(record.id);
+  const recurringEventId =
+    stringValue(record.recurring_event_id) || stringValue(record.recurringEventId);
+  const calendarId = stringValue(record.calendar_id) || stringValue(record.calendarId);
+  const url = stringValue(record.url);
+  const htmlLink = stringValue(record.html_link) || stringValue(record.htmlLink);
+  const startTime = stringValue(record.start_time) || stringValue(record.startTime);
+  const endTime = stringValue(record.end_time) || stringValue(record.endTime);
+
+  if (!id && !recurringEventId && !calendarId && !url && !htmlLink && !startTime && !endTime) {
+    return undefined;
+  }
+
+  return {
+    calendarId: calendarId || undefined,
+    endTime: endTime || undefined,
+    htmlLink: htmlLink || undefined,
+    id: id || undefined,
+    recurringEventId: recurringEventId || undefined,
+    startTime: startTime || undefined,
+    url: url || undefined,
+  };
+}
+
 export function parseDocument(value: unknown): GranolaDocument {
   const record = asRecord(value);
   if (!record) {
@@ -73,6 +104,7 @@ export function parseDocument(value: unknown): GranolaDocument {
   }
 
   return {
+    calendarEvent: parseCalendarEvent(record.google_calendar_event),
     content: stringValue(record.content),
     createdAt: stringValue(record.created_at),
     id: stringValue(record.id),
@@ -161,6 +193,7 @@ export function parsePublicNote(value: unknown): GranolaDocument {
   const summaryText = stringValue(record.summary_text);
 
   return {
+    calendarEvent: parseCalendarEvent(record.google_calendar_event),
     content: summaryMarkdown || summaryText,
     createdAt: stringValue(record.created_at),
     folderMemberships: Array.isArray(record.folder_membership)

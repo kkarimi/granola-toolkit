@@ -4,6 +4,11 @@ import { readFile } from "node:fs/promises";
 import { resolve as resolvePath } from "node:path";
 
 import {
+  createDefaultAgentHarnessStore,
+  resolveAgentHarness,
+  type AgentHarnessStore,
+} from "../agent-harnesses.ts";
+import {
   createDefaultAutomationAgentRunner,
   type GranolaAutomationAgentRequest,
   type GranolaAutomationAgentRunner,
@@ -141,6 +146,7 @@ type GranolaRemoteClient = Pick<GranolaApiClient, "listDocuments"> &
   Partial<Pick<GranolaApiClient, "listFolders">>;
 
 interface GranolaAppDependencies {
+  agentHarnessStore?: AgentHarnessStore;
   agentRunner?: GranolaAutomationAgentRunner;
   auth: GranolaAppAuthState;
   authController?: DefaultGranolaAuthController;
@@ -220,6 +226,17 @@ function cloneMeetingSummary(meeting: MeetingSummaryRecord): MeetingSummaryRecor
 
 function resolveActionFilePath(filePath: string, cwd?: string): string {
   return cwd ? resolvePath(cwd, filePath) : resolvePath(filePath);
+}
+
+async function readOptionalActionFile(
+  filePath?: string,
+  cwd?: string,
+): Promise<string | undefined> {
+  if (!filePath) {
+    return undefined;
+  }
+
+  return await readFile(resolveActionFilePath(filePath, cwd), "utf8");
 }
 
 function combinePromptSections(...values: Array<string | undefined>): string | undefined {
@@ -1428,25 +1445,48 @@ export class GranolaApp implements GranolaAppApi {
         : await this.maybeReadMeetingBundleById(match.meetingId, {
             requireCache: false,
           });
-    const promptFile = action.promptFile
-      ? await readFile(resolveActionFilePath(action.promptFile, action.cwd), "utf8")
-      : undefined;
-    const systemPromptFile = action.systemPromptFile
-      ? await readFile(resolveActionFilePath(action.systemPromptFile, action.cwd), "utf8")
-      : undefined;
-    const instructions = combinePromptSections(promptFile, action.prompt);
+    const harness = resolveAgentHarness(
+      this.deps.agentHarnessStore ? await this.deps.agentHarnessStore.readHarnesses() : [],
+      {
+        bundle,
+        match,
+      },
+      action.harnessId,
+    );
+    const harnessCwd = harness?.cwd;
+    const promptFile = await readOptionalActionFile(action.promptFile, action.cwd ?? harnessCwd);
+    const harnessPromptFile = await readOptionalActionFile(harness?.promptFile, harnessCwd);
+    const systemPromptFile = await readOptionalActionFile(
+      action.systemPromptFile,
+      action.cwd ?? harnessCwd,
+    );
+    const harnessSystemPromptFile = await readOptionalActionFile(
+      harness?.systemPromptFile,
+      harnessCwd,
+    );
+    const instructions = combinePromptSections(
+      harnessPromptFile,
+      harness?.prompt,
+      promptFile,
+      action.prompt,
+    );
     if (!instructions) {
       throw new Error(`automation agent action ${action.id} is missing prompt instructions`);
     }
 
     const request: GranolaAutomationAgentRequest = {
-      cwd: action.cwd,
+      cwd: action.cwd ?? harnessCwd,
       dryRun: action.dryRun,
-      model: action.model,
+      model: action.model ?? harness?.model,
       prompt: buildAutomationAgentPrompt(match, rule, instructions, bundle),
-      provider: action.provider,
+      provider: action.provider ?? harness?.provider,
       retries: action.retries,
-      systemPrompt: combinePromptSections(systemPromptFile, action.systemPrompt),
+      systemPrompt: combinePromptSections(
+        harnessSystemPromptFile,
+        harness?.systemPrompt,
+        systemPromptFile,
+        action.systemPrompt,
+      ),
       timeoutMs: action.timeoutMs,
     };
 
@@ -2191,6 +2231,7 @@ export async function createGranolaApp(
     config.automation?.rulesFile ?? defaultAutomationRulesFilePath(),
   );
   const automationRules = await automationRuleStore.readRules();
+  const agentHarnessStore = createDefaultAgentHarnessStore(config.agents?.harnessesFile);
   const authController = createDefaultGranolaAuthController(config);
   const exportJobStore = createDefaultExportJobStore();
   const exportJobs = await exportJobStore.readJobs();
@@ -2207,6 +2248,7 @@ export async function createGranolaApp(
     {
       auth,
       agentRunner: createDefaultAutomationAgentRunner(config),
+      agentHarnessStore,
       authController,
       automationMatches,
       automationMatchStore,

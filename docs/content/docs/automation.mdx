@@ -41,6 +41,7 @@ Override that path with either:
         {
           "id": "rewrite-with-agent",
           "kind": "agent",
+          "harnessId": "customer-call",
           "provider": "openrouter",
           "model": "openai/gpt-5-mini",
           "promptFile": "./agents/customer-call/AGENT.md"
@@ -76,6 +77,7 @@ instructions such as “turn this transcript into follow-up notes”.
 
 Supported agent fields:
 
+- `harnessId`
 - `provider`: `openrouter`, `openai`, or `codex`
 - `model`
 - `prompt`
@@ -89,6 +91,10 @@ Supported agent fields:
 
 Use `promptFile` or `systemPromptFile` for local playbooks such as `AGENT.md`. Relative paths are
 resolved from the current working directory, or from `cwd` if you set one on the action.
+
+If you set `harnessId`, the toolkit resolves that harness first and then layers any inline action
+fields on top. That lets one automation rule say “run the customer-call harness” without copying
+provider and prompt settings into every rule.
 
 `command` actions receive a JSON payload on stdin by default, including the matched event, rule,
 and meeting bundle when the meeting still exists.
@@ -135,10 +141,34 @@ Non-secret defaults can live in `.granola.toml`:
 ```toml
 agent-provider = "openrouter"
 agent-model = "openai/gpt-5-mini"
+agent-harnesses-file = "./agent-harnesses.json"
 agent-timeout = "5m"
 agent-max-retries = 2
 agent-dry-run = false
 codex-command = "codex"
+```
+
+Harness definitions live in `agent-harnesses.json` by default under the shared toolkit data
+directory. You can also point them at a project-local file:
+
+```json
+{
+  "harnesses": [
+    {
+      "id": "customer-call",
+      "name": "Customer call",
+      "priority": 50,
+      "match": {
+        "folderNames": ["Customers"],
+        "recurringEventIds": ["abc123"],
+        "transcriptLoaded": true
+      },
+      "provider": "openrouter",
+      "model": "openai/gpt-5-mini",
+      "promptFile": "./agents/customer-call/AGENT.md"
+    }
+  ]
+}
 ```
 
 ## Commands

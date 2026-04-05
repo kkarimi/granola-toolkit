@@ -16,6 +16,7 @@ function createConfig(): AppConfig {
       codexCommand: "codex",
       defaultProvider: "codex",
       dryRun: false,
+      harnessesFile: "/tmp/agent-harnesses.json",
       maxRetries: 2,
       openaiBaseUrl: "https://api.openai.com/v1",
       openrouterBaseUrl: "https://openrouter.ai/api/v1",

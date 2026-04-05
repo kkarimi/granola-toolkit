@@ -33,7 +33,18 @@ export interface LastViewedPanel {
   updatedAt?: string;
 }
 
+export interface GranolaCalendarEvent {
+  calendarId?: string;
+  endTime?: string;
+  htmlLink?: string;
+  id?: string;
+  recurringEventId?: string;
+  startTime?: string;
+  url?: string;
+}
+
 export interface GranolaDocument {
+  calendarEvent?: GranolaCalendarEvent;
   content: string;
   createdAt: string;
   folderMemberships?: GranolaFolderMembership[];
@@ -118,6 +129,7 @@ export interface GranolaAgentsOptions {
   defaultModel?: string;
   defaultProvider?: GranolaAgentProviderKind;
   dryRun: boolean;
+  harnessesFile: string;
   maxRetries: number;
   openaiBaseUrl: string;
   openrouterBaseUrl: string;

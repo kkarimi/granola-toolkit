@@ -116,6 +116,10 @@ function parseAction(value: unknown, index: number): GranolaAutomationAction | u
         typeof record.promptFile === "string" && record.promptFile.trim()
           ? record.promptFile.trim()
           : undefined;
+      const harnessId =
+        typeof record.harnessId === "string" && record.harnessId.trim()
+          ? record.harnessId.trim()
+          : undefined;
       const systemPrompt =
         typeof record.systemPrompt === "string" && record.systemPrompt.trim()
           ? record.systemPrompt.trim()
@@ -124,7 +128,7 @@ function parseAction(value: unknown, index: number): GranolaAutomationAction | u
         typeof record.systemPromptFile === "string" && record.systemPromptFile.trim()
           ? record.systemPromptFile.trim()
           : undefined;
-      if (!prompt && !promptFile) {
+      if (!prompt && !promptFile && !harnessId) {
         return undefined;
       }
 
@@ -132,6 +136,7 @@ function parseAction(value: unknown, index: number): GranolaAutomationAction | u
         cwd: typeof record.cwd === "string" && record.cwd.trim() ? record.cwd.trim() : undefined,
         dryRun: typeof record.dryRun === "boolean" ? record.dryRun : undefined,
         enabled,
+        harnessId,
         id,
         kind,
         model:

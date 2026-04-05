@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, test, vi } from "vite-plus/test";
 
 import { GranolaApp } from "../src/app/core.ts";
+import { MemoryAgentHarnessStore } from "../src/agent-harnesses.ts";
 import { MemoryAutomationMatchStore } from "../src/automation-matches.ts";
 import { MemoryAutomationRunStore } from "../src/automation-runs.ts";
 import { MemoryAutomationRuleStore } from "../src/automation-rules.ts";
@@ -14,6 +15,7 @@ import { MemorySearchIndexStore } from "../src/search-index.ts";
 import { MemorySyncEventStore } from "../src/sync-events.ts";
 import { MemorySyncStateStore } from "../src/sync-state.ts";
 import type { GranolaAppAuthState } from "../src/app/index.ts";
+import type { GranolaAutomationAgentRequest, GranolaAutomationAgentResult } from "../src/agents.ts";
 import type { CacheData, GranolaDocument, GranolaFolder } from "../src/types.ts";
 
 const documents: GranolaDocument[] = [
@@ -784,6 +786,131 @@ describe("GranolaApp", () => {
     );
     expect(await jobStore.readJobs()).toHaveLength(1);
     expect(state.ui.view).toBe("notes-export");
+  });
+
+  test("resolves agent harness instructions before running an automation agent", async () => {
+    const cacheFile = join(await mkdtemp(join(tmpdir(), "granola-app-cache-")), "cache.json");
+    await writeFile(cacheFile, "{}\n", "utf8");
+    const meetingIndexStore = new MemoryMeetingIndexStore();
+    const runAgent = vi.fn(
+      async (request: GranolaAutomationAgentRequest): Promise<GranolaAutomationAgentResult> => ({
+        dryRun: false,
+        model: "openai/gpt-5-mini",
+        output: "Harness output",
+        prompt: request.prompt,
+        provider: request.provider ?? "openrouter",
+      }),
+    );
+
+    await meetingIndexStore.writeIndex([
+      {
+        createdAt: "2024-01-01T09:00:00Z",
+        folders: [
+          {
+            createdAt: "2024-01-01T08:00:00Z",
+            documentCount: 1,
+            id: "folder-team-1111",
+            isFavourite: true,
+            name: "Team",
+            updatedAt: "2024-01-04T10:00:00Z",
+          },
+        ],
+        id: "doc-alpha-1111",
+        noteContentSource: "notes",
+        tags: ["team"],
+        title: "Alpha Sync",
+        transcriptLoaded: false,
+        transcriptSegmentCount: 0,
+        updatedAt: "2024-01-03T10:00:00Z",
+      },
+    ]);
+
+    const app = new GranolaApp(
+      {
+        agents: {
+          codexCommand: "codex",
+          defaultProvider: "codex",
+          dryRun: false,
+          harnessesFile: "/tmp/agent-harnesses.json",
+          maxRetries: 2,
+          openaiBaseUrl: "https://api.openai.com/v1",
+          openrouterBaseUrl: "https://openrouter.ai/api/v1",
+          timeoutMs: 30_000,
+        },
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile,
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        agentHarnessStore: new MemoryAgentHarnessStore([
+          {
+            id: "team-harness",
+            match: {
+              folderNames: ["Team"],
+            },
+            name: "Team harness",
+            prompt: "Use the team harness for concise customer-facing notes.",
+            provider: "openrouter",
+          },
+        ]),
+        agentRunner: {
+          run: runAgent,
+        },
+        auth: {
+          mode: "supabase-file",
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: true,
+          supabasePath: "/tmp/supabase.json",
+        },
+        automationMatchStore: new MemoryAutomationMatchStore(),
+        automationRuleStore: new MemoryAutomationRuleStore([
+          {
+            actions: [
+              {
+                harnessId: "team-harness",
+                id: "meeting-agent",
+                kind: "agent",
+              },
+            ],
+            id: "team-transcript",
+            name: "Team transcript ready",
+            when: {
+              eventKinds: ["transcript.ready"],
+              folderNames: ["Team"],
+              tags: ["team"],
+              transcriptLoaded: true,
+            },
+          },
+        ]),
+        automationRunStore: new MemoryAutomationRunStore(),
+        cacheLoader: async () => cacheData,
+        granolaClient: {
+          listDocuments: async () => documents,
+          listFolders: async () => folders,
+        },
+        meetingIndex: await meetingIndexStore.readIndex(),
+        meetingIndexStore,
+        now: () => new Date("2024-03-01T12:00:00Z"),
+      },
+      { surface: "server" },
+    );
+
+    await app.sync();
+
+    expect(runAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining("Use the team harness for concise customer-facing notes."),
+        provider: "openrouter",
+      }),
+    );
   });
 
   test("exports folder-scoped notes into a stable folder output and reruns with the same scope", async () => {
