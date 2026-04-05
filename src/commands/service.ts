@@ -7,6 +7,7 @@ import {
   defaultGranolaServiceRecord,
   discoverGranolaService,
   inspectGranolaService,
+  isGranolaServiceProcessRunning,
   readGranolaServiceLogTail,
   removeGranolaServiceRecord,
   spawnGranolaServiceProcess,
@@ -107,6 +108,21 @@ function printServiceRunBanner(record: {
   }
 }
 
+async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boolean> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt <= timeoutMs) {
+    if (!isGranolaServiceProcessRunning(pid)) {
+      return true;
+    }
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 200);
+    });
+  }
+
+  return !isGranolaServiceProcessRunning(pid);
+}
+
 async function runServiceProcess(config: AppConfig, commandFlags: FlagValues): Promise<number> {
   const networkMode = parseNetworkMode(commandFlags.network);
   const hostname = resolveServerHostname(networkMode, commandFlags.hostname);
@@ -205,32 +221,48 @@ export const serviceCommand: CommandDefinition = {
       const status = await inspectGranolaService({
         cleanupStale: false,
       });
-      if (status.kind === "missing" || status.kind === "stale") {
+      if (status.kind === "missing" || status.kind === "stale" || status.kind === "invalid") {
         printServiceStatus(status);
         await removeGranolaServiceRecord(defaultGranolaServiceRecord().serviceStateFile);
         return 0;
       }
 
-      if (status.kind !== "running" || !status.record) {
+      if (!status.record) {
         printServiceStatus(status);
         return 1;
       }
 
-      process.kill(status.record.pid, "SIGTERM");
-      const startedAt = Date.now();
-      while (Date.now() - startedAt <= 10_000) {
-        const nextStatus = await inspectGranolaService();
-        if (nextStatus.kind === "missing" || nextStatus.kind === "stale") {
+      try {
+        process.kill(status.record.pid, "SIGTERM");
+      } catch (error) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "code" in error &&
+          (error as { code?: string }).code === "ESRCH"
+        ) {
+          await removeGranolaServiceRecord(defaultGranolaServiceRecord().serviceStateFile);
           console.log("Granola Toolkit service stopped.");
           return 0;
         }
 
-        await new Promise((resolve) => {
-          setTimeout(resolve, 200);
-        });
+        throw error;
       }
 
-      throw new Error("service did not stop within 10s");
+      if (await waitForProcessExit(status.record.pid, 10_000)) {
+        await removeGranolaServiceRecord(defaultGranolaServiceRecord().serviceStateFile);
+        console.log("Granola Toolkit service stopped.");
+        return 0;
+      }
+
+      process.kill(status.record.pid, "SIGKILL");
+      if (await waitForProcessExit(status.record.pid, 2_000)) {
+        await removeGranolaServiceRecord(defaultGranolaServiceRecord().serviceStateFile);
+        console.log("Granola Toolkit service force-stopped.");
+        return 0;
+      }
+
+      throw new Error("service did not stop within 12s");
     }
 
     if (action === "run") {
