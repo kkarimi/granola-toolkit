@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -33,6 +33,12 @@ try {
   run("git", ["worktree", "add", "--detach", tempDir, "HEAD"]);
   cleanupNeeded = true;
 
+  const workspaceNodeModules = resolve(tempDir, "node_modules");
+  if (!existsSync(workspaceNodeModules)) {
+    symlinkSync(resolve(root, "node_modules"), workspaceNodeModules, "dir");
+  }
+
+  run("npm", ["run", "prepare"], tempDir, { stdio: "inherit" });
   run("git", ["config", "user.name", "Granola Toolkit Smoke"], tempDir);
   run("git", ["config", "user.email", "smoke@example.com"], tempDir);
 
