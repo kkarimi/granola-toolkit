@@ -1084,6 +1084,7 @@ describe("GranolaApp", () => {
     const meetingIndexStore = new MemoryMeetingIndexStore();
     const artefactStore = new MemoryAutomationArtefactStore();
     const runStore = new MemoryAutomationRunStore();
+    const searchIndexStore = new MemorySearchIndexStore();
     const runAgent = vi.fn(
       async (request: GranolaAutomationAgentRequest): Promise<GranolaAutomationAgentResult> => {
         if (request.provider === "openrouter") {
@@ -1225,14 +1226,30 @@ describe("GranolaApp", () => {
         meetingIndex: await meetingIndexStore.readIndex(),
         meetingIndexStore,
         now: () => new Date("2024-03-01T12:00:00Z"),
+        searchIndexStore,
       },
       { surface: "server" },
     );
 
     await app.sync();
+    const searchResults = await app.listMeetings({
+      limit: 10,
+      preferIndex: true,
+      search: "fallback provider",
+    });
 
     const firstArtefacts = await app.listAutomationArtefacts({ kind: "notes", limit: 10 });
     expect(firstArtefacts.artefacts).toHaveLength(1);
+    expect(searchResults.source).toBe("index");
+    expect(searchResults.meetings[0]?.id).toBe("doc-alpha-1111");
+    expect(
+      (await searchIndexStore.readIndex()).find((entry) => entry.id === "doc-alpha-1111"),
+    ).toEqual(
+      expect.objectContaining({
+        artefactCount: 1,
+        artefactTitles: ["Alpha Sync Notes"],
+      }),
+    );
     expect(firstArtefacts.artefacts[0]).toEqual(
       expect.objectContaining({
         attempts: [

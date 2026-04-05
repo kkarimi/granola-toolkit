@@ -1,14 +1,21 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import type { GranolaAutomationArtefact } from "./app/types.ts";
 import type { FolderSummaryRecord, MeetingSummaryRecord } from "./app/models.ts";
 import { defaultGranolaToolkitPersistenceLayout } from "./persistence/layout.ts";
 import type { CacheData, GranolaDocument } from "./types.ts";
 import { parseJsonString } from "./utils.ts";
 
-const SEARCH_INDEX_VERSION = 1;
+const SEARCH_INDEX_VERSION = 2;
 
 export interface GranolaSearchIndexEntry {
+  artefactActionNames: string[];
+  artefactCount: number;
+  artefactKinds: string[];
+  artefactRuleNames: string[];
+  artefactText: string;
+  artefactTitles: string[];
   createdAt: string;
   folderIds: string[];
   folderNames: string[];
@@ -35,6 +42,10 @@ export interface SearchIndexStore {
 function cloneEntry(entry: GranolaSearchIndexEntry): GranolaSearchIndexEntry {
   return {
     ...entry,
+    artefactActionNames: [...entry.artefactActionNames],
+    artefactKinds: [...entry.artefactKinds],
+    artefactRuleNames: [...entry.artefactRuleNames],
+    artefactTitles: [...entry.artefactTitles],
     folderIds: [...entry.folderIds],
     folderNames: [...entry.folderNames],
     tags: [...entry.tags],
@@ -64,18 +75,117 @@ function transcriptText(documentId: string, cacheData?: CacheData): string {
     .join("\n");
 }
 
+interface SearchArtefactRecord {
+  actionNames: string[];
+  count: number;
+  kinds: string[];
+  ruleNames: string[];
+  text: string;
+  titles: string[];
+}
+
+function artefactSearchText(artefact: GranolaAutomationArtefact): string {
+  return [
+    artefact.kind,
+    artefact.ruleName,
+    artefact.actionName,
+    artefact.structured.title,
+    artefact.structured.summary,
+    artefact.structured.markdown,
+    ...artefact.structured.highlights,
+    ...artefact.structured.decisions,
+    ...artefact.structured.followUps,
+    ...artefact.structured.actionItems.flatMap((item) => [item.title, item.owner, item.dueDate]),
+    ...artefact.structured.sections.flatMap((section) => [section.title, section.body]),
+    ...(artefact.structured.participantSummaries?.flatMap((summary) => [
+      summary.speaker,
+      summary.summary,
+      ...summary.actionItems,
+    ]) ?? []),
+  ]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+    .join("\n");
+}
+
+function searchableArtefacts(
+  artefacts?: GranolaAutomationArtefact[],
+): Map<string, SearchArtefactRecord> {
+  const grouped = new Map<string, SearchArtefactRecord>();
+
+  for (const artefact of artefacts ?? []) {
+    if (artefact.status !== "approved" && artefact.status !== "generated") {
+      continue;
+    }
+
+    const current = grouped.get(artefact.meetingId) ?? {
+      actionNames: [],
+      count: 0,
+      kinds: [],
+      ruleNames: [],
+      text: "",
+      titles: [],
+    };
+    const text = artefactSearchText(artefact);
+
+    current.count += 1;
+    if (!current.kinds.includes(artefact.kind)) {
+      current.kinds.push(artefact.kind);
+    }
+    if (!current.ruleNames.includes(artefact.ruleName)) {
+      current.ruleNames.push(artefact.ruleName);
+    }
+    if (!current.actionNames.includes(artefact.actionName)) {
+      current.actionNames.push(artefact.actionName);
+    }
+    if (!current.titles.includes(artefact.structured.title)) {
+      current.titles.push(artefact.structured.title);
+    }
+    current.text = [current.text, text].filter(Boolean).join("\n");
+
+    grouped.set(artefact.meetingId, current);
+  }
+
+  return grouped;
+}
+
+function artefactRecord(
+  documentId: string,
+  artefactsByMeetingId: Map<string, SearchArtefactRecord>,
+): SearchArtefactRecord {
+  return (
+    artefactsByMeetingId.get(documentId) ?? {
+      actionNames: [],
+      count: 0,
+      kinds: [],
+      ruleNames: [],
+      text: "",
+      titles: [],
+    }
+  );
+}
+
 export function buildSearchIndex(
   documents: GranolaDocument[],
   options: {
+    artefacts?: GranolaAutomationArtefact[];
     cacheData?: CacheData;
     foldersByDocumentId?: Map<string, FolderSummaryRecord[]>;
   } = {},
 ): GranolaSearchIndexEntry[] {
+  const artefactsByMeetingId = searchableArtefacts(options.artefacts);
   return documents
     .map((document) => {
       const folders = options.foldersByDocumentId?.get(document.id) ?? [];
       const transcript = transcriptText(document.id, options.cacheData);
+      const artefacts = artefactRecord(document.id, artefactsByMeetingId);
       return {
+        artefactActionNames: [...artefacts.actionNames],
+        artefactCount: artefacts.count,
+        artefactKinds: [...artefacts.kinds],
+        artefactRuleNames: [...artefacts.ruleNames],
+        artefactText: artefacts.text,
+        artefactTitles: [...artefacts.titles],
         createdAt: document.createdAt,
         folderIds: folders.map((folder) => folder.id),
         folderNames: folders.map((folder) => folder.name || folder.id),
@@ -89,6 +199,26 @@ export function buildSearchIndex(
       } satisfies GranolaSearchIndexEntry;
     })
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
+export function mergeSearchIndexArtefacts(
+  entries: GranolaSearchIndexEntry[],
+  artefacts?: GranolaAutomationArtefact[],
+): GranolaSearchIndexEntry[] {
+  const artefactsByMeetingId = searchableArtefacts(artefacts);
+
+  return entries.map((entry) => {
+    const artefact = artefactRecord(entry.id, artefactsByMeetingId);
+    return {
+      ...cloneEntry(entry),
+      artefactActionNames: [...artefact.actionNames],
+      artefactCount: artefact.count,
+      artefactKinds: [...artefact.kinds],
+      artefactRuleNames: [...artefact.ruleNames],
+      artefactText: artefact.text,
+      artefactTitles: [...artefact.titles],
+    };
+  });
 }
 
 function searchFieldScore(value: string, term: string): number {
@@ -118,7 +248,12 @@ function combinedText(entry: GranolaSearchIndexEntry): string {
     entry.title,
     ...entry.tags,
     ...entry.folderNames,
+    ...entry.artefactKinds,
+    ...entry.artefactRuleNames,
+    ...entry.artefactActionNames,
+    ...entry.artefactTitles,
     entry.noteText,
+    entry.artefactText,
     entry.transcriptText,
   ]
     .join("\n")
@@ -131,6 +266,10 @@ function searchEntryScore(entry: GranolaSearchIndexEntry, term: string): number 
     searchFieldScore(entry.title, term) * 8,
     ...entry.tags.map((tag) => searchFieldScore(tag, term) * 6),
     ...entry.folderNames.map((folderName) => searchFieldScore(folderName, term) * 4),
+    ...entry.artefactTitles.map((title) => searchFieldScore(title, term) * 7),
+    ...entry.artefactRuleNames.map((ruleName) => searchFieldScore(ruleName, term) * 5),
+    ...entry.artefactActionNames.map((actionName) => searchFieldScore(actionName, term) * 4),
+    ...entry.artefactKinds.map((kind) => searchFieldScore(kind, term) * 3),
   ].filter((score) => score > 0);
 
   if (scoredFields.length > 0) {

@@ -49,7 +49,7 @@ function parseLimit(value: string | boolean | undefined): number {
 }
 
 export const searchCommand: CommandDefinition = {
-  description: "Search meetings across titles, notes, transcripts, folders, and tags",
+  description: "Search meetings across titles, notes, transcripts, folders, tags, and artefacts",
   flags: {
     folder: { type: "string" },
     format: { type: "string" },

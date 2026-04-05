@@ -225,7 +225,7 @@ export function ToolbarFilters(props: ToolbarFiltersProps): JSX.Element {
           onInput={(event) => {
             props.onSearchInput(event.currentTarget.value);
           }}
-          placeholder="Search meetings, ids, or tags"
+          placeholder="Search meetings, notes, transcripts, or artefacts"
           value={props.search}
         />
         <div class="field-row field-row--inline">

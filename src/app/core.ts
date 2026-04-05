@@ -106,6 +106,7 @@ import { buildSyncEvents, diffMeetingSummaries } from "../sync.ts";
 import {
   buildSearchIndex,
   createDefaultSearchIndexStore,
+  mergeSearchIndexArtefacts,
   meetingIdsFromSearchResults,
   searchSearchIndex,
   type GranolaSearchIndexEntry,
@@ -307,6 +308,19 @@ function cloneMeetingSummary(meeting: MeetingSummaryRecord): MeetingSummaryRecor
       ? meeting.folders.map((folder) => cloneFolderSummary(folder))
       : [],
     tags: [...meeting.tags],
+  };
+}
+
+function cloneSearchIndexEntry(entry: GranolaSearchIndexEntry): GranolaSearchIndexEntry {
+  return {
+    ...entry,
+    artefactActionNames: [...entry.artefactActionNames],
+    artefactKinds: [...entry.artefactKinds],
+    artefactRuleNames: [...entry.artefactRuleNames],
+    artefactTitles: [...entry.artefactTitles],
+    folderIds: [...entry.folderIds],
+    folderNames: [...entry.folderNames],
+    tags: [...entry.tags],
   };
 }
 
@@ -549,12 +563,7 @@ export class GranolaApp implements GranolaAppApi {
       runsFile: defaultAutomationRunsFilePath(),
     };
     this.#meetingIndex = (deps.meetingIndex ?? []).map((meeting) => cloneMeetingSummary(meeting));
-    this.#searchIndex = (deps.searchIndex ?? []).map((entry) => ({
-      ...entry,
-      folderIds: [...entry.folderIds],
-      folderNames: [...entry.folderNames],
-      tags: [...entry.tags],
-    }));
+    this.#searchIndex = (deps.searchIndex ?? []).map((entry) => cloneSearchIndexEntry(entry));
     this.#state.index = {
       available: this.#meetingIndex.length > 0,
       filePath: defaultMeetingIndexFilePath(),
@@ -824,6 +833,12 @@ export class GranolaApp implements GranolaAppApi {
       await this.deps.automationArtefactStore.writeArtefacts(this.#automationArtefacts);
     }
 
+    if (this.#searchIndex.length > 0) {
+      await this.persistSearchIndex(
+        mergeSearchIndexArtefacts(this.#searchIndex, this.#automationArtefacts),
+      );
+    }
+
     this.refreshAutomationState();
   }
 
@@ -1021,12 +1036,7 @@ export class GranolaApp implements GranolaAppApi {
   }
 
   private async persistSearchIndex(entries: GranolaSearchIndexEntry[]): Promise<void> {
-    this.#searchIndex = entries.map((entry) => ({
-      ...entry,
-      folderIds: [...entry.folderIds],
-      folderNames: [...entry.folderNames],
-      tags: [...entry.tags],
-    }));
+    this.#searchIndex = entries.map((entry) => cloneSearchIndexEntry(entry));
 
     if (this.deps.searchIndexStore) {
       await this.deps.searchIndexStore.writeIndex(this.#searchIndex);
@@ -2837,6 +2847,7 @@ export class GranolaApp implements GranolaAppApi {
       await this.persistMeetingIndex(snapshot.meetings);
       await this.persistSearchIndex(
         buildSearchIndex(snapshot.documents, {
+          artefacts: this.#automationArtefacts,
           cacheData: snapshot.cacheData,
           foldersByDocumentId: this.buildFoldersByDocumentId(snapshot.folders),
         }),
@@ -2862,6 +2873,9 @@ export class GranolaApp implements GranolaAppApi {
       const automationMatches = matchAutomationRules(rules, events, completedAt);
       await this.appendAutomationMatches(automationMatches);
       await this.runAutomationActions(rules, automationMatches);
+      await this.persistSearchIndex(
+        mergeSearchIndexArtefacts(this.#searchIndex, this.#automationArtefacts),
+      );
       this.#state.sync = {
         ...this.#state.sync,
         eventCount: this.#state.sync.eventCount + events.length,

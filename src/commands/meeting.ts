@@ -41,7 +41,7 @@ Options:
   --open[=true|false] open: launch the browser automatically (default: true)
   --password <value>  open: optional server password
   --port <value>      open: port to bind (default: 0 for any available port)
-  --search <query>    Filter list by title, id, or tag
+  --search <query>    Filter list by title, id, tags, notes, transcripts, or artefacts
   --timeout <value>   Request timeout, e.g. 2m, 30s, 120000 (default: 2m)
   --trusted-origins <v> open: comma-separated extra browser origins to trust
   --supabase <path>   Path to supabase.json

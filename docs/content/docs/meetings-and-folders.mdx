@@ -29,7 +29,7 @@ granola meeting list --folder Team
 at a time.
 
 Once you have run `granola sync`, the toolkit also keeps a local full-text search dataset for
-titles, notes, transcripts, folders, and tags.
+titles, notes, transcripts, folders, tags, and generated artefacts.
 
 Examples:
 
@@ -52,6 +52,8 @@ Folders also drive interactive navigation:
 - the browser search box uses the shared local search dataset when it is available
 - the TUI keeps folders inside the navigation flow instead of treating them as an afterthought
 - TUI quick open falls back to the local search dataset when a title or id lookup is not enough
+- generated notes/enrichment artefacts feed back into the same search index, so one query can find
+  a meeting by its transcript, its original notes, or the AI output you approved later
 - URL state and attach flows preserve folder and meeting selection
 
 ## Why This Matters
