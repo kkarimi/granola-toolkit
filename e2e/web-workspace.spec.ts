@@ -27,6 +27,7 @@ test.describe("toolkit web workspace", () => {
     ).toBeVisible({
       timeout: 20_000,
     });
+    await expect(page.getByRole("heading", { name: "Sync health" })).toBeVisible();
     await expect(page.getByText("Browse with a scope")).toBeVisible();
     await expect(page.locator(".meeting-list")).toHaveCount(0);
     await page.locator(".sidebar").getByRole("button", { name: /Team/i }).first().click();
@@ -130,6 +131,7 @@ test.describe("toolkit web workspace", () => {
       });
 
       await page.getByRole("button", { name: "OpenRouter" }).click();
+      await expect(page.getByText(/OpenRouter requires `OPENROUTER_API_KEY`/)).toBeVisible();
       await page.getByRole("button", { name: "Create starter pipeline" }).click();
 
       await expect(page.getByRole("heading", { name: "Granola Toolkit" })).toBeVisible({

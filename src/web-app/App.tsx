@@ -1628,6 +1628,10 @@ export function App() {
                 onOpenMeeting={(meeting) => {
                   void openRecentMeeting(meeting.id, meeting.folderId);
                 }}
+                onOpenReview={() => {
+                  setState("controlPanelTab", "review");
+                }}
+                processingIssues={state.processingIssues}
                 recentMeetings={state.recentMeetings}
                 reviewSummary={reviewInboxSummary()}
                 serverInfo={state.serverInfo}
@@ -1706,6 +1710,7 @@ export function App() {
                     onSwitchMode={(mode) => {
                       void switchAuthMode(mode);
                     }}
+                    preferredProvider={state.preferredProvider}
                   />
                 </section>
               </Show>

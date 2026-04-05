@@ -925,6 +925,30 @@ select {
   line-height: 1.5;
 }
 
+.health-card {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.health-card[data-tone="warning"] {
+  border-color: rgba(163, 79, 47, 0.24);
+  background: rgba(255, 247, 237, 0.72);
+}
+
+.health-card strong {
+  font-size: 1rem;
+}
+
+.health-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .home-dashboard__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

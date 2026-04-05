@@ -71,6 +71,18 @@ const providerOptions: Array<{
   },
 ];
 
+function providerSetupHint(provider: GranolaAgentProviderKind): string {
+  switch (provider) {
+    case "codex":
+      return "Codex uses your local `codex` CLI. Make sure `codex exec` works in this workspace before you rely on it for automation.";
+    case "openai":
+      return "OpenAI requires `OPENAI_API_KEY` or `GRANOLA_OPENAI_API_KEY` in the environment where the toolkit is running.";
+    case "openrouter":
+    default:
+      return "OpenRouter requires `OPENROUTER_API_KEY` or `GRANOLA_OPENROUTER_API_KEY` in the environment where the toolkit is running.";
+  }
+}
+
 function suggestedFolderLabel(folders: FolderSummaryRecord[]): string | undefined {
   if (folders.length === 1) {
     return folders[0]?.name;
@@ -392,6 +404,7 @@ export function OnboardingPanel(props: OnboardingPanelProps): JSX.Element {
                     Starter pipeline: transcript-ready meetings will generate reviewable notes with{" "}
                     {granolaAgentProviderLabel(props.preferredProvider)}.
                   </div>
+                  <div class="auth-card__meta">{providerSetupHint(props.preferredProvider)}</div>
                   <button
                     class="button button--primary"
                     disabled={!props.state.synced}

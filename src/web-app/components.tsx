@@ -16,9 +16,11 @@ import type {
   MeetingRecord,
   MeetingSummaryRecord,
 } from "../app/index.ts";
+import { granolaAgentProviderLabel } from "../agent-defaults.ts";
 import { granolaAuthModeLabel, granolaAuthRecommendation } from "../auth-summary.ts";
 import type { GranolaReviewInboxItem, GranolaReviewInboxSummary } from "../review-inbox.ts";
 import type { GranolaServerInfo } from "../transport.ts";
+import type { GranolaAgentProviderKind } from "../types.ts";
 import {
   describeAuthStatus,
   describeSyncStatus,
@@ -87,6 +89,8 @@ interface HomeDashboardPanelProps {
   folders: FolderSummaryRecord[];
   onOpenFolder: (folderId: string) => void;
   onOpenMeeting: (meeting: WebWorkspaceRecentMeeting) => void;
+  onOpenReview: () => void;
+  processingIssues: GranolaProcessingIssue[];
   recentMeetings: WebWorkspaceRecentMeeting[];
   reviewSummary: GranolaReviewInboxSummary;
   serverInfo?: GranolaServerInfo | null;
@@ -101,6 +105,7 @@ interface AuthPanelProps {
   onRefresh: () => void;
   onSaveApiKey: () => void;
   onSwitchMode: (mode: GranolaAppAuthState["mode"]) => void;
+  preferredProvider: GranolaAgentProviderKind;
 }
 
 interface SecurityPanelProps {
@@ -272,6 +277,60 @@ function runtimeLabel(serverInfo?: GranolaServerInfo | null): string {
   return "Connected to local workspace";
 }
 
+function providerSetupHint(provider: GranolaAgentProviderKind): string {
+  switch (provider) {
+    case "codex":
+      return "Codex uses your local `codex` CLI. Make sure `codex exec` works anywhere you run sync and automation.";
+    case "openai":
+      return "OpenAI needs `OPENAI_API_KEY` or `GRANOLA_OPENAI_API_KEY` in the toolkit runtime environment.";
+    case "openrouter":
+    default:
+      return "OpenRouter needs `OPENROUTER_API_KEY` or `GRANOLA_OPENROUTER_API_KEY` in the toolkit runtime environment.";
+  }
+}
+
+function syncHealthSummary(
+  sync: GranolaAppState["sync"] | undefined,
+  serverInfo?: GranolaServerInfo | null,
+  issues: GranolaProcessingIssue[] = [],
+): { detail: string; title: string; tone: "ok" | "warning" } {
+  if (sync?.lastError) {
+    return {
+      detail: sync.lastError,
+      title: "Sync needs attention",
+      tone: "warning",
+    };
+  }
+
+  const staleIssue = issues.find((issue) => issue.kind === "sync-stale");
+  if (staleIssue) {
+    return {
+      detail: staleIssue.detail,
+      title: "Sync looks stale",
+      tone: "warning",
+    };
+  }
+
+  if (sync?.lastCompletedAt) {
+    const cadence =
+      serverInfo?.runtime.syncEnabled && serverInfo.runtime.syncIntervalMs
+        ? ` Next scheduled run follows the ${runtimeLabel(serverInfo).toLowerCase()} cadence.`
+        : "";
+    return {
+      detail: `Last completed at ${sync.lastCompletedAt.slice(0, 19)}.${cadence}`,
+      title: "Sync is healthy",
+      tone: "ok",
+    };
+  }
+
+  return {
+    detail:
+      "Run Sync now after connecting so the local meeting index and review queue can warm up.",
+    title: "No sync has completed yet",
+    tone: "warning",
+  };
+}
+
 export function ToolbarFilters(props: ToolbarFiltersProps): JSX.Element {
   return (
     <section class="hero">
@@ -334,6 +393,8 @@ export function ToolbarFilters(props: ToolbarFiltersProps): JSX.Element {
 export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element {
   const syncStatus = () => describeSyncStatus(props.appState?.sync ?? {});
   const authStatus = () => describeAuthStatus(props.appState?.auth);
+  const health = () =>
+    syncHealthSummary(props.appState?.sync, props.serverInfo, props.processingIssues);
   const indexedMeetings = () =>
     props.appState?.index.loaded
       ? props.appState.index.meetingCount
@@ -389,6 +450,24 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
         </article>
       </div>
       <div class="home-dashboard__grid">
+        <section class="detail-section">
+          <h2>Sync health</h2>
+          <div class="health-card" data-tone={health().tone}>
+            <strong>{health().title}</strong>
+            <p>{health().detail}</p>
+            <Show when={props.processingIssues.length > 0 || props.reviewSummary.total > 0}>
+              <button
+                class="button button--secondary"
+                onClick={() => {
+                  props.onOpenReview();
+                }}
+                type="button"
+              >
+                Open Review Inbox
+              </button>
+            </Show>
+          </div>
+        </section>
         <section class="detail-section">
           <h2>Folders</h2>
           <Show
@@ -991,6 +1070,10 @@ export function AuthPanel(props: AuthPanelProps): JSX.Element {
                 Save a Personal API key here or use{" "}
                 <code>granola auth login --api-key &lt;token&gt;</code>. Desktop-session import
                 remains the fallback path.
+              </div>
+              <div class="auth-card__meta">
+                <strong>{granolaAgentProviderLabel(props.preferredProvider)} setup:</strong>{" "}
+                {providerSetupHint(props.preferredProvider)}
               </div>
               <div class="auth-card__actions">
                 <input
