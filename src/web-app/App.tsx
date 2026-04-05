@@ -65,6 +65,8 @@ import {
 } from "./harness-editor.tsx";
 import { buildStarterPipeline, deriveOnboardingState, OnboardingPanel } from "./onboarding.tsx";
 
+type ControlPanelTab = "auth" | "overview" | "pipelines" | "review";
+
 interface GranolaWebBrowserConfig {
   passwordRequired: boolean;
 }
@@ -106,6 +108,7 @@ interface GranolaWebAppState {
   selectedMeetingId: string | null;
   selectedMeeting: MeetingRecord | null;
   reviewNote: string;
+  controlPanelTab: ControlPanelTab;
   serverLocked: boolean;
   serverPassword: string;
   sort: GranolaMeetingSort;
@@ -178,6 +181,7 @@ export function App() {
     selectedMeetingId: startup.meetingId || null,
     selectedMeeting: null,
     reviewNote: "",
+    controlPanelTab: "overview",
     serverLocked: browserConfig().passwordRequired,
     serverPassword: "",
     sort: "updated-desc",
@@ -1180,6 +1184,7 @@ export function App() {
       selectedMeeting: null,
       selectedMeetingBundle: null,
       selectedMeetingId: null,
+      controlPanelTab: "overview",
       serverLocked: true,
       serverPassword: "",
     });
@@ -1254,6 +1259,12 @@ export function App() {
     });
 
   const showOnboarding = () => !state.serverLocked && !onboardingState().complete;
+  const controlTabs: Array<{ id: ControlPanelTab; label: string }> = [
+    { id: "overview", label: "Overview" },
+    { id: "auth", label: "Auth" },
+    { id: "pipelines", label: "Pipelines" },
+    { id: "review", label: "Review" },
+  ];
 
   return (
     <Show
@@ -1446,137 +1457,6 @@ export function App() {
               contracts.
             </p>
           </section>
-          <SecurityPanel
-            onLock={() => {
-              void lockServer();
-            }}
-            onPasswordChange={(value) => {
-              setState("serverPassword", value);
-            }}
-            onUnlock={() => {
-              void unlockServer();
-            }}
-            password={state.serverPassword}
-            visible={state.serverLocked}
-          />
-          <AuthPanel
-            apiKeyDraft={state.apiKeyDraft}
-            auth={state.appState?.auth}
-            onApiKeyDraftChange={(value) => {
-              setState("apiKeyDraft", value);
-            }}
-            onImportDesktopSession={() => {
-              void importDesktopSession();
-            }}
-            onLogout={() => {
-              void logout();
-            }}
-            onRefresh={() => {
-              void refreshAuth();
-            }}
-            onSaveApiKey={() => {
-              void saveApiKey();
-            }}
-            onSwitchMode={(mode) => {
-              void switchAuthMode(mode);
-            }}
-          />
-          <HarnessEditorPanel
-            dirty={state.harnessDirty}
-            error={state.harnessError}
-            explanations={state.harnessExplanations}
-            explanationEventKind={state.harnessExplainEventKind}
-            harnesses={state.harnesses}
-            onChange={updateHarness}
-            onDuplicate={duplicateHarness}
-            onNew={createHarness}
-            onReload={() => {
-              void reloadHarnesses();
-            }}
-            onRemove={removeHarness}
-            onSave={() => {
-              void saveHarnesses();
-            }}
-            onSelect={(id) => {
-              setState("selectedHarnessId", id);
-              setState("harnessTestResult", null);
-            }}
-            onTest={() => {
-              void testHarness();
-            }}
-            onTestKindChange={(kind) => {
-              setState("harnessTestKind", kind);
-            }}
-            selectedHarness={selectedHarness()}
-            selectedHarnessId={state.selectedHarnessId}
-            selectedMeeting={state.selectedMeeting}
-            testKind={state.harnessTestKind}
-            testResult={state.harnessTestResult}
-          />
-          <ExportJobsPanel
-            jobs={state.appState?.exports.jobs || []}
-            onRerun={(jobId) => {
-              void rerunJob(jobId);
-            }}
-          />
-          <AutomationRunsPanel
-            onApprove={(runId) => {
-              void resolveAutomationRun(runId, "approve");
-            }}
-            onReject={(runId) => {
-              void resolveAutomationRun(runId, "reject");
-            }}
-            runs={state.automationRuns}
-          />
-          <ProcessingIssuesPanel
-            issues={state.processingIssues}
-            onOpenMeeting={(meetingId) => {
-              void loadMeeting(meetingId);
-            }}
-            onRecover={(issueId) => {
-              void recoverProcessingIssue(issueId);
-            }}
-          />
-          <AutomationArtefactsPanel
-            artefacts={state.automationArtefacts}
-            onSelect={(artefactId) => {
-              void selectAutomationArtefact(artefactId);
-            }}
-            selectedArtefactId={state.selectedAutomationArtefactId}
-          />
-          <ArtefactReviewPanel
-            artefact={selectedAutomationArtefact()}
-            bundle={state.selectedMeetingBundle}
-            draftMarkdown={state.automationArtefactDraftMarkdown}
-            draftSummary={state.automationArtefactDraftSummary}
-            draftTitle={state.automationArtefactDraftTitle}
-            error={state.automationArtefactError}
-            onApprove={() => {
-              void resolveAutomationArtefact("approve");
-            }}
-            onDraftMarkdownChange={(value) => {
-              setState("automationArtefactDraftMarkdown", value);
-            }}
-            onDraftSummaryChange={(value) => {
-              setState("automationArtefactDraftSummary", value);
-            }}
-            onDraftTitleChange={(value) => {
-              setState("automationArtefactDraftTitle", value);
-            }}
-            onReject={() => {
-              void resolveAutomationArtefact("reject");
-            }}
-            onRerun={() => {
-              void rerunAutomationArtefact();
-            }}
-            onReviewNoteChange={(value) => {
-              setState("reviewNote", value);
-            }}
-            onSave={() => {
-              void saveAutomationArtefact();
-            }}
-            reviewNote={state.reviewNote}
-          />
           <Workspace
             bundle={state.selectedMeetingBundle}
             detailError={state.detailError}
@@ -1586,6 +1466,172 @@ export function App() {
             selectedMeeting={state.selectedMeeting}
             tab={state.workspaceTab}
           />
+          <section class="control-deck">
+            <div class="control-deck__tabs">
+              {controlTabs.map((tab) => (
+                <button
+                  class="workspace-tab"
+                  data-selected={state.controlPanelTab === tab.id}
+                  onClick={() => {
+                    setState("controlPanelTab", tab.id);
+                  }}
+                  type="button"
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <div class="control-deck__body">
+              <Show when={state.controlPanelTab === "overview"}>
+                <section class="control-deck__panel">
+                  <ExportJobsPanel
+                    jobs={state.appState?.exports.jobs || []}
+                    onRerun={(jobId) => {
+                      void rerunJob(jobId);
+                    }}
+                  />
+                  <ProcessingIssuesPanel
+                    issues={state.processingIssues}
+                    onOpenMeeting={(meetingId) => {
+                      void loadMeeting(meetingId);
+                    }}
+                    onRecover={(issueId) => {
+                      void recoverProcessingIssue(issueId);
+                    }}
+                  />
+                </section>
+              </Show>
+              <Show when={state.controlPanelTab === "auth"}>
+                <section class="control-deck__panel">
+                  <SecurityPanel
+                    onLock={() => {
+                      void lockServer();
+                    }}
+                    onPasswordChange={(value) => {
+                      setState("serverPassword", value);
+                    }}
+                    onUnlock={() => {
+                      void unlockServer();
+                    }}
+                    password={state.serverPassword}
+                    visible={state.serverLocked}
+                  />
+                  <AuthPanel
+                    apiKeyDraft={state.apiKeyDraft}
+                    auth={state.appState?.auth}
+                    onApiKeyDraftChange={(value) => {
+                      setState("apiKeyDraft", value);
+                    }}
+                    onImportDesktopSession={() => {
+                      void importDesktopSession();
+                    }}
+                    onLogout={() => {
+                      void logout();
+                    }}
+                    onRefresh={() => {
+                      void refreshAuth();
+                    }}
+                    onSaveApiKey={() => {
+                      void saveApiKey();
+                    }}
+                    onSwitchMode={(mode) => {
+                      void switchAuthMode(mode);
+                    }}
+                  />
+                </section>
+              </Show>
+              <Show when={state.controlPanelTab === "pipelines"}>
+                <section class="control-deck__panel">
+                  <HarnessEditorPanel
+                    dirty={state.harnessDirty}
+                    error={state.harnessError}
+                    explanations={state.harnessExplanations}
+                    explanationEventKind={state.harnessExplainEventKind}
+                    harnesses={state.harnesses}
+                    onChange={updateHarness}
+                    onDuplicate={duplicateHarness}
+                    onNew={createHarness}
+                    onReload={() => {
+                      void reloadHarnesses();
+                    }}
+                    onRemove={removeHarness}
+                    onSave={() => {
+                      void saveHarnesses();
+                    }}
+                    onSelect={(id) => {
+                      setState("selectedHarnessId", id);
+                      setState("harnessTestResult", null);
+                    }}
+                    onTest={() => {
+                      void testHarness();
+                    }}
+                    onTestKindChange={(kind) => {
+                      setState("harnessTestKind", kind);
+                    }}
+                    selectedHarness={selectedHarness()}
+                    selectedHarnessId={state.selectedHarnessId}
+                    selectedMeeting={state.selectedMeeting}
+                    testKind={state.harnessTestKind}
+                    testResult={state.harnessTestResult}
+                  />
+                  <AutomationRunsPanel
+                    onApprove={(runId) => {
+                      void resolveAutomationRun(runId, "approve");
+                    }}
+                    onReject={(runId) => {
+                      void resolveAutomationRun(runId, "reject");
+                    }}
+                    runs={state.automationRuns}
+                  />
+                </section>
+              </Show>
+              <Show when={state.controlPanelTab === "review"}>
+                <section class="control-deck__panel">
+                  <AutomationArtefactsPanel
+                    artefacts={state.automationArtefacts}
+                    onSelect={(artefactId) => {
+                      setState("controlPanelTab", "review");
+                      void selectAutomationArtefact(artefactId);
+                    }}
+                    selectedArtefactId={state.selectedAutomationArtefactId}
+                  />
+                  <ArtefactReviewPanel
+                    artefact={selectedAutomationArtefact()}
+                    bundle={state.selectedMeetingBundle}
+                    draftMarkdown={state.automationArtefactDraftMarkdown}
+                    draftSummary={state.automationArtefactDraftSummary}
+                    draftTitle={state.automationArtefactDraftTitle}
+                    error={state.automationArtefactError}
+                    onApprove={() => {
+                      void resolveAutomationArtefact("approve");
+                    }}
+                    onDraftMarkdownChange={(value) => {
+                      setState("automationArtefactDraftMarkdown", value);
+                    }}
+                    onDraftSummaryChange={(value) => {
+                      setState("automationArtefactDraftSummary", value);
+                    }}
+                    onDraftTitleChange={(value) => {
+                      setState("automationArtefactDraftTitle", value);
+                    }}
+                    onReject={() => {
+                      void resolveAutomationArtefact("reject");
+                    }}
+                    onRerun={() => {
+                      void rerunAutomationArtefact();
+                    }}
+                    onReviewNoteChange={(value) => {
+                      setState("reviewNote", value);
+                    }}
+                    onSave={() => {
+                      void saveAutomationArtefact();
+                    }}
+                    reviewNote={state.reviewNote}
+                  />
+                </section>
+              </Show>
+            </div>
+          </section>
         </main>
       </div>
     </Show>

@@ -580,6 +580,24 @@ select {
   padding: 0 24px 18px;
 }
 
+.control-deck {
+  display: grid;
+  gap: 14px;
+  padding: 0 24px 24px;
+}
+
+.control-deck__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.control-deck__body,
+.control-deck__panel {
+  display: grid;
+  gap: 14px;
+}
+
 .workspace-tab,
 .button {
   border: 1px solid var(--line);

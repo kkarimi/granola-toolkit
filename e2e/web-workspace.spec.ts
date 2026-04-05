@@ -25,6 +25,9 @@ test.describe("toolkit web workspace", () => {
     await expect(page.getByText("Connected")).toBeVisible({
       timeout: 20_000,
     });
+    await expect(page.getByRole("button", { name: "Overview" })).toBeVisible();
+    await expect(page.getByText("Recent Export Jobs")).toBeVisible();
+    await page.getByRole("button", { name: "Auth" }).click();
     await expect(page.getByText("Auth Session")).toBeVisible();
     await expect(page.getByRole("button", { name: "Save API key" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Sync now" })).toBeVisible();
@@ -38,6 +41,7 @@ test.describe("toolkit web workspace", () => {
     await expect(page.getByText("Connected")).toBeVisible({
       timeout: 20_000,
     });
+    await page.getByRole("button", { name: "Pipelines" }).click();
     await expect(page.getByRole("heading", { name: "Harness Editor" })).toBeVisible();
     await page
       .locator(".meeting-list")
@@ -97,6 +101,7 @@ test.describe("toolkit web workspace", () => {
       await expect(page.getByRole("heading", { name: "Granola Toolkit" })).toBeVisible({
         timeout: 20_000,
       });
+      await page.getByRole("button", { name: "Pipelines" }).click();
       await expect(page.getByRole("heading", { name: "Starter Meeting Notes" })).toBeVisible({
         timeout: 20_000,
       });
