@@ -163,7 +163,7 @@ describe("web client state helpers", () => {
   });
 
   test("describes auth and sync status in user-facing language", () => {
-    expect(describeAuthStatus({ mode: "api-key" })).toBe("API key active");
+    expect(describeAuthStatus({ mode: "api-key" })).toBe("Personal API key active");
     expect(describeAuthStatus({ lastError: "bad token", mode: "stored-session" })).toBe(
       "Auth needs attention",
     );
