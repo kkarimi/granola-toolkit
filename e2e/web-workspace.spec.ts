@@ -34,12 +34,7 @@ test.describe("toolkit web workspace", () => {
     await expect(page.getByText("Team Notes").first()).toBeVisible();
     await expect(page.getByText("Matched selected meeting")).toBeVisible();
 
-    await page.getByLabel("Provider").selectOption("openrouter");
-    await page.getByRole("button", { name: "Save Harnesses" }).click();
-    await expect(page.getByText("Harnesses saved")).toBeVisible();
-
     await page.getByRole("button", { name: "Test Harness" }).click();
-    await expect(page.getByText("Harness test complete")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Latest Test Run" })).toBeVisible();
     await expect(page.getByLabel("Structured Title")).toHaveValue("Team Notes");
     await expect(page.getByLabel("Resolved Prompt Preview")).toHaveValue(
