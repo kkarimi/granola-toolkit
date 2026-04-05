@@ -93,6 +93,8 @@ interface GranolaWebAppState {
   detailError: string;
   folderError: string;
   folders: FolderSummaryRecord[];
+  homeMeetings: MeetingSummaryRecord[];
+  homeMeetingsError: string;
   harnessDirty: boolean;
   harnessError: string;
   harnessExplainEventKind: GranolaSyncEventKind | null;
@@ -177,6 +179,8 @@ export function App() {
     detailError: "",
     folderError: "",
     folders: [],
+    homeMeetings: [],
+    homeMeetingsError: "",
     harnessDirty: false,
     harnessError: "",
     harnessExplainEventKind: null,
@@ -320,6 +324,25 @@ export function App() {
       setState("automationRuns", result.runs);
     } catch (error) {
       setState("detailError", error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const loadHomeMeetings = async (refresh = false) => {
+    if (!client) {
+      return;
+    }
+
+    try {
+      setState("homeMeetingsError", "");
+      const result = await client.listMeetings({
+        forceRefresh: refresh,
+        limit: 365,
+        sort: "updated-desc",
+      });
+      setState("homeMeetings", result.meetings);
+    } catch (error) {
+      setState("homeMeetingsError", error instanceof Error ? error.message : String(error));
+      setState("homeMeetings", []);
     }
   };
 
@@ -816,6 +839,7 @@ export function App() {
 
     await Promise.all([
       loadFolders(forceRefresh),
+      loadHomeMeetings(forceRefresh),
       loadHarnesses(),
       loadAutomationRules(),
       loadAutomationRuns(),
@@ -1312,6 +1336,8 @@ export function App() {
       detailError: "",
       folderError: "",
       folders: [],
+      homeMeetings: [],
+      homeMeetingsError: "",
       harnessDirty: false,
       harnessError: "",
       harnessExplainEventKind: null,
@@ -1592,6 +1618,7 @@ export function App() {
               <HomeDashboardPanel
                 appState={state.appState}
                 folders={state.folders}
+                latestMeetings={state.homeMeetings}
                 onOpenFolder={(folderId) => {
                   setState("selectedFolderId", folderId);
                   setState("selectedMeetingId", null);
@@ -1599,6 +1626,11 @@ export function App() {
                   setState("selectedMeetingBundle", null);
                   setState("activePage", "folders");
                   void loadMeetings();
+                }}
+                onOpenLatestMeeting={(meeting) => {
+                  void openMeetingFromPage(meeting.id, "home", {
+                    folderId: meeting.folders[0]?.id || null,
+                  });
                 }}
                 onOpenMeeting={(meeting) => {
                   void openRecentMeeting(meeting.id, meeting.folderId);

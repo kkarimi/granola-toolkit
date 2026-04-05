@@ -127,8 +127,10 @@ interface HomeDashboardPanelProps {
   appState?: GranolaAppState | null;
   folders: FolderSummaryRecord[];
   onOpenFolder: (folderId: string) => void;
+  onOpenLatestMeeting: (meeting: MeetingSummaryRecord) => void;
   onOpenMeeting: (meeting: WebWorkspaceRecentMeeting) => void;
   onOpenReview: () => void;
+  latestMeetings: MeetingSummaryRecord[];
   processingIssues: GranolaProcessingIssue[];
   recentMeetings: WebWorkspaceRecentMeeting[];
   reviewSummary: GranolaReviewInboxSummary;
@@ -285,6 +287,114 @@ function formatFolderNames(folders: FolderSummaryRecord[]): string {
   }
 
   return folders.map((folder) => folder.name || folder.id).join(", ");
+}
+
+function parseTimestamp(value?: string): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function meetingTimestamp(meeting: MeetingSummaryRecord): number | null {
+  return parseTimestamp(meeting.updatedAt) ?? parseTimestamp(meeting.createdAt);
+}
+
+function startOfDay(timestamp: number): number {
+  const date = new Date(timestamp);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
+function dayLabel(timestamp: number): string {
+  const date = new Date(timestamp);
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  return `${date.getDate()} ${months[date.getMonth()]}`;
+}
+
+function relativeDateLabel(value?: string): string {
+  const timestamp = parseTimestamp(value);
+  if (timestamp == null) {
+    return "Unknown date";
+  }
+
+  const diffDays = Math.max(0, Math.floor((Date.now() - timestamp) / 86_400_000));
+  if (diffDays === 0) {
+    return "Today";
+  }
+
+  if (diffDays === 1) {
+    return "Yesterday";
+  }
+
+  return `${diffDays} days ago`;
+}
+
+function meetingsWithinDays(
+  meetings: MeetingSummaryRecord[],
+  dayCount: number,
+): MeetingSummaryRecord[] {
+  const threshold = startOfDay(Date.now()) - (dayCount - 1) * 86_400_000;
+  return meetings.filter((meeting) => {
+    const timestamp = meetingTimestamp(meeting);
+    return timestamp != null && timestamp >= threshold;
+  });
+}
+
+function meetingsPerDay(
+  meetings: MeetingSummaryRecord[],
+  dayCount: number,
+): Array<{
+  count: number;
+  label: string;
+}> {
+  const today = startOfDay(Date.now());
+  const days = Array.from({ length: dayCount }, (_, index) => {
+    const timestamp = today - (dayCount - index - 1) * 86_400_000;
+    return {
+      count: 0,
+      label: dayLabel(timestamp),
+      timestamp,
+    };
+  });
+
+  for (const meeting of meetings) {
+    const timestamp = meetingTimestamp(meeting);
+    if (timestamp == null) {
+      continue;
+    }
+
+    const meetingDay = startOfDay(timestamp);
+    const entry = days.find((candidate) => candidate.timestamp === meetingDay);
+    if (entry) {
+      entry.count += 1;
+    }
+  }
+
+  return days.map(({ count, label }) => ({ count, label }));
+}
+
+function latestFolderNames(meeting: MeetingSummaryRecord): string {
+  if (meeting.folders.length === 0) {
+    return "No folder";
+  }
+
+  return meeting.folders.map((folder) => folder.name || folder.id).join(", ");
 }
 
 function reviewSummaryLabel(summary: GranolaReviewInboxSummary): string {
@@ -614,6 +724,24 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
   const authStatus = () => describeAuthStatus(props.appState?.auth);
   const health = () =>
     syncHealthSummary(props.appState?.sync, props.serverInfo, props.processingIssues);
+  const latestMeetings = () => props.latestMeetings.slice(0, 4);
+  const todayMeetings = () => meetingsWithinDays(props.latestMeetings, 1);
+  const weekMeetings = () => meetingsWithinDays(props.latestMeetings, 7);
+  const monthMeetings = () => meetingsWithinDays(props.latestMeetings, 30);
+  const weekActivity = () => meetingsPerDay(props.latestMeetings, 7);
+  const activeFolderCount = () =>
+    new Set(
+      weekMeetings()
+        .flatMap((meeting) => meeting.folders.map((folder) => folder.id))
+        .filter(Boolean),
+    ).size;
+  const transcriptReadyCount = () =>
+    weekMeetings().filter((meeting) => meeting.transcriptLoaded).length;
+  const busiestDay = () =>
+    weekActivity().reduce(
+      (current, candidate) => (candidate.count > current ? candidate.count : current),
+      0,
+    );
   const indexedMeetings = () =>
     props.appState?.index.loaded
       ? props.appState.index.meetingCount
@@ -640,22 +768,26 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
       </div>
       <div class="home-dashboard__stats">
         <article class="dashboard-stat">
-          <span class="dashboard-stat__label">Connection</span>
-          <strong>{authStatus()}</strong>
-          <span>API key first, desktop session fallback.</span>
-        </article>
-        <article class="dashboard-stat">
-          <span class="dashboard-stat__label">Meetings indexed</span>
-          <strong>{String(indexedMeetings())}</strong>
-          <span>Ready to browse once you pick a scope.</span>
-        </article>
-        <article class="dashboard-stat">
-          <span class="dashboard-stat__label">Folders</span>
-          <strong>{String(props.folders.length)}</strong>
+          <span class="dashboard-stat__label">Today</span>
+          <strong>{String(todayMeetings().length)} meetings</strong>
           <span>
-            {props.folders.length > 0
-              ? "Use folders as the default way to browse."
-              : "Folders will show up after Granola exposes them."}
+            {todayMeetings().length > 0
+              ? `${todayMeetings().filter((meeting) => meeting.transcriptLoaded).length} with transcript ready.`
+              : "No meeting activity yet today."}
+          </span>
+        </article>
+        <article class="dashboard-stat">
+          <span class="dashboard-stat__label">Last 7 days</span>
+          <strong>{String(weekMeetings().length)} meetings</strong>
+          <span>{`${activeFolderCount()} folders touched, ${transcriptReadyCount()} transcript-ready.`}</span>
+        </article>
+        <article class="dashboard-stat">
+          <span class="dashboard-stat__label">Last 30 days</span>
+          <strong>{String(monthMeetings().length)} meetings</strong>
+          <span>
+            {indexedMeetings() > 0
+              ? `${String(indexedMeetings())} indexed locally overall.`
+              : "Run sync to warm the local meeting index."}
           </span>
         </article>
         <article class="dashboard-stat">
@@ -668,6 +800,112 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
           </span>
         </article>
       </div>
+      <section class="detail-section">
+        <div class="section-head">
+          <div>
+            <h2>Latest meetings</h2>
+            <p>Jump back into the most recent meetings without browsing a long list.</p>
+          </div>
+        </div>
+        <Show
+          when={latestMeetings().length > 0}
+          fallback={
+            <div class="empty empty--inline">
+              Recent meetings will appear here after your first successful sync.
+            </div>
+          }
+        >
+          <div class="latest-meetings-grid">
+            <For each={latestMeetings()}>
+              {(meeting) => (
+                <button
+                  class="latest-meeting-card"
+                  onClick={() => {
+                    props.onOpenLatestMeeting(meeting);
+                  }}
+                  type="button"
+                >
+                  <span class="latest-meeting-card__date">
+                    {relativeDateLabel(meeting.updatedAt)}
+                  </span>
+                  <strong class="latest-meeting-card__title">{meeting.title || meeting.id}</strong>
+                  <span class="latest-meeting-card__meta">{latestFolderNames(meeting)}</span>
+                  <span class="latest-meeting-card__meta">
+                    {meeting.transcriptLoaded
+                      ? `${meeting.transcriptSegmentCount} transcript segments`
+                      : "Transcript still loading"}
+                  </span>
+                </button>
+              )}
+            </For>
+          </div>
+        </Show>
+      </section>
+      <section class="detail-section home-activity">
+        <div class="section-head">
+          <div>
+            <h2>Usage snapshot</h2>
+            <p>Recent meeting activity in your local workspace.</p>
+          </div>
+          <div class="home-activity__meta">{syncStatus()}</div>
+        </div>
+        <div class="usage-snapshot-grid">
+          <article class="snapshot-card">
+            <span class="dashboard-stat__label">Connection</span>
+            <strong>{authStatus()}</strong>
+            <span>API key first, desktop session fallback.</span>
+          </article>
+          <article class="snapshot-card">
+            <span class="dashboard-stat__label">Sync</span>
+            <strong>{health().title}</strong>
+            <span>{health().detail}</span>
+          </article>
+          <article class="snapshot-card">
+            <span class="dashboard-stat__label">Most active day</span>
+            <strong>
+              {busiestDay() > 0
+                ? `${weekActivity().find((day) => day.count === busiestDay())?.label || "This week"}`
+                : "No activity yet"}
+            </strong>
+            <span>
+              {busiestDay() > 0
+                ? `${busiestDay()} meetings on the busiest day.`
+                : "Waiting for meetings to land."}
+            </span>
+          </article>
+          <article class="snapshot-card">
+            <span class="dashboard-stat__label">Folders available</span>
+            <strong>{String(props.folders.length)}</strong>
+            <span>
+              {props.folders.length > 0
+                ? "Use folders as the default browse path."
+                : "Folders will show up after Granola exposes them."}
+            </span>
+          </article>
+        </div>
+        <div class="activity-chart">
+          <div class="activity-chart__head">
+            <span class="dashboard-stat__label">Last 7 days</span>
+            <strong>{`${weekMeetings().length} meetings`}</strong>
+          </div>
+          <div class="activity-chart__bars" aria-label="Meetings in the last 7 days">
+            <For each={weekActivity()}>
+              {(day) => (
+                <div class="activity-chart__bar-group">
+                  <span class="activity-chart__value">{String(day.count)}</span>
+                  <div
+                    class="activity-chart__bar"
+                    style={{
+                      height: `${Math.max(12, busiestDay() > 0 ? (day.count / busiestDay()) * 160 : 12)}px`,
+                    }}
+                  />
+                  <span class="activity-chart__label">{day.label}</span>
+                </div>
+              )}
+            </For>
+          </div>
+        </div>
+      </section>
       <div class="home-dashboard__grid">
         <section class="detail-section">
           <h2>Sync health</h2>
@@ -718,7 +956,7 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
           </Show>
         </section>
         <section class="detail-section">
-          <h2>Recent meetings</h2>
+          <h2>Continue where you left off</h2>
           <Show
             when={props.recentMeetings.length > 0}
             fallback={

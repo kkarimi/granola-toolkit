@@ -25,8 +25,20 @@ test.describe("toolkit web workspace", () => {
       timeout: 20_000,
     });
     await expect(page.getByText("Start from one calm home view")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Latest meetings" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Usage snapshot" })).toBeVisible();
+    await expect(page.getByLabel("Meetings in the last 7 days")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Sync health" })).toBeVisible();
     await expect(page.locator(".meeting-list")).toHaveCount(0);
+    await page
+      .locator(".latest-meetings-grid")
+      .getByRole("button", { name: /Alpha Sync/i })
+      .click();
+    await expect(page.getByRole("heading", { name: "Alpha Sync" })).toBeVisible({
+      timeout: 20_000,
+    });
+    await page.getByRole("button", { name: "Back to home" }).click();
+    await expect(page.getByRole("heading", { name: "Latest meetings" })).toBeVisible();
 
     await page
       .locator(".primary-nav")
