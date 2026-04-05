@@ -51,6 +51,15 @@ test.describe("toolkit web workspace", () => {
     await page.getByRole("button", { name: "Auth" }).click();
     await expect(page.getByText("Auth Session")).toBeVisible();
     await expect(page.getByRole("button", { name: "Save API key" })).toBeVisible();
+    await page.getByRole("button", { name: "Advanced Search" }).click();
+    await page.getByPlaceholder("Exact title or meeting id").fill("doc-beta-2222");
+    await page.getByRole("button", { name: "Open Meeting" }).click();
+    await expect(page.getByRole("heading", { name: "Beta Review" })).toBeVisible({
+      timeout: 20_000,
+    });
+    await page.getByRole("button", { name: "Diagnostics" }).click();
+    await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
+    await expect(page.getByText("Transcript cache")).toBeVisible();
     await page.getByRole("button", { name: "Inbox" }).click();
     await expect(page.getByText("Review Inbox")).toBeVisible();
     await expect(page.getByRole("button", { name: "Sync now" })).toBeVisible();

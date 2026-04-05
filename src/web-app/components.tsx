@@ -743,6 +743,150 @@ export function AppStatePanel(props: {
   );
 }
 
+export function AdvancedSearchPanel(props: {
+  onClose: () => void;
+  onOpen: () => void;
+  onQueryChange: (value: string) => void;
+  query: string;
+}): JSX.Element {
+  return (
+    <section class="advanced-search-panel">
+      <div class="advanced-search-panel__head">
+        <div>
+          <h3>Advanced Search</h3>
+          <p>
+            Use this for an exact meeting title or a raw Granola meeting id. It stays out of the
+            main sidebar on purpose.
+          </p>
+        </div>
+        <button class="button button--secondary" onClick={props.onClose} type="button">
+          Close
+        </button>
+      </div>
+      <div class="advanced-search-panel__body">
+        <input
+          class="field-input"
+          onInput={(event) => {
+            props.onQueryChange(event.currentTarget.value);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              props.onOpen();
+            }
+          }}
+          placeholder="Exact title or meeting id"
+          value={props.query}
+        />
+        <button class="button button--primary" onClick={props.onOpen} type="button">
+          Open Meeting
+        </button>
+      </div>
+    </section>
+  );
+}
+
+export function DiagnosticsPanel(props: {
+  appState?: GranolaAppState | null;
+  serverInfo?: GranolaServerInfo | null;
+  statusLabel: string;
+}): JSX.Element {
+  const sync = () => props.appState?.sync;
+  const auth = () => props.appState?.auth;
+
+  return (
+    <section class="jobs-panel diagnostics-panel">
+      <div class="jobs-panel__head">
+        <h3>Diagnostics</h3>
+        <p>
+          Runtime and storage details live here so the main workspace can stay user-facing while
+          still giving power users a place to inspect internals.
+        </p>
+      </div>
+      <div class="diagnostics-grid">
+        <section class="detail-section">
+          <h2>Runtime</h2>
+          <div class="status-grid">
+            <div>
+              <span class="status-label">Status badge</span>
+              <strong>{props.statusLabel}</strong>
+            </div>
+            <div>
+              <span class="status-label">Transport</span>
+              <strong>{props.serverInfo?.transport || "unknown"}</strong>
+            </div>
+            <div>
+              <span class="status-label">Runtime mode</span>
+              <strong>{props.serverInfo?.runtime.mode || "unknown"}</strong>
+            </div>
+            <div>
+              <span class="status-label">Protocol</span>
+              <strong>{String(props.serverInfo?.protocolVersion ?? "unknown")}</strong>
+            </div>
+          </div>
+        </section>
+        <section class="detail-section">
+          <h2>Storage and sync</h2>
+          <div class="status-grid">
+            <div>
+              <span class="status-label">Session store</span>
+              <strong>{props.serverInfo?.persistence.sessionStore || "unknown"}</strong>
+            </div>
+            <div>
+              <span class="status-label">Meeting index</span>
+              <strong>
+                {props.appState?.index.loaded
+                  ? `${props.appState.index.meetingCount} meetings`
+                  : props.appState?.index.available
+                    ? "available"
+                    : "not available"}
+              </strong>
+            </div>
+            <div>
+              <span class="status-label">Transcript cache</span>
+              <strong>
+                {props.appState?.cache.loaded
+                  ? `${props.appState.cache.transcriptCount} transcript sets`
+                  : props.appState?.cache.configured
+                    ? "configured"
+                    : "not configured"}
+              </strong>
+            </div>
+            <div>
+              <span class="status-label">Last sync run</span>
+              <strong>{sync()?.lastCompletedAt?.slice(0, 19) || "never"}</strong>
+            </div>
+          </div>
+        </section>
+        <section class="detail-section">
+          <h2>Auth internals</h2>
+          <div class="status-grid">
+            <div>
+              <span class="status-label">Mode</span>
+              <strong>{auth()?.mode || "unknown"}</strong>
+            </div>
+            <div>
+              <span class="status-label">API key</span>
+              <strong>{auth()?.apiKeyAvailable ? "available" : "missing"}</strong>
+            </div>
+            <div>
+              <span class="status-label">Stored session</span>
+              <strong>{auth()?.storedSessionAvailable ? "available" : "missing"}</strong>
+            </div>
+            <div>
+              <span class="status-label">supabase.json</span>
+              <strong>{auth()?.supabaseAvailable ? "available" : "missing"}</strong>
+            </div>
+          </div>
+          <Show when={auth()?.lastError}>
+            <p class="auth-card__meta auth-card__error">{auth()?.lastError}</p>
+          </Show>
+        </section>
+      </div>
+    </section>
+  );
+}
+
 export function SecurityPanel(props: SecurityPanelProps): JSX.Element {
   return (
     <Show when={props.visible}>

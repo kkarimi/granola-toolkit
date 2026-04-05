@@ -45,10 +45,12 @@ import {
   type WorkspaceTab,
 } from "../web/client-state.ts";
 import {
+  AdvancedSearchPanel,
   AppStatePanel,
   ArtefactReviewPanel,
   AuthPanel,
   BrowsePromptPanel,
+  DiagnosticsPanel,
   ExportJobsPanel,
   FolderList,
   HomeDashboardPanel,
@@ -70,7 +72,7 @@ import {
 } from "./harness-editor.tsx";
 import { buildStarterPipeline, deriveOnboardingState, OnboardingPanel } from "./onboarding.tsx";
 
-type ControlPanelTab = "auth" | "overview" | "pipelines" | "review";
+type ControlPanelTab = "auth" | "diagnostics" | "overview" | "pipelines" | "review";
 
 interface GranolaWebBrowserConfig {
   passwordRequired: boolean;
@@ -78,6 +80,8 @@ interface GranolaWebBrowserConfig {
 
 interface GranolaWebAppState {
   apiKeyDraft: string;
+  advancedSearchOpen: boolean;
+  advancedSearchQuery: string;
   automationArtefactDraftMarkdown: string;
   automationArtefactDraftSummary: string;
   automationArtefactDraftTitle: string;
@@ -152,6 +156,8 @@ export function App() {
   );
   const [state, setState] = createStore<GranolaWebAppState>({
     apiKeyDraft: "",
+    advancedSearchOpen: false,
+    advancedSearchQuery: "",
     automationArtefactDraftMarkdown: "",
     automationArtefactDraftSummary: "",
     automationArtefactDraftTitle: "",
@@ -788,6 +794,36 @@ export function App() {
     }
   };
 
+  const openAdvancedMeeting = async () => {
+    if (!client) {
+      return;
+    }
+
+    const query = state.advancedSearchQuery.trim();
+    if (!query) {
+      setStatus("Enter an exact title or meeting id", "error");
+      return;
+    }
+
+    setStatus("Opening meeting…", "busy");
+    try {
+      const bundle = await client.findMeeting(query);
+      setState("advancedSearchOpen", false);
+      setState("advancedSearchQuery", "");
+      setState("selectedFolderId", bundle.meeting.meeting.folders[0]?.id || null);
+      setState("search", "");
+      setState("updatedFrom", "");
+      setState("updatedTo", "");
+      await loadMeetings({
+        preferredMeetingId: bundle.document.id,
+      });
+      setStatus("Meeting opened", "ok");
+    } catch (error) {
+      setState("detailError", error instanceof Error ? error.message : String(error));
+      setStatus("Advanced search failed", "error");
+    }
+  };
+
   const saveApiKey = async () => {
     if (!state.apiKeyDraft.trim()) {
       setStatus("Enter a Granola API key", "error");
@@ -1219,6 +1255,8 @@ export function App() {
     await detachClient();
     setState({
       appState: null,
+      advancedSearchOpen: false,
+      advancedSearchQuery: "",
       automationArtefactDraftMarkdown: "",
       automationArtefactDraftSummary: "",
       automationArtefactDraftTitle: "",
@@ -1345,6 +1383,7 @@ export function App() {
   const controlTabs: Array<{ id: ControlPanelTab; label: string }> = [
     { id: "overview", label: "Overview" },
     { id: "auth", label: "Auth" },
+    { id: "diagnostics", label: "Diagnostics" },
     { id: "pipelines", label: "Pipelines" },
     { id: "review", label: "Inbox" },
   ];
@@ -1543,12 +1582,36 @@ export function App() {
               >
                 Export Transcripts
               </button>
+              <button
+                class="button button--secondary"
+                onClick={() => {
+                  setState("advancedSearchOpen", !state.advancedSearchOpen);
+                }}
+                type="button"
+              >
+                Advanced Search
+              </button>
             </div>
             <p>
               Browse by folder or recent meeting, then review notes and transcripts with clearer
               context once something is selected.
             </p>
           </section>
+          <Show when={state.advancedSearchOpen}>
+            <AdvancedSearchPanel
+              onClose={() => {
+                setState("advancedSearchOpen", false);
+                setState("advancedSearchQuery", "");
+              }}
+              onOpen={() => {
+                void openAdvancedMeeting();
+              }}
+              onQueryChange={(value) => {
+                setState("advancedSearchQuery", value);
+              }}
+              query={state.advancedSearchQuery}
+            />
+          </Show>
           <Show
             when={state.selectedMeeting || showScopedMeetingList() || state.detailError}
             fallback={
@@ -1643,6 +1706,15 @@ export function App() {
                     onSwitchMode={(mode) => {
                       void switchAuthMode(mode);
                     }}
+                  />
+                </section>
+              </Show>
+              <Show when={state.controlPanelTab === "diagnostics"}>
+                <section class="control-deck__panel">
+                  <DiagnosticsPanel
+                    appState={state.appState}
+                    serverInfo={state.serverInfo}
+                    statusLabel={state.statusLabel}
                   />
                 </section>
               </Show>

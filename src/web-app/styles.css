@@ -358,6 +358,49 @@ select {
   border: 1px solid var(--line);
 }
 
+.advanced-search-panel {
+  display: grid;
+  gap: 14px;
+  margin: 0 24px 18px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.advanced-search-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.advanced-search-panel__head h3 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.advanced-search-panel__head p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: 56ch;
+}
+
+.advanced-search-panel__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.advanced-search-panel__body .field-input {
+  margin-top: 0;
+}
+
 .security-panel,
 .auth-panel,
 .jobs-panel {
@@ -644,6 +687,11 @@ select {
 
 .control-deck__body,
 .control-deck__panel {
+  display: grid;
+  gap: 14px;
+}
+
+.diagnostics-grid {
   display: grid;
   gap: 14px;
 }
@@ -975,6 +1023,7 @@ select {
   .home-dashboard__hero,
   .home-dashboard__stats,
   .home-dashboard__grid,
+  .advanced-search-panel__body,
   .onboarding-providers,
   .harness-grid,
   .review-grid,
