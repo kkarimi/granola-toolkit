@@ -1,4 +1,5 @@
 import { createGranolaApp, type GranolaAppAuthState } from "../app/index.ts";
+import { granolaAuthModeLabel, granolaAuthRecommendation } from "../auth-summary.ts";
 import { loadConfig } from "../config.ts";
 
 import { debug } from "./shared.ts";
@@ -11,8 +12,8 @@ Usage:
   granola auth <login|status|logout|refresh|use> [options]
 
 Subcommands:
-  login               Import credentials from the Granola desktop app
-                      Or store a Granola API key with --api-key
+  login               Recommended: store a Granola Personal API key with --api-key
+                      Fallback: import credentials from the Granola desktop app
   status              Show the current Granola auth state
   logout              Delete stored Granola credentials
   refresh             Refresh the stored Granola session
@@ -29,21 +30,20 @@ Options:
 }
 
 function formatAuthSource(mode: string): string {
-  switch (mode) {
-    case "api-key":
-      return "API key";
-    case "stored-session":
-      return "stored session";
-    default:
-      return "supabase.json";
-  }
+  return granolaAuthModeLabel(mode as GranolaAppAuthState["mode"]);
 }
 
 function printAuthState(state: GranolaAppAuthState): void {
   console.log(`Active source: ${formatAuthSource(state.mode)}`);
+  const recommendation = granolaAuthRecommendation(state);
+  console.log(`Recommended: ${recommendation.status}`);
   console.log(`API key: ${state.apiKeyAvailable ? "available" : "missing"}`);
   console.log(`Stored session: ${state.storedSessionAvailable ? "available" : "missing"}`);
   console.log(`supabase.json: ${state.supabaseAvailable ? "available" : "missing"}`);
+  console.log(`Guidance: ${recommendation.detail}`);
+  if (recommendation.nextAction) {
+    console.log(`Next step: ${recommendation.nextAction}`);
+  }
   if (state.supabasePath) {
     console.log(`supabase path: ${state.supabasePath}`);
   }
@@ -60,7 +60,7 @@ function printAuthState(state: GranolaAppAuthState): void {
 }
 
 export const authCommand: CommandDefinition = {
-  description: "Manage stored Granola sessions",
+  description: "Manage Granola auth sources",
   flags: {
     "api-key": { type: "string" },
     help: { type: "boolean" },

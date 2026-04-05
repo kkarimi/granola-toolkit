@@ -457,10 +457,10 @@ export function describeAuthStatus(auth?: {
 
   switch (auth.mode) {
     case "api-key":
-      return "API key active";
+      return "Personal API key active";
     case "stored-session":
       return "Stored session active";
     default:
-      return "supabase.json active";
+      return "supabase.json fallback active";
   }
 }

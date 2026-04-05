@@ -347,7 +347,9 @@ describe("renderGranolaTuiAuthState", () => {
   test("renders the active auth mode and any last error", () => {
     const rendered = renderGranolaTuiAuthState(supabaseOnlyAuthState);
 
-    expect(rendered).toContain("Active source: supabase.json");
+    expect(rendered).toContain("Active source: supabase.json fallback");
+    expect(rendered).toContain("Recommended: No stored API key yet");
+    expect(rendered).toContain("Next step: granola auth login --api-key grn_...");
     expect(rendered).toContain("Last error: refresh failed");
   });
 });

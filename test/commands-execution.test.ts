@@ -284,9 +284,11 @@ describe("command execution", () => {
     );
 
     expect(exitCode).toBe(0);
-    expect(log).toHaveBeenCalledWith("Active source: supabase.json");
+    expect(log).toHaveBeenCalledWith("Active source: supabase.json fallback");
+    expect(log).toHaveBeenCalledWith("Recommended: No stored API key yet");
     expect(log).toHaveBeenCalledWith("API key: missing");
     expect(log).toHaveBeenCalledWith("Stored session: missing");
+    expect(log).toHaveBeenCalledWith("Next step: granola auth login --api-key grn_...");
   });
 
   test("auth login forwards an API key to the app layer", async () => {

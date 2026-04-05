@@ -8,6 +8,7 @@ import {
 } from "@mariozechner/pi-tui";
 
 import type { GranolaAppAuthState } from "../app/index.ts";
+import { granolaAuthModeLabel, granolaAuthRecommendation } from "../auth-summary.ts";
 
 import { granolaTuiTheme } from "./theme.ts";
 
@@ -81,10 +82,10 @@ export function buildGranolaTuiAuthActions(auth: GranolaAppAuthState): GranolaTu
     label: string;
   }> = [
     {
-      description: "Import the Granola desktop session from supabase.json",
+      description: "Import the Granola desktop session from supabase.json as a fallback",
       id: "login",
       key: "1",
-      label: "Import desktop session",
+      label: "Import desktop session fallback",
     },
     {
       description: "Refresh the stored Granola session",
@@ -129,19 +130,20 @@ export function buildGranolaTuiAuthActions(auth: GranolaAppAuthState): GranolaTu
 }
 
 export function renderGranolaTuiAuthState(auth: GranolaAppAuthState): string {
-  const mode =
-    auth.mode === "api-key"
-      ? "API key"
-      : auth.mode === "stored-session"
-        ? "Stored session"
-        : "supabase.json";
+  const recommendation = granolaAuthRecommendation(auth);
   const lines = [
-    `Active source: ${mode}`,
+    `Active source: ${granolaAuthModeLabel(auth.mode)}`,
+    `Recommended: ${recommendation.status}`,
     `API key: ${auth.apiKeyAvailable ? "available" : "missing"}`,
     `Stored session: ${auth.storedSessionAvailable ? "available" : "missing"}`,
     `supabase.json: ${auth.supabaseAvailable ? "available" : "missing"}`,
     `Refresh: ${auth.refreshAvailable ? "available" : "missing"}`,
+    `Guidance: ${recommendation.detail}`,
   ];
+
+  if (recommendation.nextAction) {
+    lines.push(`Next step: ${recommendation.nextAction}`);
+  }
 
   if (auth.clientId) {
     lines.push(`Client ID: ${auth.clientId}`);

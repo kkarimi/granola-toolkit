@@ -16,6 +16,7 @@ import type {
   MeetingRecord,
   MeetingSummaryRecord,
 } from "../app/index.ts";
+import { granolaAuthModeLabel, granolaAuthRecommendation } from "../auth-summary.ts";
 import {
   describeAuthStatus,
   describeSyncStatus,
@@ -148,17 +149,6 @@ interface WorkspaceProps {
   onSelectTab: (tab: WorkspaceTab) => void;
   selectedMeeting: MeetingRecord | null;
   tab: WorkspaceTab;
-}
-
-function authModeLabel(mode: GranolaAppAuthState["mode"]): string {
-  switch (mode) {
-    case "api-key":
-      return "API key";
-    case "stored-session":
-      return "Stored session";
-    default:
-      return "supabase.json";
-  }
 }
 
 function metadataLines(record: MeetingRecord): string {
@@ -646,8 +636,8 @@ export function AuthPanel(props: AuthPanelProps): JSX.Element {
       <div class="auth-panel__head">
         <h3>Auth Session</h3>
         <p>
-          Inspect, refresh, and switch between API key, stored session, and{" "}
-          <code>supabase.json</code>.
+          Prefer a Granola Personal API key, then keep stored session and <code>supabase.json</code>{" "}
+          as fallbacks.
         </p>
       </div>
       <div class="auth-panel__body">
@@ -664,7 +654,7 @@ export function AuthPanel(props: AuthPanelProps): JSX.Element {
               <div class="status-grid">
                 <div>
                   <span class="status-label">Active</span>
-                  <strong>{authModeLabel(auth().mode)}</strong>
+                  <strong>{granolaAuthModeLabel(auth().mode)}</strong>
                 </div>
                 <div>
                   <span class="status-label">API key</span>
@@ -683,6 +673,13 @@ export function AuthPanel(props: AuthPanelProps): JSX.Element {
                   <strong>{auth().refreshAvailable ? "available" : "missing"}</strong>
                 </div>
               </div>
+              <div class="auth-card__meta">
+                <strong>{granolaAuthRecommendation(auth()).status}.</strong>{" "}
+                {granolaAuthRecommendation(auth()).detail}
+              </div>
+              <Show when={granolaAuthRecommendation(auth()).nextAction}>
+                {(nextAction) => <div class="auth-card__meta">Next step: {nextAction()}</div>}
+              </Show>
               <Show when={auth().clientId}>
                 <div class="auth-card__meta">Client ID: {auth().clientId}</div>
               </Show>
@@ -696,8 +693,9 @@ export function AuthPanel(props: AuthPanelProps): JSX.Element {
                 <div class="auth-card__meta auth-card__error">{auth().lastError}</div>
               </Show>
               <div class="auth-card__meta">
-                Store a Granola Personal API key here or use{" "}
-                <code>granola auth login --api-key &lt;token&gt;</code>.
+                Save a Personal API key here or use{" "}
+                <code>granola auth login --api-key &lt;token&gt;</code>. Desktop-session import
+                remains the fallback path.
               </div>
               <div class="auth-card__actions">
                 <input
@@ -714,11 +712,21 @@ export function AuthPanel(props: AuthPanelProps): JSX.Element {
                 </button>
                 <button
                   class="button button--secondary"
+                  disabled={!auth().apiKeyAvailable || auth().mode === "api-key"}
+                  onClick={() => {
+                    props.onSwitchMode("api-key");
+                  }}
+                  type="button"
+                >
+                  Use API key
+                </button>
+                <button
+                  class="button button--secondary"
                   disabled={!auth().supabaseAvailable}
                   onClick={props.onImportDesktopSession}
                   type="button"
                 >
-                  Import desktop session
+                  Import desktop session fallback
                 </button>
                 <button
                   class="button button--secondary"
@@ -727,16 +735,6 @@ export function AuthPanel(props: AuthPanelProps): JSX.Element {
                   type="button"
                 >
                   Refresh stored session
-                </button>
-                <button
-                  class="button button--secondary"
-                  disabled={!auth().apiKeyAvailable || auth().mode === "api-key"}
-                  onClick={() => {
-                    props.onSwitchMode("api-key");
-                  }}
-                  type="button"
-                >
-                  Use API key
                 </button>
                 <button
                   class="button button--secondary"
