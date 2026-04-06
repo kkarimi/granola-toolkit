@@ -1,30 +1,21 @@
 import type {
   FolderSummaryRecord,
-  MeetingNoteRecord,
   MeetingRecord,
-  MeetingRoleHelpersRecord,
   MeetingSummaryRecord,
   MeetingTranscriptRecord,
-  NoteExportRecord,
-  TranscriptExportRecord,
 } from "./app/models.ts";
-import { buildMeetingRoleHelpers } from "./meeting-roles.ts";
+import {
+  buildMeetingTranscriptProjection,
+  buildMeetingRecordFromDocument,
+  buildMeetingSummaryRecord,
+} from "./app/meeting-read-model.ts";
 import { buildNoteExport, renderNoteExport } from "./notes.ts";
 import { toJson, toYaml } from "./render.ts";
-import {
-  buildTranscriptExport,
-  normaliseTranscriptSegments,
-  renderTranscriptExport,
-} from "./transcripts.ts";
-import type {
-  CacheData,
-  CacheDocument,
-  GranolaDocument,
-  NoteOutputFormat,
-  TranscriptOutputFormat,
-} from "./types.ts";
+import { renderTranscriptExport } from "./transcripts.ts";
+import type { CacheData, GranolaDocument } from "./types.ts";
 import { compareStrings, formatTimestampForTranscript, latestDocumentTimestamp } from "./utils.ts";
 import type { GranolaMeetingSort } from "./app/types.ts";
+import type { NoteOutputFormat, TranscriptOutputFormat } from "./types.ts";
 
 export type MeetingListOutputFormat = "json" | "text" | "yaml";
 export type MeetingDetailOutputFormat = "json" | "text" | "yaml";
@@ -134,95 +125,6 @@ function compareMeetingSummariesBySort(
     default:
       return compareMeetingSummariesByUpdated(left, right);
   }
-}
-
-function serialiseNote(note: NoteExportRecord): MeetingNoteRecord {
-  return {
-    content: note.content,
-    contentSource: note.contentSource,
-    createdAt: note.createdAt,
-    id: note.id,
-    tags: [...note.tags],
-    title: note.title,
-    updatedAt: note.updatedAt,
-  };
-}
-
-function serialiseTranscript(transcript: TranscriptExportRecord): MeetingTranscriptRecord {
-  return {
-    createdAt: transcript.createdAt,
-    id: transcript.id,
-    segments: transcript.segments.map((segment) => ({ ...segment })),
-    speakers: transcript.speakers.map((speaker) => ({ ...speaker })),
-    title: transcript.title,
-    updatedAt: transcript.updatedAt,
-  };
-}
-
-function cacheDocumentForMeeting(document: GranolaDocument, cacheData?: CacheData): CacheDocument {
-  return (
-    cacheData?.documents[document.id] ?? {
-      createdAt: document.createdAt,
-      id: document.id,
-      title: document.title,
-      updatedAt: latestDocumentTimestamp(document),
-    }
-  );
-}
-
-function buildMeetingTranscript(
-  document: GranolaDocument,
-  cacheData?: CacheData,
-): {
-  loaded: boolean;
-  segmentCount: number;
-  transcript: MeetingTranscriptRecord | null;
-  transcriptText: string | null;
-  transcriptRecord: TranscriptExportRecord | null;
-} {
-  const rawSegments = cacheData?.transcripts[document.id] ?? document.transcriptSegments ?? [];
-  const transcriptAvailable = Boolean(cacheData) || Array.isArray(document.transcriptSegments);
-  if (!transcriptAvailable) {
-    return {
-      loaded: false,
-      segmentCount: 0,
-      transcript: null,
-      transcriptRecord: null,
-      transcriptText: null,
-    };
-  }
-
-  const normalisedSegments = normaliseTranscriptSegments(rawSegments);
-  if (normalisedSegments.length === 0) {
-    return {
-      loaded: true,
-      segmentCount: 0,
-      transcript: null,
-      transcriptRecord: null,
-      transcriptText: null,
-    };
-  }
-
-  const transcript = buildTranscriptExport(
-    cacheDocumentForMeeting(document, cacheData),
-    normalisedSegments,
-    rawSegments,
-  );
-
-  return {
-    loaded: true,
-    segmentCount: transcript.segments.length,
-    transcript: serialiseTranscript(transcript),
-    transcriptRecord: transcript,
-    transcriptText: renderTranscriptExport(transcript, "text"),
-  };
-}
-
-function buildRoleHelpers(
-  document: GranolaDocument,
-  transcript: MeetingTranscriptRecord | null,
-): MeetingRoleHelpersRecord {
-  return buildMeetingRoleHelpers(document.people, transcript?.speakers ?? []);
 }
 
 function matchesMeetingSearch(document: GranolaDocument, search: string): boolean {
@@ -371,20 +273,7 @@ export function buildMeetingSummary(
   cacheData?: CacheData,
   folders: FolderSummaryRecord[] = [],
 ): MeetingSummaryRecord {
-  const note = buildNoteExport(document);
-  const transcript = buildMeetingTranscript(document, cacheData);
-
-  return {
-    createdAt: document.createdAt,
-    folders: folders.map((folder) => ({ ...folder })),
-    id: document.id,
-    noteContentSource: note.contentSource,
-    tags: [...document.tags],
-    title: document.title,
-    transcriptLoaded: transcript.loaded,
-    transcriptSegmentCount: transcript.segmentCount,
-    updatedAt: latestDocumentTimestamp(document),
-  };
+  return buildMeetingSummaryRecord(document, cacheData, folders);
 }
 
 export function buildMeetingRecord(
@@ -392,28 +281,7 @@ export function buildMeetingRecord(
   cacheData?: CacheData,
   folders: FolderSummaryRecord[] = [],
 ): MeetingRecord {
-  const note = buildNoteExport(document);
-  const transcript = buildMeetingTranscript(document, cacheData);
-  const roleHelpers = buildRoleHelpers(document, transcript.transcript);
-
-  return {
-    meeting: {
-      createdAt: document.createdAt,
-      folders: folders.map((folder) => ({ ...folder })),
-      id: document.id,
-      noteContentSource: note.contentSource,
-      tags: [...document.tags],
-      title: document.title,
-      transcriptLoaded: transcript.loaded,
-      transcriptSegmentCount: transcript.segmentCount,
-      updatedAt: latestDocumentTimestamp(document),
-    },
-    note: serialiseNote(note),
-    noteMarkdown: renderNoteExport(note, "markdown"),
-    roleHelpers,
-    transcript: transcript.transcript,
-    transcriptText: transcript.transcriptText,
-  };
+  return buildMeetingRecordFromDocument(document, cacheData, folders);
 }
 
 export function listMeetings(
@@ -667,7 +535,7 @@ export function renderMeetingTranscript(
   cacheData?: CacheData,
   format: MeetingTranscriptOutputFormat = "text",
 ): string {
-  const transcript = buildMeetingTranscript(document, cacheData).transcriptRecord;
+  const transcript = buildMeetingTranscriptProjection(document, cacheData).record;
   if (!transcript) {
     return "";
   }

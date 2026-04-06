@@ -1,48 +1,20 @@
-import type { FolderSummaryRecord, MeetingSummaryRecord } from "./app/models.ts";
+import {
+  cloneFolderSummaryRecord,
+  cloneMeetingSummaryRecord,
+  normaliseMeetingSummaryRecord,
+} from "./app/meeting-read-model.ts";
+import type { MeetingSummaryRecord } from "./app/models.ts";
 import type {
   GranolaAppSyncChange,
   GranolaAppSyncEvent,
   GranolaAppSyncSummary,
 } from "./app/types.ts";
 
-function normaliseMeeting(meeting: MeetingSummaryRecord): Record<string, unknown> {
-  return {
-    createdAt: meeting.createdAt,
-    folders: meeting.folders
-      .map((folder) => ({
-        createdAt: folder.createdAt,
-        description: folder.description,
-        documentCount: folder.documentCount,
-        id: folder.id,
-        isFavourite: folder.isFavourite,
-        name: folder.name,
-        updatedAt: folder.updatedAt,
-        workspaceId: folder.workspaceId,
-      }))
-      .sort((left, right) => left.id.localeCompare(right.id)),
-    noteContentSource: meeting.noteContentSource,
-    tags: [...meeting.tags].sort((left, right) => left.localeCompare(right)),
-    title: meeting.title,
-    transcriptLoaded: meeting.transcriptLoaded,
-    transcriptSegmentCount: meeting.transcriptSegmentCount,
-    updatedAt: meeting.updatedAt,
-  };
-}
-
 function meetingChanged(previous: MeetingSummaryRecord, next: MeetingSummaryRecord): boolean {
-  return JSON.stringify(normaliseMeeting(previous)) !== JSON.stringify(normaliseMeeting(next));
-}
-
-function cloneFolderSummary(folder: FolderSummaryRecord): FolderSummaryRecord {
-  return { ...folder };
-}
-
-function cloneMeetingSummary(meeting: MeetingSummaryRecord): MeetingSummaryRecord {
-  return {
-    ...meeting,
-    folders: meeting.folders.map((folder) => cloneFolderSummary(folder)),
-    tags: [...meeting.tags],
-  };
+  return (
+    JSON.stringify(normaliseMeetingSummaryRecord(previous)) !==
+    JSON.stringify(normaliseMeetingSummaryRecord(next))
+  );
 }
 
 export function diffMeetingSummaries(
@@ -141,10 +113,10 @@ export function buildSyncEvents(
   nextMeetings: MeetingSummaryRecord[],
 ): GranolaAppSyncEvent[] {
   const previousById = new Map(
-    previousMeetings.map((meeting) => [meeting.id, cloneMeetingSummary(meeting)] as const),
+    previousMeetings.map((meeting) => [meeting.id, cloneMeetingSummaryRecord(meeting)] as const),
   );
   const nextById = new Map(
-    nextMeetings.map((meeting) => [meeting.id, cloneMeetingSummary(meeting)] as const),
+    nextMeetings.map((meeting) => [meeting.id, cloneMeetingSummaryRecord(meeting)] as const),
   );
 
   return changes.map((change, index) => ({
@@ -152,7 +124,7 @@ export function buildSyncEvents(
       (change.kind === "removed"
         ? previousById.get(change.meetingId)
         : nextById.get(change.meetingId)
-      )?.folders.map((folder) => cloneFolderSummary(folder)) ?? [],
+      )?.folders.map((folder) => cloneFolderSummaryRecord(folder)) ?? [],
     id: `${runId}:${index + 1}`,
     kind:
       change.kind === "created"

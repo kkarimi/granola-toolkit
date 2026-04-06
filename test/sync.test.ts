@@ -86,4 +86,49 @@ describe("diffMeetingSummaries", () => {
       ]),
     );
   });
+
+  test("treats reordered tags and folders as the same meeting state", () => {
+    const previousState: MeetingSummaryRecord[] = [
+      {
+        createdAt: "2024-02-01T09:00:00Z",
+        folders: [
+          {
+            createdAt: "2024-01-01T00:00:00Z",
+            documentCount: 2,
+            id: "folder-b",
+            isFavourite: false,
+            name: "Beta",
+            updatedAt: "2024-02-02T09:00:00Z",
+          },
+          {
+            createdAt: "2024-01-01T00:00:00Z",
+            documentCount: 3,
+            id: "folder-a",
+            isFavourite: true,
+            name: "Alpha",
+            updatedAt: "2024-02-02T09:00:00Z",
+          },
+        ],
+        id: "doc-order-1111",
+        noteContentSource: "notes",
+        tags: ["beta", "alpha"],
+        title: "Order Test",
+        transcriptLoaded: true,
+        transcriptSegmentCount: 2,
+        updatedAt: "2024-02-03T09:00:00Z",
+      },
+    ];
+    const nextState: MeetingSummaryRecord[] = [
+      {
+        ...previousState[0]!,
+        folders: [...previousState[0]!.folders].reverse(),
+        tags: [...previousState[0]!.tags].reverse(),
+      },
+    ];
+
+    const result = diffMeetingSummaries(previousState, nextState, 2);
+
+    expect(result.summary.changedCount).toBe(0);
+    expect(result.changes).toEqual([]);
+  });
 });

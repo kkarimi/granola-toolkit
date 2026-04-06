@@ -190,9 +190,42 @@ describe("search index", () => {
       id: "doc-alpha-1111",
       score: expect.any(Number),
     });
+    expect(searchSearchIndex(entries, "retention")[0]?.id).toBe("doc-alpha-1111");
     expect(searchSearchIndex(entries, "checklist")[0]?.id).toBe("doc-alpha-1111");
     expect(searchSearchIndex(entries, "sales")[0]?.id).toBe("doc-bravo-2222");
     expect(searchSearchIndex(entries, "team")[0]?.id).toBe("doc-alpha-1111");
     expect(searchSearchIndex(entries, "rejected")).toEqual([]);
+  });
+
+  test("marks transcript availability from the shared meeting model even when known segments are empty", () => {
+    const entries = buildSearchIndex(
+      [
+        {
+          content: "Fallback note body",
+          createdAt: "2024-01-06T09:00:00Z",
+          id: "doc-empty-3333",
+          notesPlain: "Transcript is known but empty",
+          tags: ["ops"],
+          title: "Empty Transcript",
+          updatedAt: "2024-01-06T10:00:00Z",
+        },
+      ],
+      {
+        cacheData: {
+          documents: {},
+          transcripts: {
+            "doc-empty-3333": [],
+          },
+        },
+      },
+    );
+
+    expect(entries).toEqual([
+      expect.objectContaining({
+        id: "doc-empty-3333",
+        transcriptLoaded: true,
+        transcriptText: "",
+      }),
+    ]);
   });
 });

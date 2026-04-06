@@ -1,6 +1,11 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import {
+  buildMeetingSummaryRecord,
+  meetingNoteSearchText,
+  meetingTranscriptSearchText,
+} from "./app/meeting-read-model.ts";
 import type { GranolaAutomationArtefact } from "./app/types.ts";
 import type { FolderSummaryRecord, MeetingSummaryRecord } from "./app/models.ts";
 import { defaultGranolaToolkitPersistenceLayout } from "./persistence/layout.ts";
@@ -50,29 +55,6 @@ function cloneEntry(entry: GranolaSearchIndexEntry): GranolaSearchIndexEntry {
     folderNames: [...entry.folderNames],
     tags: [...entry.tags],
   };
-}
-
-function noteText(document: GranolaDocument): string {
-  const notes = document.notesPlain.trim();
-  if (notes) {
-    return notes;
-  }
-
-  const panel = document.lastViewedPanel?.originalContent?.trim();
-  if (panel) {
-    return panel;
-  }
-
-  return document.content.trim();
-}
-
-function transcriptText(documentId: string, cacheData?: CacheData): string {
-  const segments = cacheData?.transcripts[documentId] ?? [];
-  return segments
-    .filter((segment) => segment.isFinal)
-    .map((segment) => segment.text.trim())
-    .filter(Boolean)
-    .join("\n");
 }
 
 interface SearchArtefactRecord {
@@ -177,7 +159,7 @@ export function buildSearchIndex(
   return documents
     .map((document) => {
       const folders = options.foldersByDocumentId?.get(document.id) ?? [];
-      const transcript = transcriptText(document.id, options.cacheData);
+      const meeting = buildMeetingSummaryRecord(document, options.cacheData, folders);
       const artefacts = artefactRecord(document.id, artefactsByMeetingId);
       return {
         artefactActionNames: [...artefacts.actionNames],
@@ -186,16 +168,16 @@ export function buildSearchIndex(
         artefactRuleNames: [...artefacts.ruleNames],
         artefactText: artefacts.text,
         artefactTitles: [...artefacts.titles],
-        createdAt: document.createdAt,
-        folderIds: folders.map((folder) => folder.id),
-        folderNames: folders.map((folder) => folder.name || folder.id),
-        id: document.id,
-        noteText: noteText(document),
-        tags: [...document.tags],
-        title: document.title,
-        transcriptLoaded: transcript.length > 0,
-        transcriptText: transcript,
-        updatedAt: document.updatedAt,
+        createdAt: meeting.createdAt,
+        folderIds: meeting.folders.map((folder) => folder.id),
+        folderNames: meeting.folders.map((folder) => folder.name || folder.id),
+        id: meeting.id,
+        noteText: meetingNoteSearchText(document),
+        tags: [...meeting.tags],
+        title: meeting.title,
+        transcriptLoaded: meeting.transcriptLoaded,
+        transcriptText: meetingTranscriptSearchText(document, options.cacheData),
+        updatedAt: meeting.updatedAt,
       } satisfies GranolaSearchIndexEntry;
     })
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
