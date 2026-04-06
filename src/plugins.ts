@@ -14,6 +14,7 @@ interface GranolaPluginSettingsFile {
   automationEnabled?: boolean;
   enabled?: Record<string, unknown>;
   markdownViewerEnabled?: boolean;
+  [key: string]: unknown;
 }
 
 function normalisePluginSettings(
@@ -32,11 +33,16 @@ function normalisePluginSettings(
     }
   }
 
-  if (record?.automationEnabled !== undefined) {
-    enabled.automation = record.automationEnabled === true;
-  }
-  if (record?.markdownViewerEnabled !== undefined) {
-    enabled["markdown-viewer"] = record.markdownViewerEnabled !== false;
+  for (const definition of definitions) {
+    const legacyKey = definition.compatibility?.legacySettingsEnabledKey;
+    if (!legacyKey) {
+      continue;
+    }
+
+    const legacyValue = record?.[legacyKey as keyof GranolaPluginSettingsFile];
+    if (typeof legacyValue === "boolean") {
+      enabled[definition.id] = legacyValue;
+    }
   }
 
   return {

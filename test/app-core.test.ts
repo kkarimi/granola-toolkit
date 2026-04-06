@@ -19,7 +19,7 @@ import { MemorySyncEventStore } from "../src/sync-events.ts";
 import { MemorySyncStateStore } from "../src/sync-state.ts";
 import type { GranolaAppAuthState } from "../src/app/index.ts";
 import type { GranolaAutomationAgentRequest, GranolaAutomationAgentResult } from "../src/agents.ts";
-import type { CacheData, GranolaDocument, GranolaFolder } from "../src/types.ts";
+import type { AppConfig, CacheData, GranolaDocument, GranolaFolder } from "../src/types.ts";
 
 const documents: GranolaDocument[] = [
   {
@@ -78,6 +78,25 @@ const folders: GranolaFolder[] = [
   },
 ];
 
+function enableAutomation(config: AppConfig): AppConfig {
+  return {
+    ...config,
+    plugins: {
+      enabled: {
+        ...config.plugins?.enabled,
+        automation: true,
+        "markdown-viewer": config.plugins?.enabled?.["markdown-viewer"] ?? true,
+      },
+      settingsFile: config.plugins?.settingsFile ?? "/tmp/plugins.json",
+      sources: {
+        ...config.plugins?.sources,
+        automation: "config",
+        "markdown-viewer": config.plugins?.sources?.["markdown-viewer"] ?? "default",
+      },
+    },
+  };
+}
+
 describe("GranolaApp", () => {
   test("keeps automation optional until the plugin is enabled", async () => {
     const pluginSettingsStore = new MemoryPluginSettingsStore();
@@ -114,6 +133,18 @@ describe("GranolaApp", () => {
           capabilities: ["automation"],
           enabled: false,
           id: "automation",
+          settingsContributions: [
+            {
+              capability: "automation",
+              id: "automation-harness-editor",
+              section: "plugins",
+            },
+            {
+              capability: "automation",
+              id: "automation-review-diagnostics",
+              section: "diagnostics",
+            },
+          ],
         }),
         expect.objectContaining({
           capabilities: ["markdown-rendering"],
@@ -148,6 +179,65 @@ describe("GranolaApp", () => {
         automation: true,
         "markdown-viewer": false,
       },
+    });
+  });
+
+  test("does not auto-enable automation just because empty stores are wired", async () => {
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        plugins: {
+          enabled: {},
+          settingsFile: "/tmp/plugins.json",
+          sources: {
+            automation: "default",
+            "markdown-viewer": "default",
+          },
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile: "",
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        agentHarnessStore: new MemoryAgentHarnessStore(),
+        auth: {
+          mode: "supabase-file",
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: true,
+          supabasePath: "/tmp/supabase.json",
+        },
+        agentRunner: {
+          run: async (): Promise<GranolaAutomationAgentResult> => ({
+            dryRun: false,
+            model: "gpt-5-codex",
+            output: "noop",
+            prompt: "",
+            provider: "codex",
+          }),
+        },
+        automationArtefactStore: new MemoryAutomationArtefactStore(),
+        automationMatchStore: new MemoryAutomationMatchStore(),
+        automationRuleStore: new MemoryAutomationRuleStore(),
+        automationRunStore: new MemoryAutomationRunStore(),
+        cacheLoader: async () => cacheData,
+        granolaClient: { listDocuments: async () => documents },
+      },
+    );
+
+    await expect(app.listPlugins()).resolves.toEqual({
+      plugins: expect.arrayContaining([
+        expect.objectContaining({
+          enabled: false,
+          id: "automation",
+        }),
+      ]),
     });
   });
 
@@ -545,7 +635,7 @@ describe("GranolaApp", () => {
 
     const matchStore = new MemoryAutomationMatchStore();
     const app = new GranolaApp(
-      {
+      enableAutomation({
         debug: false,
         notes: {
           output: "/tmp/notes",
@@ -556,7 +646,7 @@ describe("GranolaApp", () => {
           cacheFile,
           output: "/tmp/transcripts",
         },
-      },
+      }),
       {
         auth: {
           mode: "supabase-file",
@@ -653,7 +743,7 @@ describe("GranolaApp", () => {
     ]);
 
     const app = new GranolaApp(
-      {
+      enableAutomation({
         debug: false,
         notes: {
           output: outputDir,
@@ -664,7 +754,7 @@ describe("GranolaApp", () => {
           cacheFile,
           output: "/tmp/transcripts",
         },
-      },
+      }),
       {
         auth: {
           mode: "supabase-file",
@@ -909,7 +999,7 @@ describe("GranolaApp", () => {
     ]);
 
     const app = new GranolaApp(
-      {
+      enableAutomation({
         agents: {
           codexCommand: "codex",
           defaultProvider: "codex",
@@ -930,7 +1020,7 @@ describe("GranolaApp", () => {
           cacheFile,
           output: "/tmp/transcripts",
         },
-      },
+      }),
       {
         agentHarnessStore: new MemoryAgentHarnessStore([
           {
@@ -1038,7 +1128,7 @@ describe("GranolaApp", () => {
       },
     };
     const app = new GranolaApp(
-      {
+      enableAutomation({
         agents: {
           codexCommand: "codex",
           defaultProvider: "codex",
@@ -1059,7 +1149,7 @@ describe("GranolaApp", () => {
           cacheFile,
           output: "/tmp/transcripts",
         },
-      },
+      }),
       {
         agentHarnessStore: new MemoryAgentHarnessStore([
           {
@@ -1212,7 +1302,7 @@ describe("GranolaApp", () => {
     ]);
 
     const app = new GranolaApp(
-      {
+      enableAutomation({
         agents: {
           codexCommand: "codex",
           defaultProvider: "codex",
@@ -1237,7 +1327,7 @@ describe("GranolaApp", () => {
           cacheFile,
           output: "/tmp/transcripts",
         },
-      },
+      }),
       {
         agentHarnessStore: new MemoryAgentHarnessStore([
           {
@@ -1457,7 +1547,7 @@ describe("GranolaApp", () => {
     process.env.TEST_SLACK_URL = "https://hooks.slack.test/approved";
 
     const app = new GranolaApp(
-      {
+      enableAutomation({
         agents: {
           codexCommand: "codex",
           defaultProvider: "codex",
@@ -1482,7 +1572,7 @@ describe("GranolaApp", () => {
           cacheFile,
           output: "/tmp/transcripts",
         },
-      },
+      }),
       {
         agentRunner: {
           run: async (
@@ -1652,7 +1742,7 @@ describe("GranolaApp", () => {
     await writeFile(cacheFile, "{}\n", "utf8");
 
     const app = new GranolaApp(
-      {
+      enableAutomation({
         agents: {
           codexCommand: "codex",
           defaultProvider: "codex",
@@ -1677,7 +1767,7 @@ describe("GranolaApp", () => {
           cacheFile,
           output: "/tmp/transcripts",
         },
-      },
+      }),
       {
         agentRunner: {
           run: async (
@@ -1780,7 +1870,7 @@ describe("GranolaApp", () => {
     await writeFile(cacheFile, "{}\n", "utf8");
 
     const app = new GranolaApp(
-      {
+      enableAutomation({
         agents: {
           codexCommand: "codex",
           defaultProvider: "codex",
@@ -1806,7 +1896,7 @@ describe("GranolaApp", () => {
           cacheFile,
           output: "/tmp/transcripts",
         },
-      },
+      }),
       {
         agentRunner: {
           run: async (
@@ -1919,7 +2009,7 @@ describe("GranolaApp", () => {
       }),
     );
     const app = new GranolaApp(
-      {
+      enableAutomation({
         agents: {
           codexCommand: "codex",
           defaultProvider: "codex",
@@ -1944,7 +2034,7 @@ describe("GranolaApp", () => {
           cacheFile: "/tmp/cache.json",
           output: "/tmp/transcripts",
         },
-      },
+      }),
       {
         agentRunner: {
           run: runAgent,

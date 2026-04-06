@@ -8,6 +8,7 @@ import type {
   GranolaAppPluginState,
   GranolaAppState,
 } from "../app/index.ts";
+import { pluginStateStatusDetail } from "../app/plugin-state.ts";
 import { granolaAgentProviderLabel } from "../agent-defaults.ts";
 import { granolaAuthModeLabel, granolaAuthRecommendation } from "../auth-summary.ts";
 import type { GranolaServerInfo } from "../transport.ts";
@@ -38,7 +39,6 @@ interface ExportJobsPanelProps {
 }
 
 interface PluginsPanelProps {
-  detailsById?: Record<string, string>;
   onTogglePlugin: (id: string, enabled: boolean) => void;
   plugins: GranolaAppPluginState[];
 }
@@ -365,11 +365,7 @@ export function PluginsPanel(props: PluginsPanelProps): JSX.Element {
           <For each={props.plugins}>
             {(plugin) =>
               renderPluginCard({
-                detail:
-                  props.detailsById?.[plugin.id] ??
-                  (plugin.enabled
-                    ? `${plugin.label} is enabled for this workspace.`
-                    : `${plugin.label} is shipped but currently disabled.`),
+                detail: pluginStateStatusDetail(plugin),
                 plugin,
               })
             }

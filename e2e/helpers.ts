@@ -301,6 +301,10 @@ export async function startToolkitWebServer(
           "markdown-viewer": true,
         },
         settingsFile: join(outputRoot, "plugins.json"),
+        sources: {
+          automation: "config",
+          "markdown-viewer": "config",
+        },
       },
       supabase: "/tmp/supabase.json",
       transcripts: {

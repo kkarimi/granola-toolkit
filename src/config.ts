@@ -6,8 +6,8 @@ import type { AppConfig } from "./types.ts";
 import { defaultGranolaToolkitPersistenceLayout } from "./persistence/layout.ts";
 import {
   defaultPluginDefinitions,
-  GRANOLA_AUTOMATION_PLUGIN_ID,
-  GRANOLA_MARKDOWN_VIEWER_PLUGIN_ID,
+  resolvePluginConfiguredEnablement,
+  type GranolaPluginDefinition,
 } from "./plugin-registry.ts";
 import { createDefaultPluginSettingsStore } from "./plugins.ts";
 import {
@@ -121,8 +121,12 @@ async function loadTomlConfig(
   return { values: {} };
 }
 
-function envFlag(value: string | undefined): boolean | undefined {
+function envFlag(value: unknown): boolean | undefined {
   if (value == null) {
+    return undefined;
+  }
+
+  if (typeof value !== "string") {
     return undefined;
   }
 
@@ -135,6 +139,29 @@ function envFlag(value: string | undefined): boolean | undefined {
   }
 
   return undefined;
+}
+
+function resolvePluginsConfig(options: {
+  configValues: Record<string, unknown>;
+  definitions: GranolaPluginDefinition[];
+  env: Record<string, string | undefined>;
+  persistedEnabled: Record<string, boolean>;
+  settingsFile: string;
+}): NonNullable<AppConfig["plugins"]> {
+  const resolved = resolvePluginConfiguredEnablement({
+    configValues: options.configValues,
+    definitions: options.definitions,
+    env: options.env,
+    envFlag,
+    persistedEnabled: options.persistedEnabled,
+    pickBoolean,
+  });
+
+  return {
+    enabled: resolved.enabled,
+    settingsFile: options.settingsFile,
+    sources: resolved.sources,
+  };
 }
 
 function resolveConfigPath(
@@ -286,24 +313,13 @@ export async function loadConfig(options: {
         "./notes",
       timeoutMs: parseDuration(timeoutValue),
     },
-    plugins: {
-      enabled: {
-        ...persistedPlugins.enabled,
-        [GRANOLA_AUTOMATION_PLUGIN_ID]:
-          envFlag(env.GRANOLA_AUTOMATION_PLUGIN_ENABLED) ??
-          pickBoolean(configValues["automation-plugin-enabled"]) ??
-          pickBoolean(configValues.automationPluginEnabled) ??
-          persistedPlugins.enabled[GRANOLA_AUTOMATION_PLUGIN_ID] ??
-          false,
-        [GRANOLA_MARKDOWN_VIEWER_PLUGIN_ID]:
-          envFlag(env.GRANOLA_MARKDOWN_VIEWER_PLUGIN_ENABLED) ??
-          pickBoolean(configValues["markdown-viewer-plugin-enabled"]) ??
-          pickBoolean(configValues.markdownViewerPluginEnabled) ??
-          persistedPlugins.enabled[GRANOLA_MARKDOWN_VIEWER_PLUGIN_ID] ??
-          true,
-      },
+    plugins: resolvePluginsConfig({
+      configValues,
+      definitions: pluginDefinitions,
+      env,
+      persistedEnabled: persistedPlugins.enabled,
       settingsFile: pluginsFile,
-    },
+    }),
     supabase:
       pickString(options.globalFlags.supabase) ??
       pickString(env.SUPABASE_FILE) ??

@@ -14,7 +14,10 @@ import type {
   GranolaAgentHarness,
   GranolaAgentHarnessMatchExplanation,
 } from "../agent-harnesses.ts";
-import type { GranolaPluginCapability } from "../plugin-registry.ts";
+import type {
+  GranolaPluginCapability,
+  GranolaPluginSettingsContribution,
+} from "../plugin-registry.ts";
 import type {
   AppConfig,
   CacheData,
@@ -454,7 +457,12 @@ export interface GranolaAppPluginState {
   enabled: boolean;
   id: GranolaAppPluginId;
   label: string;
+  settingsContributions?: GranolaPluginSettingsContribution[];
   shipped: boolean;
+  statusDetails?: {
+    disabled: string;
+    enabled: string;
+  };
 }
 
 export interface GranolaAppPluginsState {

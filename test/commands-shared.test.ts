@@ -1,3 +1,7 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 
 import * as appModule from "../src/app/index.ts";
@@ -32,7 +36,18 @@ afterEach(() => {
 describe("createCommandAppContext", () => {
   test("loads config, creates the app, and logs the requested debug fields", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const config = makeConfig();
+    const directory = await mkdtemp(join(tmpdir(), "granola-command-context-"));
+    const supabasePath = join(directory, "supabase.json");
+    const cachePath = join(directory, "cache.json");
+    await writeFile(supabasePath, "{}\n", "utf8");
+    await writeFile(cachePath, "{}\n", "utf8");
+    const config = makeConfig({
+      supabase: supabasePath,
+      transcripts: {
+        cacheFile: cachePath,
+        output: "/tmp/transcripts",
+      },
+    });
     const app = {
       getState: () => ({
         auth: {
@@ -77,8 +92,8 @@ describe("createCommandAppContext", () => {
       config,
     });
     expect(error).toHaveBeenCalledWith("[debug]", "using config", "/tmp/.granola.toml");
-    expect(error).toHaveBeenCalledWith("[debug]", "supabase", "/tmp/supabase.json");
-    expect(error).toHaveBeenCalledWith("[debug]", "cacheFile", "/tmp/cache.json");
+    expect(error).toHaveBeenCalledWith("[debug]", "supabase", supabasePath);
+    expect(error).toHaveBeenCalledWith("[debug]", "cacheFile", cachePath);
     expect(error).toHaveBeenCalledWith("[debug]", "timeoutMs", 120_000);
     expect(error).toHaveBeenCalledWith("[debug]", "authMode", "api-key");
   });

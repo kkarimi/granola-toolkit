@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+
 import {
   createGranolaApp,
   type GranolaApp,
@@ -45,6 +47,31 @@ function logCommandConfig(config: AppConfig, options: CommandAppContextOptions):
   }
 }
 
+function validateCommandConfigPaths(
+  commandFlags: FlagValues,
+  config: AppConfig,
+  globalFlags: FlagValues,
+  options: CommandAppContextOptions,
+): void {
+  if (
+    options.includeSupabase &&
+    typeof globalFlags.supabase === "string" &&
+    config.supabase &&
+    !existsSync(config.supabase)
+  ) {
+    throw new Error(`supabase.json not found: ${config.supabase}`);
+  }
+
+  if (
+    options.includeCacheFile &&
+    typeof commandFlags.cache === "string" &&
+    config.transcripts.cacheFile &&
+    !existsSync(config.transcripts.cacheFile)
+  ) {
+    throw new Error(`Granola cache file not found: ${config.transcripts.cacheFile}`);
+  }
+}
+
 export async function createCommandAppContext(
   commandFlags: FlagValues,
   globalFlags: FlagValues,
@@ -55,6 +82,7 @@ export async function createCommandAppContext(
     subcommandFlags: commandFlags,
   });
 
+  validateCommandConfigPaths(commandFlags, config, globalFlags, options);
   logCommandConfig(config, options);
   const app = await createGranolaApp(config, {
     surface: options.surface,

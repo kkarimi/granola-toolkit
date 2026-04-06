@@ -26,7 +26,6 @@ import type { WebWorkspaceRecentMeeting, WorkspaceTab } from "../web/client-stat
 
 import {
   ArtefactReviewPanel,
-  AutomationRunsPanel,
   AuthPanel,
   BrowsePromptPanel,
   DiagnosticsPanel,
@@ -37,15 +36,14 @@ import {
   MeetingList,
   PageHeader,
   PluginsPanel,
-  ProcessingIssuesPanel,
   ReviewInboxPanel,
   RunReviewPanel,
   SearchWorkspacePanel,
   SecurityPanel,
   type WebSettingsSection,
 } from "./components.tsx";
-import { HarnessEditorPanel } from "./harness-editor.tsx";
 import { Workspace } from "./components.tsx";
+import { PluginSettingsContributionPanels } from "./plugin-settings-contributions.tsx";
 
 type ReviewItems = GranolaReviewInboxItem[];
 type ReviewSummary = GranolaReviewInboxSummary;
@@ -435,7 +433,6 @@ export function SettingsPageController(props: {
   apiKeyDraft: string;
   appState: GranolaAppState | null;
   auth: GranolaAppAuthState | undefined;
-  automationEnabled: boolean;
   automationRuns: GranolaAutomationActionRun[];
   harnessDirty: boolean;
   harnessError: string;
@@ -473,7 +470,6 @@ export function SettingsPageController(props: {
   password: string;
   preferredProvider: GranolaAgentProviderKind;
   processingIssues: import("../app/index.ts").GranolaProcessingIssue[];
-  pluginDetailsById: Record<string, string>;
   plugins: GranolaAppPluginState[];
   selectedHarness: GranolaAgentHarness | null;
   selectedHarnessId: string | null;
@@ -537,33 +533,38 @@ export function SettingsPageController(props: {
             </Match>
             <Match when={props.settingsTab === "plugins"}>
               <PluginsPanel
-                detailsById={props.pluginDetailsById}
                 onTogglePlugin={(id, enabled) => props.onTogglePlugin(id, enabled)}
                 plugins={props.plugins}
               />
-              <Show when={props.automationEnabled}>
-                <HarnessEditorPanel
-                  dirty={props.harnessDirty}
-                  error={props.harnessError}
-                  explanations={props.harnessExplanations}
-                  explanationEventKind={props.harnessExplanationEventKind}
-                  harnesses={props.harnesses}
-                  onChange={(harness) => props.onChangeHarness(harness)}
-                  onDuplicate={() => props.onDuplicateHarness()}
-                  onNew={() => props.onNewHarness()}
-                  onReload={() => props.onReloadHarnesses()}
-                  onRemove={() => props.onRemoveHarness()}
-                  onSave={() => props.onSaveHarnesses()}
-                  onSelect={(id) => props.onSelectHarness(id)}
-                  onTest={() => props.onTestHarness()}
-                  onTestKindChange={(kind) => props.onTestKindChange(kind)}
-                  selectedHarness={props.selectedHarness}
-                  selectedHarnessId={props.selectedHarnessId}
-                  selectedMeeting={props.selectedMeeting}
-                  testKind={props.harnessTestKind}
-                  testResult={props.harnessTestResult}
-                />
-              </Show>
+              <PluginSettingsContributionPanels
+                automationRuns={props.automationRuns}
+                harnessDirty={props.harnessDirty}
+                harnessError={props.harnessError}
+                harnessExplanations={props.harnessExplanations}
+                harnessExplanationEventKind={props.harnessExplanationEventKind}
+                harnesses={props.harnesses}
+                onApproveRun={(runId) => props.onApproveRun(runId)}
+                onChangeHarness={(harness) => props.onChangeHarness(harness)}
+                onDuplicateHarness={() => props.onDuplicateHarness()}
+                onNewHarness={() => props.onNewHarness()}
+                onOpenMeeting={(meetingId) => props.onOpenMeeting(meetingId)}
+                onRecover={(issueId) => props.onRecover(issueId)}
+                onRejectRun={(runId) => props.onRejectRun(runId)}
+                onReloadHarnesses={() => props.onReloadHarnesses()}
+                onRemoveHarness={() => props.onRemoveHarness()}
+                onSaveHarnesses={() => props.onSaveHarnesses()}
+                onSelectHarness={(id) => props.onSelectHarness(id)}
+                onTestHarness={() => props.onTestHarness()}
+                onTestKindChange={(kind) => props.onTestKindChange(kind)}
+                plugins={props.plugins}
+                processingIssues={props.processingIssues}
+                section="plugins"
+                selectedHarness={props.selectedHarness}
+                selectedHarnessId={props.selectedHarnessId}
+                selectedMeeting={props.selectedMeeting}
+                testKind={props.harnessTestKind}
+                testResult={props.harnessTestResult}
+              />
             </Match>
             <Match when={props.settingsTab === "exports"}>
               <section class="settings-export-actions">
@@ -595,18 +596,35 @@ export function SettingsPageController(props: {
                 serverInfo={props.serverInfo}
                 statusLabel={props.statusLabel}
               />
-              <Show when={props.automationEnabled}>
-                <ProcessingIssuesPanel
-                  issues={props.processingIssues}
-                  onOpenMeeting={(meetingId) => props.onOpenMeeting(meetingId)}
-                  onRecover={(issueId) => props.onRecover(issueId)}
-                />
-                <AutomationRunsPanel
-                  onApprove={(runId) => props.onApproveRun(runId)}
-                  onReject={(runId) => props.onRejectRun(runId)}
-                  runs={props.automationRuns}
-                />
-              </Show>
+              <PluginSettingsContributionPanels
+                automationRuns={props.automationRuns}
+                harnessDirty={props.harnessDirty}
+                harnessError={props.harnessError}
+                harnessExplanations={props.harnessExplanations}
+                harnessExplanationEventKind={props.harnessExplanationEventKind}
+                harnesses={props.harnesses}
+                onApproveRun={(runId) => props.onApproveRun(runId)}
+                onChangeHarness={(harness) => props.onChangeHarness(harness)}
+                onDuplicateHarness={() => props.onDuplicateHarness()}
+                onNewHarness={() => props.onNewHarness()}
+                onOpenMeeting={(meetingId) => props.onOpenMeeting(meetingId)}
+                onRecover={(issueId) => props.onRecover(issueId)}
+                onRejectRun={(runId) => props.onRejectRun(runId)}
+                onReloadHarnesses={() => props.onReloadHarnesses()}
+                onRemoveHarness={() => props.onRemoveHarness()}
+                onSaveHarnesses={() => props.onSaveHarnesses()}
+                onSelectHarness={(id) => props.onSelectHarness(id)}
+                onTestHarness={() => props.onTestHarness()}
+                onTestKindChange={(kind) => props.onTestKindChange(kind)}
+                plugins={props.plugins}
+                processingIssues={props.processingIssues}
+                section="diagnostics"
+                selectedHarness={props.selectedHarness}
+                selectedHarnessId={props.selectedHarnessId}
+                selectedMeeting={props.selectedMeeting}
+                testKind={props.harnessTestKind}
+                testResult={props.harnessTestResult}
+              />
             </Match>
           </Switch>
         </div>

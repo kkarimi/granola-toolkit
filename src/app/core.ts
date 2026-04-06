@@ -79,9 +79,9 @@ import {
 import { createDefaultPkmTargetStore, type PkmTargetStore } from "../pkm-targets.ts";
 import { createDefaultPluginSettingsStore, type PluginSettingsStore } from "../plugins.ts";
 import {
+  applyPluginRuntimeDefaults,
   createDefaultPluginRegistry,
   defaultPluginEnabledMap,
-  GRANOLA_AUTOMATION_PLUGIN_ID,
   type GranolaPluginRegistry,
 } from "../plugin-registry.ts";
 import {
@@ -518,31 +518,28 @@ export class GranolaApp implements GranolaAppApi {
     options: { surface?: GranolaAppSurface } = {},
   ) {
     this.#pluginRegistry = deps.pluginRegistry ?? createDefaultPluginRegistry();
-    const configuredPluginEnabled = {
-      ...config.plugins?.enabled,
-    };
-    const automationPluginEnabled =
-      configuredPluginEnabled[GRANOLA_AUTOMATION_PLUGIN_ID] ??
-      Boolean(
-        deps.agentHarnessStore ||
-        deps.agentRunner ||
-        deps.automationArtefactStore ||
-        deps.automationMatchStore ||
-        deps.automationRunStore ||
-        deps.automationRuleStore ||
-        deps.automationArtefacts?.length ||
-        deps.automationMatches?.length ||
-        deps.automationRules?.length ||
-        deps.automationRuns?.length,
-      );
+    const configuredPlugins = applyPluginRuntimeDefaults({
+      enabled: {
+        ...config.plugins?.enabled,
+      },
+      signals: {
+        automationRuntimeAvailable: Boolean(
+          deps.automationArtefacts?.length ||
+          deps.automationMatches?.length ||
+          deps.automationRules?.length ||
+          deps.automationRuns?.length,
+        ),
+      },
+      sources: config.plugins?.sources,
+    });
     this.#state = defaultState(
       {
         ...config,
         plugins: {
           enabled: {
-            ...configuredPluginEnabled,
-            [GRANOLA_AUTOMATION_PLUGIN_ID]: automationPluginEnabled,
+            ...configuredPlugins.enabled,
           },
+          sources: configuredPlugins.sources,
           settingsFile: config.plugins?.settingsFile ?? "",
         },
       },
@@ -806,6 +803,10 @@ export class GranolaApp implements GranolaAppApi {
         enabled: Object.fromEntries(
           this.#state.plugins.items.map((plugin) => [plugin.id, plugin.enabled]),
         ),
+        sources: {
+          ...this.#state.config.plugins?.sources,
+          [id]: "persisted",
+        },
         settingsFile:
           this.#state.config.plugins?.settingsFile ?? this.config.plugins?.settingsFile ?? "",
       },

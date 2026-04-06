@@ -17,13 +17,8 @@ import {
   buildPluginState,
   findPluginState,
   isPluginCapabilityEnabled,
-  pluginSupportsCapability,
 } from "../app/plugin-state.ts";
-import {
-  defaultPluginDefinitions,
-  GRANOLA_AUTOMATION_PLUGIN_ID,
-  GRANOLA_MARKDOWN_VIEWER_PLUGIN_ID,
-} from "../plugin-registry.ts";
+import { defaultPluginDefinitions } from "../plugin-registry.ts";
 import {
   AppStatePanel,
   PrimaryNav,
@@ -38,6 +33,11 @@ import {
   useReviewController,
   useWebClientController,
 } from "./browser-hooks.ts";
+import {
+  clearAutomationCapabilityState,
+  loadAutomationCapabilityState,
+  pluginExposesAutomationCapability,
+} from "./plugin-effects.ts";
 import { deriveOnboardingState, OnboardingPanel } from "./onboarding.tsx";
 import {
   FoldersPageController,
@@ -133,15 +133,6 @@ export function App() {
       loaded: true,
     }));
   };
-  const pluginDetailsById = () => ({
-    [GRANOLA_AUTOMATION_PLUGIN_ID]: automationEnabled()
-      ? "Automation is live. Configure harnesses below, then use Review to inspect generated artefacts and approvals."
-      : "Enable this to unlock harnesses, review queues, automation commands, and post-meeting processing.",
-    [GRANOLA_MARKDOWN_VIEWER_PLUGIN_ID]: markdownViewerEnabled()
-      ? "Notes and markdown artefacts render as readable documents in the browser."
-      : "Disable this if you prefer raw markdown everywhere in the web workspace.",
-  });
-
   const setStatus = (label: string, tone: WebStatusTone = "idle") => {
     setState({
       statusLabel: label,
@@ -296,22 +287,16 @@ export function App() {
 
     if (automationEnabled()) {
       refreshTasks.push(
-        harnessController.loadHarnesses(),
-        reviewController.loadAutomationRules(),
-        reviewController.loadAutomationRuns(),
-        reviewController.loadAutomationArtefacts(),
-        reviewController.loadProcessingIssues(),
+        loadAutomationCapabilityState({
+          loadAutomationArtefacts: reviewController.loadAutomationArtefacts,
+          loadAutomationRules: reviewController.loadAutomationRules,
+          loadAutomationRuns: reviewController.loadAutomationRuns,
+          loadHarnesses: harnessController.loadHarnesses,
+          loadProcessingIssues: reviewController.loadProcessingIssues,
+        }),
       );
     } else {
-      setState("automationArtefacts", []);
-      setState("automationRules", []);
-      setState("automationRuns", []);
-      setState("harnesses", []);
-      setState("harnessExplanations", []);
-      setState("harnessExplainEventKind", null);
-      setState("processingIssues", []);
-      setState("selectedAutomationArtefactId", null);
-      setState("selectedReviewInboxKey", null);
+      clearAutomationCapabilityState(setState);
     }
 
     await Promise.all(refreshTasks);
@@ -495,29 +480,21 @@ export function App() {
       replacePluginState(nextPlugin);
       setState("settingsTab", "plugins");
 
-      if (pluginSupportsCapability(nextPlugin, "automation") && !enabled) {
+      if (pluginExposesAutomationCapability(nextPlugin) && !enabled) {
         setState("activePage", "settings");
-        setState("automationArtefacts", []);
-        setState("automationRules", []);
-        setState("automationRuns", []);
-        setState("harnesses", []);
-        setState("harnessExplanations", []);
-        setState("harnessExplainEventKind", null);
-        setState("processingIssues", []);
-        setState("selectedAutomationArtefactId", null);
-        setState("selectedReviewInboxKey", null);
+        clearAutomationCapabilityState(setState);
         setStatus(`${pluginLabel} disabled`, "ok");
         return;
       }
 
-      if (pluginSupportsCapability(nextPlugin, "automation") && enabled) {
-        await Promise.all([
-          harnessController.loadHarnesses(),
-          reviewController.loadAutomationRules(),
-          reviewController.loadAutomationRuns(),
-          reviewController.loadAutomationArtefacts(),
-          reviewController.loadProcessingIssues(),
-        ]);
+      if (pluginExposesAutomationCapability(nextPlugin) && enabled) {
+        await loadAutomationCapabilityState({
+          loadAutomationArtefacts: reviewController.loadAutomationArtefacts,
+          loadAutomationRules: reviewController.loadAutomationRules,
+          loadAutomationRuns: reviewController.loadAutomationRuns,
+          loadHarnesses: harnessController.loadHarnesses,
+          loadProcessingIssues: reviewController.loadProcessingIssues,
+        });
       }
       setStatus(`${pluginLabel} ${enabled ? "enabled" : "disabled"}`, "ok");
     } catch (error) {
@@ -737,7 +714,6 @@ export function App() {
                     apiKeyDraft={state.apiKeyDraft}
                     appState={state.appState}
                     auth={state.appState?.auth}
-                    automationEnabled={false}
                     automationRuns={state.automationRuns}
                     harnessDirty={state.harnessDirty}
                     harnessError={state.harnessError}
@@ -818,7 +794,6 @@ export function App() {
                       void clientController.unlockServer(connectAndRefresh);
                     }}
                     password={state.serverPassword}
-                    pluginDetailsById={pluginDetailsById()}
                     plugins={plugins()}
                     preferredProvider={state.preferredProvider}
                     processingIssues={state.processingIssues}
@@ -902,7 +877,6 @@ export function App() {
                 apiKeyDraft={state.apiKeyDraft}
                 appState={state.appState}
                 auth={state.appState?.auth}
-                automationEnabled={automationEnabled()}
                 automationRuns={state.automationRuns}
                 harnessDirty={state.harnessDirty}
                 harnessError={state.harnessError}
@@ -983,7 +957,6 @@ export function App() {
                   void clientController.unlockServer(connectAndRefresh);
                 }}
                 password={state.serverPassword}
-                pluginDetailsById={pluginDetailsById()}
                 plugins={plugins()}
                 preferredProvider={state.preferredProvider}
                 processingIssues={state.processingIssues}

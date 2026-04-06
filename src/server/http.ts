@@ -1,5 +1,5 @@
 import { createServer, type Server as HttpServer } from "node:http";
-import { type AddressInfo } from "node:net";
+import { type AddressInfo, type Socket } from "node:net";
 
 import type { GranolaApp } from "../app/core.ts";
 import { resolveGranolaBuildInfo } from "../build-info.ts";
@@ -113,6 +113,7 @@ export async function startGranolaServer(
   };
 
   const handlers = routeHandlers();
+  const sockets = new Set<Socket>();
   const server = createServer(async (request, response) => {
     const method = request.method ?? "GET";
     const url = new URL(request.url ?? "/", `http://${hostname}`);
@@ -186,6 +187,12 @@ export async function startGranolaServer(
       sendJson(response, { error: message }, { headers: originHeaders, status: 400 });
     }
   });
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.once("close", () => {
+      sockets.delete(socket);
+    });
+  });
 
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
@@ -206,7 +213,7 @@ export async function startGranolaServer(
   return {
     app,
     async close() {
-      await new Promise<void>((resolve, reject) => {
+      const closePromise = new Promise<void>((resolve, reject) => {
         server.close((error) => {
           if (error) {
             reject(error);
@@ -216,6 +223,12 @@ export async function startGranolaServer(
           resolve();
         });
       });
+      server.closeIdleConnections?.();
+      server.closeAllConnections?.();
+      for (const socket of sockets) {
+        socket.destroy();
+      }
+      await closePromise;
     },
     hostname,
     port: resolved.port,

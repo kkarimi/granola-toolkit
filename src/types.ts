@@ -1,3 +1,5 @@
+import type { GranolaPluginEnabledSource } from "./plugin-registry.ts";
+
 export interface ProseMirrorMark {
   attrs?: Record<string, unknown>;
   type: string;
@@ -162,6 +164,7 @@ export interface AppConfig {
   notes: NotesOptions;
   plugins?: {
     enabled: Record<string, boolean>;
+    sources?: Record<string, GranolaPluginEnabledSource>;
     settingsFile: string;
   };
   supabase?: string;

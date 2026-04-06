@@ -1,4 +1,10 @@
-import type { GranolaPluginCapability, GranolaPluginDefinition } from "../plugin-registry.ts";
+import type {
+  GranolaPluginCapability,
+  GranolaPluginDefinition,
+  GranolaPluginSettingsContribution,
+  GranolaPluginSettingsSection,
+} from "../plugin-registry.ts";
+import { pluginStatusDetail } from "../plugin-registry.ts";
 
 import type { GranolaAppPluginState, GranolaAppPluginsState } from "./types.ts";
 
@@ -6,6 +12,10 @@ function clonePluginState(plugin: GranolaAppPluginState): GranolaAppPluginState 
   return {
     ...plugin,
     capabilities: [...plugin.capabilities],
+    settingsContributions: plugin.settingsContributions?.map((contribution) => ({
+      ...contribution,
+    })),
+    statusDetails: plugin.statusDetails ? { ...plugin.statusDetails } : undefined,
   };
 }
 
@@ -20,7 +30,11 @@ export function buildPluginState(
     enabled,
     id: definition.id,
     label: definition.label,
+    settingsContributions: definition.settingsContributions?.map((contribution) => ({
+      ...contribution,
+    })),
     shipped: definition.shipped,
+    statusDetails: definition.statusDetails ? { ...definition.statusDetails } : undefined,
   };
 }
 
@@ -78,4 +92,47 @@ export function isPluginCapabilityEnabled(
   }
 
   return matchingPlugins.some((plugin) => plugin.enabled);
+}
+
+export function pluginStateStatusDetail(
+  plugin: Pick<GranolaAppPluginState, "enabled" | "label" | "statusDetails">,
+): string {
+  return pluginStatusDetail(plugin, plugin.enabled);
+}
+
+export interface GranolaAppPluginSettingsContributionEntry {
+  contribution: GranolaPluginSettingsContribution;
+  plugin: GranolaAppPluginState;
+}
+
+export function pluginSettingsContributions(
+  plugins: GranolaAppPluginState[] | null | undefined,
+  section: GranolaPluginSettingsSection,
+): GranolaAppPluginSettingsContributionEntry[] {
+  if (!plugins?.length) {
+    return [];
+  }
+
+  const entries: GranolaAppPluginSettingsContributionEntry[] = [];
+  for (const plugin of plugins) {
+    if (!plugin.enabled) {
+      continue;
+    }
+
+    for (const contribution of plugin.settingsContributions ?? []) {
+      if (contribution.section !== section) {
+        continue;
+      }
+      if (contribution.capability && !pluginSupportsCapability(plugin, contribution.capability)) {
+        continue;
+      }
+
+      entries.push({
+        contribution: { ...contribution },
+        plugin,
+      });
+    }
+  }
+
+  return entries;
 }
