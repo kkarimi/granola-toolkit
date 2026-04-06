@@ -1,12 +1,8 @@
 import {
   type Component,
-  matchesKey,
   type OverlayOptions,
   ProcessTerminal,
   TUI,
-  truncateToWidth,
-  visibleWidth,
-  wrapTextWithAnsi,
   type OverlayHandle,
 } from "@mariozechner/pi-tui";
 
@@ -24,12 +20,18 @@ import type {
   MeetingSummarySource,
 } from "../app/index.ts";
 
-import { buildGranolaTuiSummary, renderGranolaTuiMeetingTab } from "./helpers.ts";
 import { GranolaTuiAutomationOverlay } from "./automation.ts";
 import { GranolaTuiAuthOverlay, type GranolaTuiAuthActionId } from "./auth.ts";
 import { GranolaTuiQuickOpenPalette } from "./palette.ts";
-import { granolaTuiTheme } from "./theme.ts";
-import type { GranolaTuiWorkspaceTab } from "./types.ts";
+import { handleWorkspaceInput } from "./workspace-input.ts";
+import {
+  currentDetailBody,
+  detailScrollStep,
+  renderWorkspace,
+  resolveWorkspaceLayout,
+  type GranolaTuiWorkspaceViewModel,
+} from "./workspace-render.ts";
+import type { GranolaTuiFocusPane, GranolaTuiStatusTone, GranolaTuiWorkspaceTab } from "./types.ts";
 
 export interface GranolaTuiHost {
   readonly terminal: {
@@ -49,39 +51,6 @@ export interface GranolaTuiWorkspaceOptions {
 
 export interface GranolaTuiApp extends GranolaAppApi {
   close?: () => Promise<void> | void;
-}
-
-type GranolaTuiStatusTone = "error" | "info" | "warning";
-type GranolaTuiFocusPane = "folders" | "meetings";
-
-function padLine(text: string, width: number): string {
-  const clipped = truncateToWidth(text, width, "");
-  return clipped + " ".repeat(Math.max(0, width - visibleWidth(clipped)));
-}
-
-function wrapBlock(text: string, width: number): string[] {
-  const lines: string[] = [];
-  for (const line of text.split("\n")) {
-    const wrapped = wrapTextWithAnsi(line, Math.max(1, width));
-    if (wrapped.length === 0) {
-      lines.push("");
-      continue;
-    }
-    lines.push(...wrapped);
-  }
-  return lines;
-}
-
-function toneText(tone: GranolaTuiStatusTone, text: string): string {
-  switch (tone) {
-    case "error":
-      return granolaTuiTheme.error(text);
-    case "warning":
-      return granolaTuiTheme.warning(text);
-    case "info":
-    default:
-      return granolaTuiTheme.info(text);
-  }
 }
 
 export class GranolaTuiWorkspace implements Component {
@@ -511,38 +480,40 @@ export class GranolaTuiWorkspace implements Component {
     await this.moveMeetingSelection(delta);
   }
 
-  private currentDetailBody(width: number): string[] {
-    if (this.#detailError) {
-      return wrapBlock(this.#detailError, width);
-    }
-
-    if (this.#loadingDetail && !this.#selectedMeeting) {
-      return wrapBlock("Loading meeting details…", width);
-    }
-
-    if (!this.#selectedMeeting) {
-      return wrapBlock("Select a meeting to inspect its notes, transcript, and metadata.", width);
-    }
-
-    return wrapBlock(renderGranolaTuiMeetingTab(this.#selectedMeeting, this.#tab), width);
+  private viewModel(): GranolaTuiWorkspaceViewModel {
+    return {
+      activePane: this.#activePane,
+      appState: this.#appState,
+      detailError: this.#detailError,
+      detailScroll: this.#detailScroll,
+      folderError: this.#folderError,
+      folders: this.#folders,
+      listError: this.#listError,
+      loadingDetail: this.#loadingDetail,
+      loadingMeetings: this.#loadingMeetings,
+      meetingSource: this.#meetingSource,
+      meetings: this.#meetings,
+      recentMeetingIds: this.#recentMeetingIds,
+      selectedFolderId: this.#selectedFolderId,
+      selectedMeeting: this.#selectedMeeting,
+      selectedMeetingId: this.#selectedMeetingId,
+      statusMessage: this.#statusMessage,
+      statusTone: this.#statusTone,
+      tab: this.#tab,
+    };
   }
 
-  private detailScrollStep(width: number, height: number): number {
-    const bodyHeight = Math.max(1, height - 2);
-    const totalLines = this.currentDetailBody(width).length;
-    if (totalLines <= bodyHeight) {
-      return 0;
-    }
-
-    return Math.max(1, Math.min(bodyHeight - 1, totalLines - bodyHeight));
+  private scrollStep(): number {
+    const { detailWidth } = resolveWorkspaceLayout(this.tui.terminal.columns);
+    return detailScrollStep(this.viewModel(), Math.max(1, detailWidth - 2), this.tui.terminal.rows);
   }
 
   private scrollDetail(delta: number): void {
     const totalWidth = this.tui.terminal.columns;
     const totalHeight = this.tui.terminal.rows;
-    const { detailWidth } = this.resolveLayout(totalWidth);
+    const { detailWidth } = resolveWorkspaceLayout(totalWidth);
     const bodyHeight = Math.max(1, totalHeight - 6);
-    const detailLines = this.currentDetailBody(Math.max(1, detailWidth - 2));
+    const detailLines = currentDetailBody(this.viewModel(), Math.max(1, detailWidth - 2));
     const visibleBodyLines = Math.max(1, bodyHeight - 2);
     const maxScroll = Math.max(0, detailLines.length - visibleBodyLines);
 
@@ -811,375 +782,49 @@ export class GranolaTuiWorkspace implements Component {
   }
 
   handleInput(data: string): void {
-    if (matchesKey(data, "ctrl+c") || matchesKey(data, "q")) {
-      this.options.onExit();
-      return;
-    }
-
-    if (matchesKey(data, "r")) {
-      void this.refresh(true);
-      return;
-    }
-
-    if (matchesKey(data, "/") || matchesKey(data, "ctrl+p")) {
-      this.openQuickOpen();
-      return;
-    }
-
-    if (matchesKey(data, "a")) {
-      this.openAuthPanel();
-      return;
-    }
-
-    if (matchesKey(data, "u")) {
-      this.openAutomationPanel();
-      return;
-    }
-
-    if (matchesKey(data, "tab")) {
-      this.#activePane = this.#activePane === "folders" ? "meetings" : "folders";
-      this.tui.requestRender();
-      return;
-    }
-
-    if (matchesKey(data, "left") || matchesKey(data, "h")) {
-      this.#activePane = "folders";
-      this.tui.requestRender();
-      return;
-    }
-
-    if (matchesKey(data, "right") || matchesKey(data, "l")) {
-      this.#activePane = "meetings";
-      this.tui.requestRender();
-      return;
-    }
-
-    if (matchesKey(data, "up") || matchesKey(data, "k")) {
-      void this.moveSelection(-1);
-      return;
-    }
-
-    if (matchesKey(data, "down") || matchesKey(data, "j")) {
-      void this.moveSelection(1);
-      return;
-    }
-
-    if (matchesKey(data, "pageUp")) {
-      this.scrollDetail(
-        -Math.max(1, this.detailScrollStep(this.tui.terminal.columns, this.tui.terminal.rows)),
-      );
-      return;
-    }
-
-    if (matchesKey(data, "pageDown")) {
-      this.scrollDetail(this.detailScrollStep(this.tui.terminal.columns, this.tui.terminal.rows));
-      return;
-    }
-
-    if (matchesKey(data, "1")) {
-      this.#tab = "notes";
-      this.#detailScroll = 0;
-      this.tui.requestRender();
-      return;
-    }
-
-    if (matchesKey(data, "2")) {
-      this.#tab = "transcript";
-      this.#detailScroll = 0;
-      this.tui.requestRender();
-      return;
-    }
-
-    if (matchesKey(data, "3")) {
-      this.#tab = "metadata";
-      this.#detailScroll = 0;
-      this.tui.requestRender();
-      return;
-    }
-
-    if (matchesKey(data, "4")) {
-      this.#tab = "raw";
-      this.#detailScroll = 0;
-      this.tui.requestRender();
-      return;
-    }
-
-    if (matchesKey(data, "]")) {
-      this.cycleTab(1);
-      return;
-    }
-
-    if (matchesKey(data, "[")) {
-      this.cycleTab(-1);
-    }
-  }
-
-  private resolveLayout(width: number): { detailWidth: number; listWidth: number } {
-    const minimumDetailWidth = 24;
-    const minimumListWidth = 24;
-    const available = Math.max(1, width - 3);
-    let listWidth = Math.max(minimumListWidth, Math.min(42, Math.floor(available * 0.34)));
-    let detailWidth = available - listWidth;
-
-    if (detailWidth < minimumDetailWidth) {
-      detailWidth = minimumDetailWidth;
-      listWidth = Math.max(minimumListWidth, available - detailWidth);
-    }
-
-    if (listWidth + detailWidth > available) {
-      detailWidth = Math.max(minimumDetailWidth, available - listWidth);
-    }
-
-    return {
-      detailWidth,
-      listWidth,
-    };
-  }
-
-  private renderListPane(width: number, height: number): string[] {
-    const lines: string[] = [];
-    const innerWidth = Math.max(1, width - 2);
-    const recentMeetings = this.#recentMeetingIds
-      .map((meetingId) => this.#meetings.find((meeting) => meeting.id === meetingId))
-      .filter((meeting): meeting is MeetingSummaryRecord => meeting !== undefined);
-    const folderEntries = [
-      {
-        id: undefined,
-        label: "All meetings",
-        meta: this.#folders.length > 0 ? `${this.#folders.length} folders` : "global scope",
+    handleWorkspaceInput(data, {
+      activePane: this.#activePane,
+      cycleTab: (delta) => {
+        this.cycleTab(delta);
       },
-      ...this.#folders.map((folder) => ({
-        id: folder.id,
-        label: `${folder.isFavourite ? "★ " : ""}${folder.name || folder.id}`,
-        meta: `${folder.documentCount} meetings`,
-      })),
-    ];
-    const availableRows = Math.max(2, height - 3);
-    const folderWindowSize = Math.min(
-      Math.max(3, Math.min(8, Math.floor(availableRows * 0.35))),
-      Math.max(1, availableRows - 1),
-    );
-    const recentWindowSize =
-      recentMeetings.length > 0 ? Math.min(Math.max(2, recentMeetings.length), 3) : 0;
-    const meetingWindowSize = Math.max(1, availableRows - folderWindowSize - recentWindowSize);
-
-    const folderHeader = `${
-      this.#activePane === "folders"
-        ? granolaTuiTheme.accent("Folders")
-        : granolaTuiTheme.strong("Folders")
-    } ${granolaTuiTheme.dim(`(${this.#folders.length})`)}`;
-    lines.push(padLine(folderHeader, innerWidth));
-
-    if (this.#folderError) {
-      lines.push(
-        ...wrapBlock(granolaTuiTheme.error(this.#folderError), innerWidth).slice(
-          0,
-          folderWindowSize,
-        ),
-      );
-      while (lines.length < 1 + folderWindowSize) {
-        lines.push(" ".repeat(innerWidth));
-      }
-    } else {
-      const selectedFolderIndex = this.normaliseSelectedFolderIndex();
-      const folderStartIndex = Math.max(
-        0,
-        Math.min(
-          selectedFolderIndex - Math.floor(folderWindowSize / 2),
-          folderEntries.length - folderWindowSize,
-        ),
-      );
-      const visibleFolders = folderEntries.slice(
-        folderStartIndex,
-        folderStartIndex + folderWindowSize,
-      );
-
-      for (const [offset, folder] of visibleFolders.entries()) {
-        const actualIndex = folderStartIndex + offset;
-        const selected = actualIndex === selectedFolderIndex;
-        const prefix = selected ? "> " : "  ";
-        const maxLabelWidth = Math.max(
-          6,
-          innerWidth - visibleWidth(prefix) - visibleWidth(folder.meta) - 1,
-        );
-        const label = truncateToWidth(folder.label, maxLabelWidth, "");
-        const labelBlock = `${prefix}${label}`;
-        const gap = " ".repeat(
-          Math.max(1, innerWidth - visibleWidth(labelBlock) - visibleWidth(folder.meta)),
-        );
-        const line = `${labelBlock}${gap}${granolaTuiTheme.dim(folder.meta)}`;
-        lines.push(
-          selected
-            ? padLine(granolaTuiTheme.selected(line), innerWidth)
-            : padLine(line, innerWidth),
-        );
-      }
-
-      while (lines.length < 1 + folderWindowSize) {
-        lines.push(" ".repeat(innerWidth));
-      }
-    }
-
-    lines.push(padLine(granolaTuiTheme.dim(""), innerWidth));
-
-    if (recentWindowSize > 0) {
-      lines.push(padLine(granolaTuiTheme.strong("Recent"), innerWidth));
-      for (const meeting of recentMeetings.slice(0, recentWindowSize)) {
-        const prefix = meeting.id === this.#selectedMeetingId ? "> " : "  ";
-        const dateLabel = meeting.updatedAt.slice(0, 10);
-        const maxTitleWidth = Math.max(6, innerWidth - visibleWidth(prefix) - dateLabel.length - 1);
-        const title = truncateToWidth(meeting.title || meeting.id, maxTitleWidth, "");
-        const titleBlock = `${prefix}${title}`;
-        const gap = " ".repeat(
-          Math.max(1, innerWidth - visibleWidth(titleBlock) - visibleWidth(dateLabel)),
-        );
-        lines.push(padLine(`${titleBlock}${gap}${granolaTuiTheme.dim(dateLabel)}`, innerWidth));
-      }
-      lines.push(padLine(granolaTuiTheme.dim(""), innerWidth));
-    }
-
-    const meetingsHeader = `${
-      this.#activePane === "meetings"
-        ? granolaTuiTheme.accent("Meetings")
-        : granolaTuiTheme.strong("Meetings")
-    } ${granolaTuiTheme.dim(`(${this.#meetings.length})`)}`;
-    lines.push(padLine(meetingsHeader, innerWidth));
-
-    if (this.#listError) {
-      lines.push(
-        ...wrapBlock(granolaTuiTheme.error(this.#listError), innerWidth).slice(
-          0,
-          meetingWindowSize,
-        ),
-      );
-      while (lines.length < height) {
-        lines.push(" ".repeat(innerWidth));
-      }
-      return lines;
-    }
-
-    if (this.#meetings.length === 0) {
-      const emptyMessage = this.#appState.auth.lastError
-        ? "Auth needs attention. Press a to fix credentials."
-        : this.#appState.sync.lastCompletedAt
-          ? "No meetings in this scope. Press / to quick open or Tab to change panes."
-          : "No meetings yet. Press r to sync, or a to configure auth.";
-      lines.push(...wrapBlock(emptyMessage, innerWidth).slice(0, meetingWindowSize));
-      while (lines.length < height) {
-        lines.push(" ".repeat(innerWidth));
-      }
-      return lines;
-    }
-
-    const selectedIndex = this.normaliseSelectedIndex();
-    const startIndex = Math.max(
-      0,
-      Math.min(
-        selectedIndex - Math.floor(meetingWindowSize / 2),
-        this.#meetings.length - meetingWindowSize,
-      ),
-    );
-    const visibleMeetings = this.#meetings.slice(startIndex, startIndex + meetingWindowSize);
-
-    for (const [offset, meeting] of visibleMeetings.entries()) {
-      const actualIndex = startIndex + offset;
-      const selected = actualIndex === selectedIndex;
-      const dateLabel = meeting.updatedAt.slice(0, 10);
-      const prefix = selected ? "> " : "  ";
-      const maxTitleWidth = Math.max(6, innerWidth - visibleWidth(prefix) - dateLabel.length - 1);
-      const title = truncateToWidth(meeting.title || meeting.id, maxTitleWidth, "");
-      const titleBlock = `${prefix}${title}`;
-      const gap = " ".repeat(
-        Math.max(1, innerWidth - visibleWidth(titleBlock) - visibleWidth(dateLabel)),
-      );
-      const line = `${titleBlock}${gap}${granolaTuiTheme.dim(dateLabel)}`;
-      lines.push(
-        selected ? padLine(granolaTuiTheme.selected(line), innerWidth) : padLine(line, innerWidth),
-      );
-    }
-
-    while (lines.length < height) {
-      lines.push(" ".repeat(innerWidth));
-    }
-
-    return lines;
-  }
-
-  private renderDetailPane(width: number, height: number): string[] {
-    const lines: string[] = [];
-    const innerWidth = Math.max(1, width - 2);
-    const tabs: Array<{ id: GranolaTuiWorkspaceTab; label: string }> = [
-      { id: "notes", label: "1 Notes" },
-      { id: "transcript", label: "2 Transcript" },
-      { id: "metadata", label: "3 Metadata" },
-      { id: "raw", label: "4 Raw" },
-    ];
-
-    const title =
-      this.#selectedMeeting?.meeting.meeting.title || this.#selectedMeetingId || "Meeting";
-    const titleLine = `${granolaTuiTheme.strong(title)} ${granolaTuiTheme.dim(
-      this.#selectedMeeting ? this.#selectedMeeting.meeting.meeting.id : "",
-    )}`.trim();
-    lines.push(padLine(titleLine, innerWidth));
-
-    const tabLine = tabs
-      .map((tab) =>
-        tab.id === this.#tab ? granolaTuiTheme.selected(` ${tab.label} `) : ` ${tab.label} `,
-      )
-      .join(" ");
-    lines.push(padLine(tabLine, innerWidth));
-
-    const bodyLines = this.currentDetailBody(innerWidth);
-    const bodyHeight = Math.max(1, height - 2);
-    const visibleBody = bodyLines.slice(this.#detailScroll, this.#detailScroll + bodyHeight);
-
-    lines.push(...visibleBody.map((line) => padLine(line, innerWidth)));
-    while (lines.length < height) {
-      lines.push(" ".repeat(innerWidth));
-    }
-
-    return lines;
+      exit: () => {
+        this.options.onExit();
+      },
+      moveSelection: (delta) => {
+        void this.moveSelection(delta);
+      },
+      openAuth: () => {
+        this.openAuthPanel();
+      },
+      openAutomation: () => {
+        this.openAutomationPanel();
+      },
+      openQuickOpen: () => {
+        this.openQuickOpen();
+      },
+      refresh: (forceRefresh) => {
+        void this.refresh(forceRefresh);
+      },
+      requestRender: () => {
+        this.tui.requestRender();
+      },
+      scrollDetail: (delta) => {
+        this.scrollDetail(delta);
+      },
+      scrollStep: () => this.scrollStep(),
+      selectTab: (tab) => {
+        this.#tab = tab;
+        this.#detailScroll = 0;
+        this.tui.requestRender();
+      },
+      setActivePane: (pane) => {
+        this.#activePane = pane;
+      },
+    });
   }
 
   render(width: number): string[] {
-    const totalHeight = Math.max(12, this.tui.terminal.rows);
-    const { detailWidth, listWidth } = this.resolveLayout(width);
-    const headerHeight = 2;
-    const footerHeight = 2;
-    const bodyHeight = Math.max(6, totalHeight - headerHeight - footerHeight);
-    const selectedLabel =
-      this.#selectedMeeting?.meeting.meeting.title || this.#selectedMeetingId || "none";
-
-    const headerTitle = padLine(
-      `${granolaTuiTheme.accent("Granola Toolkit TUI")} ${granolaTuiTheme.dim(
-        this.#loadingMeetings ? "loading…" : selectedLabel,
-      )}`,
-      width,
-    );
-    const headerSummary = padLine(
-      granolaTuiTheme.dim(buildGranolaTuiSummary(this.#appState, this.#meetingSource)),
-      width,
-    );
-
-    const listLines = this.renderListPane(listWidth, bodyHeight);
-    const detailLines = this.renderDetailPane(detailWidth, bodyHeight);
-    const bodyLines: string[] = [];
-
-    for (let index = 0; index < bodyHeight; index += 1) {
-      bodyLines.push(
-        `${padLine(listLines[index] ?? "", listWidth)} | ${padLine(detailLines[index] ?? "", detailWidth)}`,
-      );
-    }
-
-    const footerStatus = padLine(toneText(this.#statusTone, this.#statusMessage), width);
-    const footerHints = padLine(
-      granolaTuiTheme.dim(
-        "h/l or Tab pane  j/k move  / palette  a auth  u automation  r sync  1-4 tabs  PgUp/PgDn scroll  q quit",
-      ),
-      width,
-    );
-
-    return [headerTitle, headerSummary, ...bodyLines, footerStatus, footerHints];
+    return renderWorkspace(this.viewModel(), width, Math.max(12, this.tui.terminal.rows));
   }
 }
 
