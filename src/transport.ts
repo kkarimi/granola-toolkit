@@ -29,6 +29,7 @@ export interface GranolaServerInfo {
     exports: boolean;
     folders: boolean;
     meetingOpen: boolean;
+    plugins: boolean;
     processing: boolean;
     sync: boolean;
     webClient: boolean;
@@ -75,6 +76,7 @@ export const granolaTransportPaths = {
   health: "/health",
   meetingResolve: "/meetings/resolve",
   meetings: "/meetings",
+  plugins: "/plugins",
   processingIssues: "/processing/issues",
   root: "/",
   serverInfo: "/server/info",
@@ -126,6 +128,10 @@ export function granolaMeetingsPath(options: GranolaMeetingListOptions = {}): st
 
 export function granolaFolderPath(id: string): string {
   return `${granolaTransportPaths.folders}/${encodeURIComponent(id)}`;
+}
+
+export function granolaPluginPath(id: string): string {
+  return `${granolaTransportPaths.plugins}/${encodeURIComponent(id)}`;
 }
 
 export function granolaFolderResolvePath(query: string): string {

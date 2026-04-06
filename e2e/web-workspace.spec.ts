@@ -113,7 +113,7 @@ test.describe("toolkit web workspace", () => {
     ).toBeVisible();
   });
 
-  test("edits and tests harnesses from settings while keeping the selected meeting", async ({
+  test("configures and tests automation from Settings -> Plugins while keeping the selected meeting", async ({
     page,
   }) => {
     await page.goto(server.url);
@@ -140,7 +140,7 @@ test.describe("toolkit web workspace", () => {
       .locator(".primary-nav")
       .getByRole("button", { name: /Settings/i })
       .click();
-    await page.locator(".settings-shell").getByRole("button", { name: "Automation" }).click();
+    await page.locator(".settings-shell").getByRole("button", { name: "Plugins" }).click();
     await expect(page.getByRole("heading", { name: "Harness Editor" })).toBeVisible();
     await expect(page.getByText("Team Notes").first()).toBeVisible();
     await expect(page.getByText("Run Team Notes against Alpha Sync.")).toBeVisible({
@@ -163,7 +163,9 @@ test.describe("toolkit web workspace", () => {
     );
   });
 
-  test("guides a first-run user through onboarding", async ({ page }) => {
+  test("guides a first-run user through onboarding, then enables automation from plugins", async ({
+    page,
+  }) => {
     test.setTimeout(60_000);
     const coldServer = await startToolkitWebServer({ scenario: "cold-start" });
 
@@ -187,25 +189,32 @@ test.describe("toolkit web workspace", () => {
         timeout: 20_000,
       });
       await importMeetingsButton.click();
-      await expect(page.getByText("2 meetings indexed locally.")).toBeVisible({
-        timeout: 20_000,
-      });
-
-      await page.getByRole("button", { name: "OpenRouter" }).click();
-      await expect(page.getByText(/OpenRouter requires `OPENROUTER_API_KEY`/)).toBeVisible();
-      await page.getByRole("button", { name: "Create starter pipeline" }).click();
 
       await expect(page.getByRole("heading", { name: "Local meeting workspace" })).toBeVisible({
         timeout: 20_000,
       });
+      await expect(
+        page.getByRole("heading", { name: "A quieter way to work through meetings" }),
+      ).toBeVisible({
+        timeout: 20_000,
+      });
+      await expect(
+        page.locator(".primary-nav").getByRole("button", { name: /Review/i }),
+      ).toHaveCount(0);
       await page
         .locator(".primary-nav")
         .getByRole("button", { name: /Settings/i })
         .click();
-      await page.locator(".settings-shell").getByRole("button", { name: "Automation" }).click();
-      await expect(page.getByRole("heading", { name: "Starter Meeting Notes" })).toBeVisible({
+      await page.locator(".settings-shell").getByRole("button", { name: "Plugins" }).click();
+      await expect(page.getByText("Optional capabilities ship with the toolkit")).toBeVisible();
+      await page.getByRole("button", { name: "Enable automation" }).click();
+      await expect(page.getByRole("heading", { name: "Harness Editor" })).toBeVisible({
         timeout: 20_000,
       });
+      await expect(page.getByRole("button", { name: "New Harness" })).toBeVisible();
+      await expect(
+        page.locator(".primary-nav").getByRole("button", { name: /Review/i }),
+      ).toBeVisible();
       await expect(
         page.locator(".primary-nav").getByRole("button", { name: "Sync now" }),
       ).toBeVisible();

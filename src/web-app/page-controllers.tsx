@@ -12,6 +12,7 @@ import type {
   GranolaAutomationEvaluationRun,
   GranolaAppAuthMode,
   GranolaAppAuthState,
+  GranolaAppPluginState,
   GranolaAppState,
   GranolaMeetingBundle,
   GranolaMeetingSort,
@@ -35,6 +36,7 @@ import {
   IssueReviewPanel,
   MeetingList,
   PageHeader,
+  PluginsPanel,
   ProcessingIssuesPanel,
   ReviewInboxPanel,
   RunReviewPanel,
@@ -50,6 +52,7 @@ type ReviewSummary = GranolaReviewInboxSummary;
 
 export function HomePageController(props: {
   appState: GranolaAppState | null;
+  automationEnabled: boolean;
   folders: FolderSummaryRecord[];
   latestMeetings: MeetingSummaryRecord[];
   onOpenFolder: (folderId: string) => void;
@@ -84,6 +87,7 @@ export function HomePageController(props: {
             </button>
             <button
               class="button button--secondary"
+              disabled={!props.automationEnabled}
               onClick={() => props.onOpenReviewPage()}
               type="button"
             >
@@ -97,6 +101,7 @@ export function HomePageController(props: {
       />
       <HomeDashboardPanel
         appState={props.appState}
+        automationEnabled={props.automationEnabled}
         folders={props.folders}
         latestMeetings={props.latestMeetings}
         onOpenFolder={(folderId) => {
@@ -428,6 +433,7 @@ export function SettingsPageController(props: {
   apiKeyDraft: string;
   appState: GranolaAppState | null;
   auth: GranolaAppAuthState | undefined;
+  automationEnabled: boolean;
   automationRuns: GranolaAutomationActionRun[];
   harnessDirty: boolean;
   harnessError: string;
@@ -457,6 +463,7 @@ export function SettingsPageController(props: {
   onSaveApiKey: () => void;
   onSaveHarnesses: () => void;
   onSelectHarness: (id: string) => void;
+  onToggleAutomation: (enabled: boolean) => void;
   onSwitchMode: (mode: GranolaAppAuthMode) => void;
   onTestHarness: () => void;
   onTestKindChange: (kind: GranolaAutomationArtefactKind) => void;
@@ -464,6 +471,7 @@ export function SettingsPageController(props: {
   password: string;
   preferredProvider: GranolaAgentProviderKind;
   processingIssues: import("../app/index.ts").GranolaProcessingIssue[];
+  plugin: GranolaAppPluginState;
   selectedHarness: GranolaAgentHarness | null;
   selectedHarnessId: string | null;
   selectedMeeting: MeetingRecord | null;
@@ -475,7 +483,7 @@ export function SettingsPageController(props: {
 }) {
   const settingsTabs: Array<{ id: WebSettingsSection; label: string }> = [
     { id: "auth", label: "Auth" },
-    { id: "pipelines", label: "Automation" },
+    { id: "plugins", label: "Plugins" },
     { id: "exports", label: "Exports" },
     { id: "diagnostics", label: "Diagnostics" },
   ];
@@ -483,7 +491,7 @@ export function SettingsPageController(props: {
   return (
     <>
       <PageHeader
-        description="Settings holds auth, automation, export history, and diagnostics so the rest of the app can stay focused on browsing and reading."
+        description="Settings holds auth, optional plugins, export history, and diagnostics so the rest of the app can stay focused on browsing and reading."
         eyebrow="Settings"
         title="Service settings"
       />
@@ -524,28 +532,35 @@ export function SettingsPageController(props: {
                 preferredProvider={props.preferredProvider}
               />
             </Match>
-            <Match when={props.settingsTab === "pipelines"}>
-              <HarnessEditorPanel
-                dirty={props.harnessDirty}
-                error={props.harnessError}
-                explanations={props.harnessExplanations}
-                explanationEventKind={props.harnessExplanationEventKind}
-                harnesses={props.harnesses}
-                onChange={(harness) => props.onChangeHarness(harness)}
-                onDuplicate={() => props.onDuplicateHarness()}
-                onNew={() => props.onNewHarness()}
-                onReload={() => props.onReloadHarnesses()}
-                onRemove={() => props.onRemoveHarness()}
-                onSave={() => props.onSaveHarnesses()}
-                onSelect={(id) => props.onSelectHarness(id)}
-                onTest={() => props.onTestHarness()}
-                onTestKindChange={(kind) => props.onTestKindChange(kind)}
-                selectedHarness={props.selectedHarness}
-                selectedHarnessId={props.selectedHarnessId}
-                selectedMeeting={props.selectedMeeting}
-                testKind={props.harnessTestKind}
-                testResult={props.harnessTestResult}
+            <Match when={props.settingsTab === "plugins"}>
+              <PluginsPanel
+                automationEnabled={props.automationEnabled}
+                onToggleAutomation={(enabled) => props.onToggleAutomation(enabled)}
+                plugin={props.plugin}
               />
+              <Show when={props.automationEnabled}>
+                <HarnessEditorPanel
+                  dirty={props.harnessDirty}
+                  error={props.harnessError}
+                  explanations={props.harnessExplanations}
+                  explanationEventKind={props.harnessExplanationEventKind}
+                  harnesses={props.harnesses}
+                  onChange={(harness) => props.onChangeHarness(harness)}
+                  onDuplicate={() => props.onDuplicateHarness()}
+                  onNew={() => props.onNewHarness()}
+                  onReload={() => props.onReloadHarnesses()}
+                  onRemove={() => props.onRemoveHarness()}
+                  onSave={() => props.onSaveHarnesses()}
+                  onSelect={(id) => props.onSelectHarness(id)}
+                  onTest={() => props.onTestHarness()}
+                  onTestKindChange={(kind) => props.onTestKindChange(kind)}
+                  selectedHarness={props.selectedHarness}
+                  selectedHarnessId={props.selectedHarnessId}
+                  selectedMeeting={props.selectedMeeting}
+                  testKind={props.harnessTestKind}
+                  testResult={props.harnessTestResult}
+                />
+              </Show>
             </Match>
             <Match when={props.settingsTab === "exports"}>
               <section class="settings-export-actions">
@@ -577,16 +592,18 @@ export function SettingsPageController(props: {
                 serverInfo={props.serverInfo}
                 statusLabel={props.statusLabel}
               />
-              <ProcessingIssuesPanel
-                issues={props.processingIssues}
-                onOpenMeeting={(meetingId) => props.onOpenMeeting(meetingId)}
-                onRecover={(issueId) => props.onRecover(issueId)}
-              />
-              <AutomationRunsPanel
-                onApprove={(runId) => props.onApproveRun(runId)}
-                onReject={(runId) => props.onRejectRun(runId)}
-                runs={props.automationRuns}
-              />
+              <Show when={props.automationEnabled}>
+                <ProcessingIssuesPanel
+                  issues={props.processingIssues}
+                  onOpenMeeting={(meetingId) => props.onOpenMeeting(meetingId)}
+                  onRecover={(issueId) => props.onRecover(issueId)}
+                />
+                <AutomationRunsPanel
+                  onApprove={(runId) => props.onApproveRun(runId)}
+                  onReject={(runId) => props.onRejectRun(runId)}
+                  runs={props.automationRuns}
+                />
+              </Show>
             </Match>
           </Switch>
         </div>

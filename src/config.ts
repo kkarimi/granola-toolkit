@@ -4,6 +4,7 @@ import { dirname, isAbsolute, join, resolve as resolvePath } from "node:path";
 
 import type { AppConfig } from "./types.ts";
 import { defaultGranolaToolkitPersistenceLayout } from "./persistence/layout.ts";
+import { createDefaultPluginSettingsStore } from "./plugins.ts";
 import {
   firstExistingPath,
   granolaCacheCandidates,
@@ -159,6 +160,14 @@ export async function loadConfig(options: {
   const configValues = config.values;
   const defaultSupabase = firstExistingPath(granolaSupabaseCandidates());
   const defaultCache = firstExistingPath(granolaCacheCandidates());
+  const pluginsFile =
+    pickString(env.GRANOLA_PLUGINS_FILE) ??
+    resolveConfigPath(
+      configPath,
+      pickString(configValues["plugins-file"]) ?? pickString(configValues.pluginsFile),
+    ) ??
+    defaultGranolaToolkitPersistenceLayout().pluginsFile;
+  const persistedPlugins = await createDefaultPluginSettingsStore(pluginsFile).readSettings();
   const agentTimeoutValue =
     pickString(env.GRANOLA_AGENT_TIMEOUT) ??
     pickString(configValues["agent-timeout"]) ??
@@ -267,6 +276,14 @@ export async function loadConfig(options: {
         resolveConfigPath(configPath, pickString(configValues.output)) ??
         "./notes",
       timeoutMs: parseDuration(timeoutValue),
+    },
+    plugins: {
+      automationEnabled:
+        envFlag(env.GRANOLA_AUTOMATION_PLUGIN_ENABLED) ??
+        pickBoolean(configValues["automation-plugin-enabled"]) ??
+        pickBoolean(configValues.automationPluginEnabled) ??
+        persistedPlugins.automationEnabled,
+      settingsFile: pluginsFile,
     },
     supabase:
       pickString(options.globalFlags.supabase) ??

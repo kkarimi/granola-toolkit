@@ -27,6 +27,7 @@ describe("web onboarding", () => {
         exports: true,
         folders: true,
         meetingOpen: true,
+        plugins: true,
         processing: true,
         sync: true,
         webClient: true,
@@ -100,6 +101,17 @@ describe("web onboarding", () => {
         loaded: true,
         meetingCount: 2,
       },
+      plugins: {
+        automation: {
+          configurable: true,
+          description: "Automation plugin",
+          enabled: true,
+          id: "automation",
+          label: "Automation",
+          shipped: true,
+        },
+        loaded: true,
+      },
       sync: {
         eventCount: 1,
         eventsFile: "/tmp/sync-events.jsonl",
@@ -135,6 +147,102 @@ describe("web onboarding", () => {
     expect(derived.pipelineReady).toBe(true);
     expect(derived.serviceDetail).toBe("Background service active · sync every minute.");
     expect(derived.stepCards.map((step) => step.complete)).toEqual([true, true, true]);
+  });
+
+  test("treats automation as optional until the plugin is enabled", () => {
+    const appState = {
+      auth: {
+        apiKeyAvailable: true,
+        mode: "api-key",
+        refreshAvailable: false,
+        storedSessionAvailable: false,
+        supabaseAvailable: false,
+      },
+      automation: {
+        artefactCount: 0,
+        loaded: false,
+        matchCount: 0,
+        pendingArtefactCount: 0,
+        pendingRunCount: 0,
+        ruleCount: 0,
+        runCount: 0,
+      },
+      cache: {
+        configured: true,
+        documentCount: 2,
+        filePath: "/tmp/cache.json",
+        loaded: true,
+        transcriptCount: 1,
+      },
+      config: {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        transcripts: {
+          cacheFile: "/tmp/cache.json",
+          output: "/tmp/transcripts",
+        },
+      },
+      documents: {
+        count: 2,
+        loaded: true,
+      },
+      exports: {
+        jobs: [],
+      },
+      folders: {
+        count: 2,
+        loaded: true,
+      },
+      index: {
+        available: true,
+        filePath: "/tmp/index.json",
+        loaded: true,
+        meetingCount: 2,
+      },
+      plugins: {
+        automation: {
+          configurable: true,
+          description: "Automation plugin",
+          enabled: false,
+          id: "automation",
+          label: "Automation",
+          shipped: true,
+        },
+        loaded: true,
+      },
+      sync: {
+        eventCount: 1,
+        eventsFile: "/tmp/sync-events.jsonl",
+        filePath: "/tmp/sync-state.json",
+        lastChanges: [],
+        lastCompletedAt: "2024-03-01T12:00:00.000Z",
+        running: false,
+      },
+      ui: {
+        surface: "web",
+      },
+    } satisfies GranolaAppState;
+
+    const derived = deriveOnboardingState({
+      appState,
+      automationRuleCount: 0,
+      harnesses: [],
+      meetingsLoadedCount: 2,
+      serverInfo: null,
+    });
+
+    expect(derived.complete).toBe(true);
+    expect(derived.pipelineReady).toBe(true);
+    expect(derived.stepCards[2]).toEqual(
+      expect.objectContaining({
+        complete: true,
+        cta: undefined,
+        title: "Automation Plugin",
+      }),
+    );
   });
 
   test("builds a starter pipeline around the chosen provider", () => {

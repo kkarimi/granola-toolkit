@@ -383,6 +383,17 @@ function createAppState(): GranolaAppState {
       loadedAt: "2024-03-01T12:00:00Z",
       meetingCount: 2,
     },
+    plugins: {
+      automation: {
+        configurable: true,
+        description: "Automation plugin",
+        enabled: true,
+        id: "automation",
+        label: "Automation",
+        shipped: true,
+      },
+      loaded: true,
+    },
     sync: {
       eventCount: 0,
       eventsFile: "/tmp/sync-events.jsonl",
@@ -587,6 +598,18 @@ function createWorkspaceHarness(
   }));
 
   const app: GranolaTuiApp = {
+    listPlugins: vi.fn(async () => ({
+      plugins: [
+        {
+          configurable: true,
+          description: "Automation plugin",
+          enabled: true,
+          id: "automation" as const,
+          label: "Automation",
+          shipped: true,
+        },
+      ],
+    })),
     explainAgentHarnesses: vi.fn(async () => ({
       eventKind: "transcript.ready" as const,
       harnesses: [],
@@ -730,6 +753,14 @@ function createWorkspaceHarness(
         listeners.delete(listener);
       };
     },
+    setPluginEnabled: vi.fn(async () => ({
+      configurable: true,
+      description: "Automation plugin",
+      enabled: true,
+      id: "automation" as const,
+      label: "Automation",
+      shipped: true,
+    })),
     switchAuthMode: vi.fn(async () => state.auth),
     updateAutomationArtefact: vi.fn(),
   };

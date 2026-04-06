@@ -5,6 +5,7 @@ import { For, Show, type JSX } from "solid-js";
 import type {
   GranolaAppAuthState,
   GranolaAppExportJobState,
+  GranolaAppPluginState,
   GranolaAppState,
 } from "../app/index.ts";
 import { granolaAgentProviderLabel } from "../agent-defaults.ts";
@@ -34,6 +35,12 @@ interface AuthPanelProps {
 interface ExportJobsPanelProps {
   jobs: GranolaAppExportJobState[];
   onRerun: (id: string) => void;
+}
+
+interface PluginsPanelProps {
+  automationEnabled: boolean;
+  onToggleAutomation: (enabled: boolean) => void;
+  plugin: GranolaAppPluginState;
 }
 
 export function DiagnosticsPanel(props: {
@@ -298,6 +305,56 @@ export function AuthPanel(props: AuthPanelProps): JSX.Element {
             </div>
           )}
         </Show>
+      </div>
+    </section>
+  );
+}
+
+export function PluginsPanel(props: PluginsPanelProps): JSX.Element {
+  return (
+    <section class="auth-panel">
+      <div class="auth-panel__head">
+        <h3>Plugins</h3>
+        <p>Optional capabilities ship with the toolkit but stay off until you turn them on.</p>
+      </div>
+      <div class="auth-panel__body">
+        <div class="auth-card">
+          <div class="status-grid">
+            <div>
+              <span class="status-label">Plugin</span>
+              <strong>{props.plugin.label}</strong>
+            </div>
+            <div>
+              <span class="status-label">Shipped</span>
+              <strong>{props.plugin.shipped ? "yes" : "no"}</strong>
+            </div>
+            <div>
+              <span class="status-label">Status</span>
+              <strong>{props.automationEnabled ? "enabled" : "disabled"}</strong>
+            </div>
+            <div>
+              <span class="status-label">Configurable</span>
+              <strong>{props.plugin.configurable ? "yes" : "no"}</strong>
+            </div>
+          </div>
+          <div class="auth-card__meta">{props.plugin.description}</div>
+          <div class="auth-card__meta">
+            {props.automationEnabled
+              ? "Automation is live. Configure harnesses below, then use Review to inspect generated artefacts and approvals."
+              : "Enable this to unlock harnesses, review queues, automation commands, and post-meeting processing."}
+          </div>
+          <div class="auth-card__actions">
+            <button
+              class="button button--secondary"
+              onClick={() => {
+                props.onToggleAutomation(!props.automationEnabled);
+              }}
+              type="button"
+            >
+              {props.automationEnabled ? "Disable automation" : "Enable automation"}
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   );

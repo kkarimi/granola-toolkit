@@ -100,6 +100,7 @@ interface MeetingListProps {
 
 interface HomeDashboardPanelProps {
   appState?: GranolaAppState | null;
+  automationEnabled: boolean;
   folders: FolderSummaryRecord[];
   onOpenFolder: (folderId: string) => void;
   onOpenLatestMeeting: (meeting: MeetingSummaryRecord) => void;
@@ -350,12 +351,18 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
           </span>
         </article>
         <article class="dashboard-stat">
-          <span class="dashboard-stat__label">Review queue</span>
-          <strong>{reviewSummaryLabel(props.reviewSummary)}</strong>
+          <span class="dashboard-stat__label">
+            {props.automationEnabled ? "Review queue" : "Automation plugin"}
+          </span>
+          <strong>
+            {props.automationEnabled ? reviewSummaryLabel(props.reviewSummary) : "Disabled"}
+          </strong>
           <span>
-            {props.reviewSummary.total > 0
-              ? `${props.reviewSummary.issues} issues, ${props.reviewSummary.artefacts} artefacts, ${props.reviewSummary.runs} approvals.`
-              : "Nothing needs approval right now."}
+            {props.automationEnabled
+              ? props.reviewSummary.total > 0
+                ? `${props.reviewSummary.issues} issues, ${props.reviewSummary.artefacts} artefacts, ${props.reviewSummary.runs} approvals.`
+                : "Nothing needs approval right now."
+              : "Enable automation from Settings -> Plugins when you want agent workflows and review queues."}
           </span>
         </article>
       </div>
@@ -472,15 +479,17 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
             <strong>{health().title}</strong>
             <p>{health().detail}</p>
             <Show when={props.processingIssues.length > 0 || props.reviewSummary.total > 0}>
-              <button
-                class="button button--secondary"
-                onClick={() => {
-                  props.onOpenReview();
-                }}
-                type="button"
-              >
-                Open Review Inbox
-              </button>
+              <Show when={props.automationEnabled}>
+                <button
+                  class="button button--secondary"
+                  onClick={() => {
+                    props.onOpenReview();
+                  }}
+                  type="button"
+                >
+                  Open Review Inbox
+                </button>
+              </Show>
             </Show>
           </div>
         </section>

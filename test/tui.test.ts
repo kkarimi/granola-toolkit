@@ -283,6 +283,17 @@ describe("buildGranolaTuiSummary", () => {
           loadedAt: "2024-03-01T12:00:00Z",
           meetingCount: 2,
         },
+        plugins: {
+          automation: {
+            configurable: true,
+            description: "Automation plugin",
+            enabled: true,
+            id: "automation",
+            label: "Automation",
+            shipped: true,
+          },
+          loaded: true,
+        },
         sync: {
           eventCount: 0,
           eventsFile: "/tmp/sync-events.jsonl",

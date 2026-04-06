@@ -28,4 +28,9 @@ export {
   type WebSettingsSection,
   type WebStatusTone,
 } from "./shared-components.tsx";
-export { AuthPanel, DiagnosticsPanel, ExportJobsPanel } from "./settings-components.tsx";
+export {
+  AuthPanel,
+  DiagnosticsPanel,
+  ExportJobsPanel,
+  PluginsPanel,
+} from "./settings-components.tsx";

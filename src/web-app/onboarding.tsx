@@ -152,9 +152,11 @@ export function deriveOnboardingState(input: {
   serverInfo?: GranolaServerInfo | null;
 }): GranolaOnboardingState {
   const auth = input.appState?.auth;
+  const automationEnabled = input.appState?.plugins.automation.enabled === true;
   const connected = Boolean(auth?.apiKeyAvailable || auth?.storedSessionAvailable);
   const synced = Boolean(input.appState?.sync.lastCompletedAt);
-  const pipelineReady = input.harnesses.length > 0 && input.automationRuleCount > 0;
+  const pipelineReady =
+    !automationEnabled || (input.harnesses.length > 0 && input.automationRuleCount > 0);
   const syncedMeetingCount = input.appState?.documents.count ?? input.meetingsLoadedCount;
   const service = describeService(input.serverInfo);
 
@@ -180,14 +182,18 @@ export function deriveOnboardingState(input: {
       title: "Import Meetings",
     },
     {
-      body: "Choose the AI agent you want to use by default, then seed a starter reviewable notes pipeline.",
+      body: automationEnabled
+        ? "Choose the AI agent you want to use by default, then seed a starter reviewable notes pipeline."
+        : "Automation is optional. Enable the plugin later from Settings -> Plugins when you want agent-driven meeting pipelines.",
       complete: pipelineReady,
-      cta: pipelineReady ? undefined : "Create starter pipeline",
+      cta: automationEnabled && !pipelineReady ? "Create starter pipeline" : undefined,
       detail: pipelineReady
-        ? "Starter harnesses and automation rules are ready."
+        ? automationEnabled
+          ? "Starter harnesses and automation rules are ready."
+          : "You can keep using Granola Toolkit without enabling automation yet."
         : "The starter pipeline generates reviewable meeting notes on transcript-ready events.",
       id: "agent",
-      title: "Choose An Agent",
+      title: automationEnabled ? "Choose An Agent" : "Automation Plugin",
     },
   ];
   const activeStepId = stepCards.find((step) => !step.complete)?.id ?? null;

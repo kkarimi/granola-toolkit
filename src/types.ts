@@ -160,6 +160,10 @@ export interface AppConfig {
   configFileUsed?: string;
   debug: boolean;
   notes: NotesOptions;
+  plugins?: {
+    automationEnabled: boolean;
+    settingsFile: string;
+  };
   supabase?: string;
   transcripts: TranscriptOptions;
 }

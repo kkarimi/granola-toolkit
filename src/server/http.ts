@@ -21,6 +21,7 @@ import { handleAuthRoute } from "./routes/auth.ts";
 import { handleAutomationRoute } from "./routes/automation.ts";
 import { handleCatalogRoute } from "./routes/catalog.ts";
 import { handleExportRoute } from "./routes/exports.ts";
+import { handlePluginRoute } from "./routes/plugins.ts";
 import { handlePublicRoute } from "./routes/public.ts";
 import { handleSyncRoute } from "./routes/sync.ts";
 
@@ -56,6 +57,7 @@ function routeHandlers(): GranolaServerRouteHandler[] {
     handlePublicRoute,
     handleSyncRoute,
     handleAuthRoute,
+    handlePluginRoute,
     handleAutomationRoute,
     handleCatalogRoute,
     handleExportRoute,
@@ -92,6 +94,7 @@ export async function startGranolaServer(
       exports: true,
       folders: true,
       meetingOpen: true,
+      plugins: true,
       processing: true,
       sync: true,
       webClient: enableWebClient,

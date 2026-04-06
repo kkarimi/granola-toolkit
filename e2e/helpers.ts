@@ -295,6 +295,10 @@ export async function startToolkitWebServer(
         output: join(outputRoot, "notes"),
         timeoutMs: 120_000,
       },
+      plugins: {
+        automationEnabled: scenario !== "cold-start",
+        settingsFile: join(outputRoot, "plugins.json"),
+      },
       supabase: "/tmp/supabase.json",
       transcripts: {
         cacheFile,

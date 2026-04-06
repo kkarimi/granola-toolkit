@@ -14,6 +14,9 @@ import type {
   GranolaAutomationActionRunStatus,
   GranolaAppAuthMode,
   GranolaAppAuthState,
+  GranolaAppPluginId,
+  GranolaAppPluginState,
+  GranolaAppPluginsResult,
   GranolaAppSyncEventsResult,
   GranolaAppSyncResult,
   GranolaAppSyncState,
@@ -53,6 +56,7 @@ import {
   granolaMeetingPath,
   granolaMeetingResolvePath,
   granolaMeetingsPath,
+  granolaPluginPath,
   granolaProcessingIssueRecoverPath,
   granolaProcessingIssuesPath,
   granolaTransportPaths,
@@ -234,6 +238,20 @@ export class GranolaServerClient implements GranolaAppApi {
 
   async inspectAuth(): Promise<GranolaAppAuthState> {
     return await this.requestJson(granolaTransportPaths.authStatus);
+  }
+
+  async listPlugins(): Promise<GranolaAppPluginsResult> {
+    return await this.requestJson(granolaTransportPaths.plugins);
+  }
+
+  async setPluginEnabled(id: GranolaAppPluginId, enabled: boolean): Promise<GranolaAppPluginState> {
+    return await this.requestJson(granolaPluginPath(id), {
+      body: JSON.stringify({ enabled }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    });
   }
 
   async listAgentHarnesses(): Promise<GranolaAgentHarnessesResult> {

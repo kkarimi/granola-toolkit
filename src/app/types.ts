@@ -444,6 +444,26 @@ export interface GranolaAppAutomationState {
   runsFile?: string;
 }
 
+export type GranolaAppPluginId = "automation";
+
+export interface GranolaAppPluginState {
+  configurable: boolean;
+  description: string;
+  enabled: boolean;
+  id: GranolaAppPluginId;
+  label: string;
+  shipped: boolean;
+}
+
+export interface GranolaAppPluginsState {
+  automation: GranolaAppPluginState;
+  loaded: boolean;
+}
+
+export interface GranolaAppPluginsResult {
+  plugins: GranolaAppPluginState[];
+}
+
 export interface GranolaAppExportRunState {
   format: string;
   itemCount: number;
@@ -486,6 +506,7 @@ export interface GranolaAppState {
     transcripts?: GranolaAppExportRunState;
   };
   index: GranolaAppIndexState;
+  plugins: GranolaAppPluginsState;
   sync: GranolaAppSyncState;
   ui: GranolaAppUIState;
 }
@@ -676,6 +697,8 @@ export interface GranolaAppApi {
   getState(): GranolaAppState;
   subscribe(listener: (event: GranolaAppStateEvent) => void): () => void;
   inspectAuth(): Promise<GranolaAppAuthState>;
+  listPlugins(): Promise<GranolaAppPluginsResult>;
+  setPluginEnabled(id: GranolaAppPluginId, enabled: boolean): Promise<GranolaAppPluginState>;
   listAgentHarnesses(): Promise<GranolaAgentHarnessesResult>;
   saveAgentHarnesses(harnesses: GranolaAgentHarness[]): Promise<GranolaAgentHarnessesResult>;
   explainAgentHarnesses(meetingId: string): Promise<GranolaAgentHarnessExplanationsResult>;

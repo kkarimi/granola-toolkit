@@ -84,6 +84,7 @@ function makeServerInfo(overrides: Partial<GranolaServerInfo> = {}): GranolaServ
       exports: true,
       folders: true,
       meetingOpen: true,
+      plugins: true,
       processing: true,
       sync: true,
       webClient: true,

@@ -72,6 +72,7 @@ import {
   type MeetingIndexStore,
 } from "../meeting-index.ts";
 import { createDefaultPkmTargetStore, type PkmTargetStore } from "../pkm-targets.ts";
+import { createDefaultPluginSettingsStore, type PluginSettingsStore } from "../plugins.ts";
 import {
   defaultSyncEventsFilePath,
   createDefaultSyncStateStore,
@@ -123,6 +124,9 @@ import type {
   GranolaAppAuthMode,
   GranolaAppAuthState,
   GranolaAppExportJobState,
+  GranolaAppPluginId,
+  GranolaAppPluginState,
+  GranolaAppPluginsResult,
   GranolaAgentHarnessesResult,
   GranolaAgentHarnessExplanationsResult,
   GranolaAppSyncChange,
@@ -194,6 +198,7 @@ interface GranolaAppDependencies {
   meetingIndex?: MeetingSummaryRecord[];
   meetingIndexStore?: MeetingIndexStore;
   pkmTargetStore?: PkmTargetStore;
+  pluginSettingsStore?: PluginSettingsStore;
   now?: () => Date;
   searchIndex?: GranolaSearchIndexEntry[];
   searchIndexStore?: SearchIndexStore;
@@ -237,6 +242,22 @@ function cloneMeetingSummary(meeting: MeetingSummaryRecord): MeetingSummaryRecor
       ? meeting.folders.map((folder) => cloneFolderSummary(folder))
       : [],
     tags: [...meeting.tags],
+  };
+}
+
+function clonePluginState(plugin: GranolaAppPluginState): GranolaAppPluginState {
+  return { ...plugin };
+}
+
+function defaultAutomationPluginState(enabled: boolean): GranolaAppPluginState {
+  return {
+    configurable: true,
+    description:
+      "Generate reviewable notes and enrichments, run harnesses, and process post-meeting automations.",
+    enabled,
+    id: "automation",
+    label: "Automation",
+    shipped: true,
   };
 }
 
@@ -349,6 +370,10 @@ function cloneState(state: GranolaAppState): GranolaAppState {
       transcripts: cloneGranolaExportRunState(state.exports.transcripts),
     },
     index: { ...state.index },
+    plugins: {
+      automation: clonePluginState(state.plugins.automation),
+      loaded: state.plugins.loaded,
+    },
     sync: cloneSyncState(state.sync),
     ui: { ...state.ui },
   };
@@ -383,8 +408,10 @@ function defaultState(
     },
     config: {
       ...config,
+      automation: config.automation ? { ...config.automation } : undefined,
       agents: config.agents ? { ...config.agents } : undefined,
       notes: { ...config.notes },
+      plugins: config.plugins ? { ...config.plugins } : undefined,
       transcripts: { ...config.transcripts },
     },
     documents: {
@@ -403,6 +430,10 @@ function defaultState(
       filePath: defaultMeetingIndexFilePath(),
       loaded: false,
       meetingCount: 0,
+    },
+    plugins: {
+      automation: defaultAutomationPluginState(config.plugins?.automationEnabled === true),
+      loaded: true,
     },
     sync: {
       eventCount: 0,
@@ -431,7 +462,31 @@ export class GranolaApp implements GranolaAppApi {
     private readonly deps: GranolaAppDependencies,
     options: { surface?: GranolaAppSurface } = {},
   ) {
-    this.#state = defaultState(config, deps.auth, options.surface ?? "cli");
+    const automationPluginEnabled =
+      config.plugins?.automationEnabled ??
+      Boolean(
+        deps.agentHarnessStore ||
+        deps.agentRunner ||
+        deps.automationArtefactStore ||
+        deps.automationMatchStore ||
+        deps.automationRunStore ||
+        deps.automationRuleStore ||
+        deps.automationArtefacts?.length ||
+        deps.automationMatches?.length ||
+        deps.automationRules?.length ||
+        deps.automationRuns?.length,
+      );
+    this.#state = defaultState(
+      {
+        ...config,
+        plugins: {
+          automationEnabled: automationPluginEnabled,
+          settingsFile: config.plugins?.settingsFile ?? "",
+        },
+      },
+      deps.auth,
+      options.surface ?? "cli",
+    );
     const createGranolaClient =
       deps.createGranolaClient ??
       (deps.syncAdapterRegistry
@@ -587,6 +642,16 @@ export class GranolaApp implements GranolaAppApi {
     this.#catalog.resetCacheState();
   }
 
+  private automationPluginEnabled(): boolean {
+    return this.#state.plugins.automation.enabled;
+  }
+
+  private assertAutomationPluginEnabled(): void {
+    if (!this.automationPluginEnabled()) {
+      throw new Error("automation plugin is disabled. Enable it in Settings -> Plugins first.");
+    }
+  }
+
   private async persistSyncState(): Promise<void> {
     if (!this.deps.syncStateStore) {
       return;
@@ -651,6 +716,37 @@ export class GranolaApp implements GranolaAppApi {
     return await this.#auth.inspectAuth();
   }
 
+  async listPlugins(): Promise<GranolaAppPluginsResult> {
+    return {
+      plugins: [clonePluginState(this.#state.plugins.automation)],
+    };
+  }
+
+  async setPluginEnabled(id: GranolaAppPluginId, enabled: boolean): Promise<GranolaAppPluginState> {
+    const nextPlugin = defaultAutomationPluginState(enabled);
+    this.#state.plugins = {
+      automation: nextPlugin,
+      loaded: true,
+    };
+    this.#state.config = {
+      ...this.#state.config,
+      plugins: {
+        automationEnabled: enabled,
+        settingsFile:
+          this.#state.config.plugins?.settingsFile ?? this.config.plugins?.settingsFile ?? "",
+      },
+    };
+
+    if (this.deps.pluginSettingsStore) {
+      await this.deps.pluginSettingsStore.writeSettings({
+        automationEnabled: enabled,
+      });
+    }
+
+    this.emitStateUpdate();
+    return clonePluginState(nextPlugin);
+  }
+
   async inspectSync(): Promise<GranolaAppSyncState> {
     return cloneSyncState(this.#state.sync);
   }
@@ -670,18 +766,22 @@ export class GranolaApp implements GranolaAppApi {
   async listAutomationArtefacts(
     options: GranolaAutomationArtefactListOptions = {},
   ): Promise<GranolaAutomationArtefactsResult> {
+    this.assertAutomationPluginEnabled();
     return await this.#automation.listAutomationArtefacts(options);
   }
 
   async listAgentHarnesses(): Promise<GranolaAgentHarnessesResult> {
+    this.assertAutomationPluginEnabled();
     return await this.#automation.listAgentHarnesses();
   }
 
   async saveAgentHarnesses(harnesses: GranolaAgentHarness[]): Promise<GranolaAgentHarnessesResult> {
+    this.assertAutomationPluginEnabled();
     return await this.#automation.saveAgentHarnesses(harnesses);
   }
 
   async explainAgentHarnesses(meetingId: string): Promise<GranolaAgentHarnessExplanationsResult> {
+    this.assertAutomationPluginEnabled();
     return await this.#automation.explainAgentHarnesses(meetingId);
   }
 
@@ -695,10 +795,12 @@ export class GranolaApp implements GranolaAppApi {
       provider?: GranolaAutomationAgentAction["provider"];
     } = {},
   ): Promise<GranolaAutomationEvaluationResult> {
+    this.assertAutomationPluginEnabled();
     return await this.#automation.evaluateAutomationCases(cases, options);
   }
 
   async getAutomationArtefact(id: string): Promise<GranolaAutomationArtefact> {
+    this.assertAutomationPluginEnabled();
     return await this.#automation.getAutomationArtefact(id);
   }
 
@@ -709,26 +811,31 @@ export class GranolaApp implements GranolaAppApi {
       severity?: GranolaProcessingIssueSeverity;
     } = {},
   ): Promise<GranolaProcessingIssuesResult> {
+    this.assertAutomationPluginEnabled();
     return await this.#automation.listProcessingIssues(options);
   }
 
   async listAutomationRules(): Promise<GranolaAutomationRulesResult> {
+    this.assertAutomationPluginEnabled();
     return await this.#automation.listAutomationRules();
   }
 
   async saveAutomationRules(rules: GranolaAutomationRule[]): Promise<GranolaAutomationRulesResult> {
+    this.assertAutomationPluginEnabled();
     return await this.#automation.saveAutomationRules(rules);
   }
 
   async listAutomationMatches(
     options: { limit?: number } = {},
   ): Promise<GranolaAutomationMatchesResult> {
+    this.assertAutomationPluginEnabled();
     return await this.#automation.listAutomationMatches(options);
   }
 
   async listAutomationRuns(
     options: { limit?: number; status?: GranolaAutomationActionRun["status"] } = {},
   ): Promise<GranolaAutomationRunsResult> {
+    this.assertAutomationPluginEnabled();
     return await this.#automation.listAutomationRuns(options);
   }
 
@@ -737,6 +844,7 @@ export class GranolaApp implements GranolaAppApi {
     decision: "approve" | "reject",
     options: { note?: string } = {},
   ): Promise<GranolaAutomationActionRun> {
+    this.assertAutomationPluginEnabled();
     return await this.#automation.resolveAutomationRun(id, decision, options);
   }
 
@@ -745,6 +853,7 @@ export class GranolaApp implements GranolaAppApi {
     decision: "approve" | "reject",
     options: { note?: string } = {},
   ): Promise<GranolaAutomationArtefact> {
+    this.assertAutomationPluginEnabled();
     return await this.#automation.resolveAutomationArtefact(id, decision, options);
   }
 
@@ -752,10 +861,12 @@ export class GranolaApp implements GranolaAppApi {
     id: string,
     patch: GranolaAutomationArtefactUpdate,
   ): Promise<GranolaAutomationArtefact> {
+    this.assertAutomationPluginEnabled();
     return await this.#automation.updateAutomationArtefact(id, patch);
   }
 
   async recoverProcessingIssue(id: string): Promise<GranolaProcessingRecoveryResult> {
+    this.assertAutomationPluginEnabled();
     const knownIssue = (await this.#automation.listProcessingIssues({ limit: 1000 })).issues.find(
       (candidate) => candidate.id === id,
     );
@@ -794,6 +905,7 @@ export class GranolaApp implements GranolaAppApi {
   }
 
   async rerunAutomationArtefact(id: string): Promise<GranolaAutomationArtefact> {
+    this.assertAutomationPluginEnabled();
     return await this.#automation.rerunAutomationArtefact(id);
   }
 
@@ -1358,7 +1470,7 @@ export class GranolaApp implements GranolaAppApi {
       await this.#index.persistMeetingIndex(snapshot.meetings);
       await this.#index.persistSearchIndex(
         buildSearchIndex(snapshot.documents, {
-          artefacts: this.#automation.artefacts(),
+          artefacts: this.automationPluginEnabled() ? this.#automation.artefacts() : [],
           cacheData: snapshot.cacheData,
           foldersByDocumentId: this.buildFoldersByDocumentId(snapshot.folders),
         }),
@@ -1380,7 +1492,9 @@ export class GranolaApp implements GranolaAppApi {
       if (events.length > 0 && this.deps.syncEventStore) {
         await this.deps.syncEventStore.appendEvents(events);
       }
-      await this.#automation.processSyncEvents(events, completedAt);
+      if (this.automationPluginEnabled()) {
+        await this.#automation.processSyncEvents(events, completedAt);
+      }
       this.#state.sync = {
         ...this.#state.sync,
         eventCount: this.#state.sync.eventCount + events.length,
@@ -1638,6 +1752,7 @@ export async function createGranolaApp(
   const meetingIndexStore = createDefaultMeetingIndexStore();
   const meetingIndex = await meetingIndexStore.readIndex();
   const pkmTargetStore = createDefaultPkmTargetStore(config.automation?.pkmTargetsFile);
+  const pluginSettingsStore = createDefaultPluginSettingsStore(config.plugins?.settingsFile);
   const searchIndexStore = createDefaultSearchIndexStore();
   const searchIndex = await searchIndexStore.readIndex();
   const syncEventStore = createDefaultSyncEventStore();
@@ -1670,6 +1785,7 @@ export async function createGranolaApp(
       meetingIndexStore,
       now: options.now,
       pkmTargetStore,
+      pluginSettingsStore,
       searchIndex,
       searchIndexStore,
       syncEventStore,

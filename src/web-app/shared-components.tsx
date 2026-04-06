@@ -1,6 +1,6 @@
 /** @jsxImportSource solid-js */
 
-import { Show, type JSX } from "solid-js";
+import { For, Show, type JSX } from "solid-js";
 
 import type { GranolaAppState } from "../app/index.ts";
 import type { GranolaReviewInboxSummary } from "../review-inbox.ts";
@@ -16,7 +16,7 @@ import {
 
 export type WebStatusTone = "busy" | "error" | "idle" | "ok";
 export type WebMainPage = "folders" | "home" | "meeting" | "review" | "search" | "settings";
-export type WebSettingsSection = "auth" | "diagnostics" | "exports" | "pipelines";
+export type WebSettingsSection = "auth" | "diagnostics" | "exports" | "plugins";
 
 type WebNavigationPage = Exclude<WebMainPage, "meeting">;
 
@@ -25,6 +25,7 @@ interface PrimaryNavProps {
   folderCount: number;
   onNavigate: (page: WebNavigationPage) => void;
   onSync: () => void;
+  reviewEnabled: boolean;
   reviewSummary: GranolaReviewInboxSummary;
   serverInfo?: GranolaServerInfo | null;
   statusLabel: string;
@@ -47,12 +48,14 @@ interface SecurityPanelProps {
 }
 
 export function PrimaryNav(props: PrimaryNavProps): JSX.Element {
-  const navItems: Array<{ id: WebNavigationPage; label: string; note: string }> = [
+  const navItems = (): Array<{ id: WebNavigationPage; label: string; note: string }> => [
     { id: "home", label: "Home", note: "Overview and next steps" },
     { id: "folders", label: "Folders", note: "Browse meetings from folders" },
     { id: "search", label: "Search", note: "Find one meeting on purpose" },
-    { id: "review", label: "Review", note: "Handle approvals and issues" },
-    { id: "settings", label: "Settings", note: "Auth, automation, exports, diagnostics" },
+    ...(props.reviewEnabled
+      ? ([{ id: "review", label: "Review", note: "Handle approvals and issues" }] as const)
+      : []),
+    { id: "settings", label: "Settings", note: "Auth, plugins, exports, diagnostics" },
   ];
 
   return (
@@ -69,19 +72,21 @@ export function PrimaryNav(props: PrimaryNavProps): JSX.Element {
         Sync now
       </button>
       <nav class="primary-nav__links" aria-label="Primary">
-        {navItems.map((item) => (
-          <button
-            class="primary-nav__link"
-            data-selected={props.activePage === item.id ? "true" : undefined}
-            onClick={() => {
-              props.onNavigate(item.id);
-            }}
-            type="button"
-          >
-            <span class="primary-nav__link-title">{item.label}</span>
-            <span class="primary-nav__link-note">{item.note}</span>
-          </button>
-        ))}
+        <For each={navItems()}>
+          {(item) => (
+            <button
+              class="primary-nav__link"
+              data-selected={props.activePage === item.id ? "true" : undefined}
+              onClick={() => {
+                props.onNavigate(item.id);
+              }}
+              type="button"
+            >
+              <span class="primary-nav__link-title">{item.label}</span>
+              <span class="primary-nav__link-note">{item.note}</span>
+            </button>
+          )}
+        </For>
       </nav>
       <section class="primary-nav__status">
         <div class="state-badge" data-tone={props.statusTone}>
@@ -92,8 +97,10 @@ export function PrimaryNav(props: PrimaryNavProps): JSX.Element {
           <strong>{String(props.folderCount)}</strong>
         </div>
         <div class="primary-nav__stat">
-          <span class="status-label">Needs review</span>
-          <strong>{reviewSummaryLabel(props.reviewSummary)}</strong>
+          <span class="status-label">{props.reviewEnabled ? "Needs review" : "Automation"}</span>
+          <strong>
+            {props.reviewEnabled ? reviewSummaryLabel(props.reviewSummary) : "Disabled"}
+          </strong>
         </div>
         <div class="primary-nav__stat">
           <span class="status-label">Attached build</span>
@@ -132,6 +139,7 @@ export function AppStatePanel(props: {
 }): JSX.Element {
   const syncStatus = () => describeSyncStatus(props.appState?.sync ?? {});
   const authStatus = () => describeAuthStatus(props.appState?.auth);
+  const automationEnabled = () => props.appState?.plugins.automation.enabled === true;
   const indexedMeetings = () =>
     props.appState?.index.loaded
       ? props.appState.index.meetingCount
@@ -169,8 +177,12 @@ export function AppStatePanel(props: {
                 </strong>
               </div>
               <div>
-                <span class="status-label">Needs review</span>
-                <strong>{reviewSummaryLabel(props.reviewSummary)}</strong>
+                <span class="status-label">
+                  {automationEnabled() ? "Needs review" : "Automation"}
+                </span>
+                <strong>
+                  {automationEnabled() ? reviewSummaryLabel(props.reviewSummary) : "Disabled"}
+                </strong>
               </div>
               <div>
                 <span class="status-label">Runtime</span>

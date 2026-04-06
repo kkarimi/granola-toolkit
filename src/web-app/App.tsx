@@ -105,6 +105,7 @@ export function App() {
   });
 
   let automationPanelsHydrated = false;
+  const automationEnabled = () => state.appState?.plugins.automation.enabled === true;
 
   const setStatus = (label: string, tone: WebStatusTone = "idle") => {
     setState({
@@ -252,16 +253,33 @@ export function App() {
       });
     }
 
-    await Promise.all([
+    const refreshTasks: Promise<unknown>[] = [
       browseController.loadFolders(forceRefresh),
       browseController.loadHomeMeetings(forceRefresh),
-      harnessController.loadHarnesses(),
-      reviewController.loadAutomationRules(),
-      reviewController.loadAutomationRuns(),
-      reviewController.loadAutomationArtefacts(),
-      reviewController.loadProcessingIssues(),
       clientController.mergeAuthState(),
-    ]);
+    ];
+
+    if (automationEnabled()) {
+      refreshTasks.push(
+        harnessController.loadHarnesses(),
+        reviewController.loadAutomationRules(),
+        reviewController.loadAutomationRuns(),
+        reviewController.loadAutomationArtefacts(),
+        reviewController.loadProcessingIssues(),
+      );
+    } else {
+      setState("automationArtefacts", []);
+      setState("automationRules", []);
+      setState("automationRuns", []);
+      setState("harnesses", []);
+      setState("harnessExplanations", []);
+      setState("harnessExplainEventKind", null);
+      setState("processingIssues", []);
+      setState("selectedAutomationArtefactId", null);
+      setState("selectedReviewInboxKey", null);
+    }
+
+    await Promise.all(refreshTasks);
 
     if (state.selectedMeetingId && !browseController.hasMeetingBrowseScope()) {
       await browseController.loadMeeting(state.selectedMeetingId);
@@ -306,7 +324,11 @@ export function App() {
   });
 
   createEffect(() => {
-    if (!state.appState?.automation.loaded || !clientController.clientAccessor()) {
+    if (
+      !automationEnabled() ||
+      !state.appState?.automation.loaded ||
+      !clientController.clientAccessor()
+    ) {
       automationPanelsHydrated = false;
       return;
     }
@@ -386,7 +408,10 @@ export function App() {
       serverInfo: state.serverInfo,
     });
 
-  const showOnboarding = () => !state.serverLocked && !onboardingState().complete;
+  const showOnboarding = () => {
+    const onboarding = onboardingState();
+    return !state.serverLocked && !(onboarding.connected && onboarding.synced);
+  };
   const searchResultsVisible = () =>
     state.searchSubmitted && browseController.hasMeetingBrowseScope();
   const meetingReturnLabel = () =>
@@ -412,6 +437,49 @@ export function App() {
       ? `${meeting.transcriptSegmentCount} transcript segments`
       : "Transcript not loaded yet";
     return `${meeting.updatedAt.slice(0, 10)} • ${folderLabel} • ${transcriptLabel}`;
+  };
+
+  const toggleAutomationPlugin = async (enabled: boolean) => {
+    const client = clientController.clientAccessor();
+    if (!client) {
+      return;
+    }
+
+    setStatus(enabled ? "Enabling automation plugin…" : "Disabling automation plugin…", "busy");
+    try {
+      const plugin = await client.setPluginEnabled("automation", enabled);
+      if (state.appState) {
+        setState("appState", "plugins", "automation", plugin);
+      }
+      setState("settingsTab", "plugins");
+
+      if (!enabled) {
+        setState("activePage", "settings");
+        setState("automationArtefacts", []);
+        setState("automationRules", []);
+        setState("automationRuns", []);
+        setState("harnesses", []);
+        setState("harnessExplanations", []);
+        setState("harnessExplainEventKind", null);
+        setState("processingIssues", []);
+        setState("selectedAutomationArtefactId", null);
+        setState("selectedReviewInboxKey", null);
+        setStatus("Automation plugin disabled", "ok");
+        return;
+      }
+
+      await Promise.all([
+        harnessController.loadHarnesses(),
+        reviewController.loadAutomationRules(),
+        reviewController.loadAutomationRuns(),
+        reviewController.loadAutomationArtefacts(),
+        reviewController.loadProcessingIssues(),
+      ]);
+      setStatus("Automation plugin enabled", "ok");
+    } catch (error) {
+      setState("detailError", error instanceof Error ? error.message : String(error));
+      setStatus("Plugin update failed", "error");
+    }
   };
 
   return (
@@ -495,6 +563,7 @@ export function App() {
           onSync={() => {
             void connectAndRefresh(true);
           }}
+          reviewEnabled={automationEnabled()}
           reviewSummary={reviewController.reviewInboxSummary()}
           serverInfo={state.serverInfo}
           statusLabel={state.statusLabel}
@@ -505,6 +574,7 @@ export function App() {
             <Match when={state.activePage === "home"}>
               <HomePageController
                 appState={state.appState}
+                automationEnabled={automationEnabled()}
                 folders={state.folders}
                 latestMeetings={state.homeMeetings}
                 onOpenFolder={(folderId) => {
@@ -522,7 +592,9 @@ export function App() {
                   void browseController.openPage("folders");
                 }}
                 onOpenReviewPage={() => {
-                  void browseController.openPage("review");
+                  if (automationEnabled()) {
+                    void browseController.openPage("review");
+                  }
                 }}
                 onOpenSearchPage={() => {
                   void browseController.openPage("search");
@@ -614,71 +686,186 @@ export function App() {
               />
             </Match>
             <Match when={state.activePage === "review"}>
-              <ReviewPageController
-                artefactDraftMarkdown={state.automationArtefactDraftMarkdown}
-                artefactDraftSummary={state.automationArtefactDraftSummary}
-                artefactDraftTitle={state.automationArtefactDraftTitle}
-                artefactError={state.automationArtefactError}
-                onApproveArtefact={() => {
-                  void reviewController.resolveAutomationArtefact("approve");
-                }}
-                onApproveRun={(runId) => {
-                  void resolveAutomationRun(runId, "approve");
-                }}
-                onDraftMarkdownChange={(value) => {
-                  setState("automationArtefactDraftMarkdown", value);
-                }}
-                onDraftSummaryChange={(value) => {
-                  setState("automationArtefactDraftSummary", value);
-                }}
-                onDraftTitleChange={(value) => {
-                  setState("automationArtefactDraftTitle", value);
-                }}
-                onOpenMeeting={(meetingId) => {
-                  void browseController.openMeetingFromPage(meetingId, "review");
-                }}
-                onRecover={(issueId) => {
-                  void recoverProcessingIssue(issueId);
-                }}
-                onRefresh={() => {
-                  void connectAndRefresh(true);
-                }}
-                onRejectArtefact={() => {
-                  void reviewController.resolveAutomationArtefact("reject");
-                }}
-                onRejectRun={(runId) => {
-                  void resolveAutomationRun(runId, "reject");
-                }}
-                onRerunArtefact={() => {
-                  void reviewController.rerunAutomationArtefact();
-                }}
-                onReviewNoteChange={(value) => {
-                  setState("reviewNote", value);
-                }}
-                onSaveArtefact={() => {
-                  void reviewController.saveAutomationArtefact();
-                }}
-                onSelectItem={(key) => {
-                  void reviewController.selectReviewInboxItem(key, {
-                    loadMeeting: browseController.loadMeeting,
-                  });
-                }}
-                reviewItems={reviewController.reviewInboxItems()}
-                reviewNote={state.reviewNote}
-                reviewSummary={reviewController.reviewInboxSummary()}
-                selectedArtefact={reviewController.selectedReviewArtefact()}
-                selectedBundle={state.selectedMeetingBundle}
-                selectedIssue={reviewController.selectedReviewIssue()}
-                selectedKey={state.selectedReviewInboxKey}
-                selectedKind={reviewController.selectedReviewInboxItem()?.kind}
-                selectedRun={reviewController.selectedReviewRun()}
-              />
+              <Show
+                when={automationEnabled()}
+                fallback={
+                  <SettingsPageController
+                    apiKeyDraft={state.apiKeyDraft}
+                    appState={state.appState}
+                    auth={state.appState?.auth}
+                    automationEnabled={false}
+                    automationRuns={state.automationRuns}
+                    harnessDirty={state.harnessDirty}
+                    harnessError={state.harnessError}
+                    harnessExplanations={state.harnessExplanations}
+                    harnessExplanationEventKind={state.harnessExplainEventKind}
+                    harnesses={state.harnesses}
+                    harnessTestKind={state.harnessTestKind}
+                    harnessTestResult={state.harnessTestResult}
+                    onApiKeyDraftChange={(value) => {
+                      setState("apiKeyDraft", value);
+                    }}
+                    onApproveRun={(runId) => {
+                      void resolveAutomationRun(runId, "approve");
+                    }}
+                    onChangeHarness={harnessController.updateHarness}
+                    onDuplicateHarness={harnessController.duplicateHarness}
+                    onExportNotes={() => {
+                      void exportNotes();
+                    }}
+                    onExportTranscripts={() => {
+                      void exportTranscripts();
+                    }}
+                    onImportDesktopSession={() => {
+                      void clientController.importDesktopSession();
+                    }}
+                    onLock={() => {
+                      void clientController.lockServer();
+                    }}
+                    onLogout={() => {
+                      void clientController.logout(refreshAll);
+                    }}
+                    onNewHarness={harnessController.createHarness}
+                    onOpenMeeting={(meetingId) => {
+                      void browseController.openMeetingFromPage(meetingId, "settings");
+                    }}
+                    onPasswordChange={(value) => {
+                      setState("serverPassword", value);
+                    }}
+                    onRecover={(issueId) => {
+                      void recoverProcessingIssue(issueId);
+                    }}
+                    onRefreshAuth={() => {
+                      void clientController.refreshAuth(refreshAll);
+                    }}
+                    onRejectRun={(runId) => {
+                      void resolveAutomationRun(runId, "reject");
+                    }}
+                    onReloadHarnesses={() => {
+                      void harnessController.reloadHarnesses();
+                    }}
+                    onRemoveHarness={harnessController.removeHarness}
+                    onRerunJob={(jobId) => {
+                      void rerunJob(jobId);
+                    }}
+                    onSaveApiKey={() => {
+                      void clientController.saveApiKey();
+                    }}
+                    onSaveHarnesses={() => {
+                      void harnessController.saveHarnesses();
+                    }}
+                    onSelectHarness={(id) => {
+                      setState("selectedHarnessId", id);
+                      setState("harnessTestResult", null);
+                    }}
+                    onToggleAutomation={(enabled) => {
+                      void toggleAutomationPlugin(enabled);
+                    }}
+                    onSwitchMode={(mode) => {
+                      void clientController.switchAuthMode(mode, refreshAll);
+                    }}
+                    onTestHarness={() => {
+                      void harnessController.testHarness();
+                    }}
+                    onTestKindChange={(kind) => {
+                      setState("harnessTestKind", kind);
+                    }}
+                    onUnlock={() => {
+                      void clientController.unlockServer(connectAndRefresh);
+                    }}
+                    password={state.serverPassword}
+                    plugin={
+                      state.appState?.plugins.automation ?? {
+                        configurable: true,
+                        description: "",
+                        enabled: false,
+                        id: "automation",
+                        label: "Automation",
+                        shipped: true,
+                      }
+                    }
+                    preferredProvider={state.preferredProvider}
+                    processingIssues={state.processingIssues}
+                    selectedHarness={harnessController.selectedHarness()}
+                    selectedHarnessId={state.selectedHarnessId}
+                    selectedMeeting={state.selectedMeeting}
+                    serverInfo={state.serverInfo}
+                    serverLocked={state.serverLocked}
+                    settingsTab="plugins"
+                    setSettingsTab={(tab) => {
+                      setState("settingsTab", tab);
+                    }}
+                    statusLabel={state.statusLabel}
+                  />
+                }
+              >
+                <ReviewPageController
+                  artefactDraftMarkdown={state.automationArtefactDraftMarkdown}
+                  artefactDraftSummary={state.automationArtefactDraftSummary}
+                  artefactDraftTitle={state.automationArtefactDraftTitle}
+                  artefactError={state.automationArtefactError}
+                  onApproveArtefact={() => {
+                    void reviewController.resolveAutomationArtefact("approve");
+                  }}
+                  onApproveRun={(runId) => {
+                    void resolveAutomationRun(runId, "approve");
+                  }}
+                  onDraftMarkdownChange={(value) => {
+                    setState("automationArtefactDraftMarkdown", value);
+                  }}
+                  onDraftSummaryChange={(value) => {
+                    setState("automationArtefactDraftSummary", value);
+                  }}
+                  onDraftTitleChange={(value) => {
+                    setState("automationArtefactDraftTitle", value);
+                  }}
+                  onOpenMeeting={(meetingId) => {
+                    void browseController.openMeetingFromPage(meetingId, "review");
+                  }}
+                  onRecover={(issueId) => {
+                    void recoverProcessingIssue(issueId);
+                  }}
+                  onRefresh={() => {
+                    void connectAndRefresh(true);
+                  }}
+                  onRejectArtefact={() => {
+                    void reviewController.resolveAutomationArtefact("reject");
+                  }}
+                  onRejectRun={(runId) => {
+                    void resolveAutomationRun(runId, "reject");
+                  }}
+                  onRerunArtefact={() => {
+                    void reviewController.rerunAutomationArtefact();
+                  }}
+                  onReviewNoteChange={(value) => {
+                    setState("reviewNote", value);
+                  }}
+                  onSaveArtefact={() => {
+                    void reviewController.saveAutomationArtefact();
+                  }}
+                  onSelectItem={(key) => {
+                    void reviewController.selectReviewInboxItem(key, {
+                      loadMeeting: browseController.loadMeeting,
+                    });
+                  }}
+                  reviewItems={reviewController.reviewInboxItems()}
+                  reviewNote={state.reviewNote}
+                  reviewSummary={reviewController.reviewInboxSummary()}
+                  selectedArtefact={reviewController.selectedReviewArtefact()}
+                  selectedBundle={state.selectedMeetingBundle}
+                  selectedIssue={reviewController.selectedReviewIssue()}
+                  selectedKey={state.selectedReviewInboxKey}
+                  selectedKind={reviewController.selectedReviewInboxItem()?.kind}
+                  selectedRun={reviewController.selectedReviewRun()}
+                />
+              </Show>
             </Match>
             <Match when={state.activePage === "settings"}>
               <SettingsPageController
                 apiKeyDraft={state.apiKeyDraft}
                 appState={state.appState}
                 auth={state.appState?.auth}
+                automationEnabled={automationEnabled()}
                 automationRuns={state.automationRuns}
                 harnessDirty={state.harnessDirty}
                 harnessError={state.harnessError}
@@ -743,6 +930,9 @@ export function App() {
                   setState("selectedHarnessId", id);
                   setState("harnessTestResult", null);
                 }}
+                onToggleAutomation={(enabled) => {
+                  void toggleAutomationPlugin(enabled);
+                }}
                 onSwitchMode={(mode) => {
                   void clientController.switchAuthMode(mode, refreshAll);
                 }}
@@ -756,6 +946,16 @@ export function App() {
                   void clientController.unlockServer(connectAndRefresh);
                 }}
                 password={state.serverPassword}
+                plugin={
+                  state.appState?.plugins.automation ?? {
+                    configurable: true,
+                    description: "",
+                    enabled: false,
+                    id: "automation",
+                    label: "Automation",
+                    shipped: true,
+                  }
+                }
                 preferredProvider={state.preferredProvider}
                 processingIssues={state.processingIssues}
                 selectedHarness={harnessController.selectedHarness()}

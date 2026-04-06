@@ -13,6 +13,7 @@ import { MemoryAutomationRuleStore } from "../src/automation-rules.ts";
 import { MemoryExportJobStore } from "../src/export-jobs.ts";
 import { MemoryMeetingIndexStore } from "../src/meeting-index.ts";
 import { MemoryPkmTargetStore } from "../src/pkm-targets.ts";
+import { MemoryPluginSettingsStore } from "../src/plugins.ts";
 import { MemorySearchIndexStore } from "../src/search-index.ts";
 import { MemorySyncEventStore } from "../src/sync-events.ts";
 import { MemorySyncStateStore } from "../src/sync-state.ts";
@@ -78,6 +79,56 @@ const folders: GranolaFolder[] = [
 ];
 
 describe("GranolaApp", () => {
+  test("keeps automation optional until the plugin is enabled", async () => {
+    const pluginSettingsStore = new MemoryPluginSettingsStore();
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile: "",
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          mode: "supabase-file",
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: true,
+          supabasePath: "/tmp/supabase.json",
+        },
+        cacheLoader: async () => cacheData,
+        granolaClient: { listDocuments: async () => documents },
+        pluginSettingsStore,
+      },
+    );
+
+    await expect(app.listPlugins()).resolves.toEqual({
+      plugins: [
+        expect.objectContaining({
+          enabled: false,
+          id: "automation",
+        }),
+      ],
+    });
+    await expect(app.listAutomationRules()).rejects.toThrow(/automation plugin is disabled/i);
+
+    await expect(app.setPluginEnabled("automation", true)).resolves.toEqual(
+      expect.objectContaining({
+        enabled: true,
+        id: "automation",
+      }),
+    );
+    await expect(pluginSettingsStore.readSettings()).resolves.toEqual({
+      automationEnabled: true,
+    });
+  });
+
   test("reuses loaded documents and cache across meeting operations", async () => {
     const cacheFile = join(await mkdtemp(join(tmpdir(), "granola-app-cache-")), "cache.json");
     await writeFile(cacheFile, "{}\n", "utf8");
