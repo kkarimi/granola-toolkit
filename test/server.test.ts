@@ -321,10 +321,11 @@ describe("startGranolaServer", () => {
     expect(firstChunk).toContain("event: state.updated");
     expect(firstChunk).toContain('"surface":"server"');
 
-    app.setUiState({ view: "meeting-list" });
+    await app.listDocuments();
     const secondChunk = await readSseChunk(reader!);
     expect(secondChunk).toContain("event: state.updated");
-    expect(secondChunk).toContain('"view":"meeting-list"');
+    expect(secondChunk).toContain('"documents":{"count":1,"loaded":true');
+    await reader!.cancel();
 
     const exportResponse = await fetch(new URL("/exports/notes", server.url), {
       body: JSON.stringify({

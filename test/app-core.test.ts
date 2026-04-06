@@ -121,9 +121,7 @@ describe("GranolaApp", () => {
     expect(loadCache).toHaveBeenCalledTimes(1);
     expect(app.getState().ui).toEqual(
       expect.objectContaining({
-        meetingSearch: "alpha",
-        selectedMeetingId: "doc-alpha-1111",
-        view: "meeting-detail",
+        surface: "cli",
       }),
     );
   });
@@ -351,7 +349,7 @@ describe("GranolaApp", () => {
         summary: result.summary,
       }),
     );
-    expect(app.getState().ui.view).toBe("sync");
+    expect(app.getState().ui.surface).toBe("server");
   });
 
   test("uses the local search index for meeting list search and quick-open fallback", async () => {
@@ -797,7 +795,7 @@ describe("GranolaApp", () => {
       }),
     );
     expect(await jobStore.readJobs()).toHaveLength(1);
-    expect(state.ui.view).toBe("notes-export");
+    expect(state.ui.surface).toBe("cli");
   });
 
   test("resolves agent harness instructions before running an automation agent", async () => {
@@ -2288,12 +2286,7 @@ describe("GranolaApp", () => {
     expect(meeting.meeting.meeting.id).toBe("doc-alpha-1111");
     expect(app.getState().ui).toEqual(
       expect.objectContaining({
-        meetingSort: "title-asc",
-        meetingUpdatedFrom: "2024-01-01",
-        meetingUpdatedTo: "2024-01-31",
-        selectedMeetingId: "doc-alpha-1111",
         surface: "web",
-        view: "meeting-detail",
       }),
     );
   });
@@ -2368,7 +2361,7 @@ describe("GranolaApp", () => {
     const switched = await app.switchAuthMode("supabase-file");
     expect(switched.mode).toBe("supabase-file");
     expect(app.getState().documents.loaded).toBe(false);
-    expect(app.getState().ui.view).toBe("auth");
+    expect(app.getState().ui.surface).toBe("cli");
 
     await expect(app.refreshAuth()).rejects.toThrow("refresh failed");
     expect(app.getState().auth.lastError).toBe("refresh failed");
@@ -2577,7 +2570,7 @@ describe("GranolaApp", () => {
     const refreshed = await app.listMeetings({ forceRefresh: true, limit: 10 });
     expect(refreshed.source).toBe("live");
     expect(listDocuments.mock.calls.length).toBeGreaterThanOrEqual(1);
-    expect(app.getState().ui.meetingListSource).toBe("live");
+    expect(app.getState().ui.surface).toBe("web");
     expect(app.getState().index).toEqual(
       expect.objectContaining({
         available: true,

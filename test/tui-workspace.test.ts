@@ -396,7 +396,6 @@ function createAppState(): GranolaAppState {
     },
     ui: {
       surface: "tui",
-      view: "meeting-list",
     },
   };
 }

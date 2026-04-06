@@ -72,18 +72,6 @@ export type GranolaExportScope =
       meetingTitle: string;
       mode: "meeting";
     };
-export type GranolaAppView =
-  | "auth"
-  | "folder-detail"
-  | "folder-list"
-  | "idle"
-  | "exports-history"
-  | "meeting-detail"
-  | "meeting-list"
-  | "notes-export"
-  | "sync"
-  | "transcripts-export";
-
 export interface GranolaAppAuthState extends GranolaSessionMetadata {}
 
 export interface GranolaAppDocumentsState {
@@ -476,16 +464,7 @@ export interface GranolaAppExportJobState {
 }
 
 export interface GranolaAppUIState {
-  folderSearch?: string;
-  meetingSearch?: string;
-  meetingListSource?: MeetingSummarySource;
-  meetingSort?: GranolaMeetingSort;
-  meetingUpdatedFrom?: string;
-  meetingUpdatedTo?: string;
-  selectedFolderId?: string;
-  selectedMeetingId?: string;
   surface: GranolaAppSurface;
-  view: GranolaAppView;
 }
 
 export interface GranolaAppState {

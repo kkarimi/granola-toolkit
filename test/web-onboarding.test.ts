@@ -110,7 +110,6 @@ describe("web onboarding", () => {
       },
       ui: {
         surface: "web",
-        view: "idle",
       },
     } satisfies GranolaAppState;
 

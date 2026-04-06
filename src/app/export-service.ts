@@ -20,7 +20,6 @@ import type {
 import type {
   GranolaAppExportJobState,
   GranolaAppExportRunState,
-  GranolaAppUIState,
   GranolaExportJobsListOptions,
   GranolaExportJobsResult,
   GranolaExportRunOptions,
@@ -65,7 +64,6 @@ interface GranolaExportServiceDependencies {
   }) => Promise<GranolaFolder[] | undefined>;
   listDocuments: () => Promise<GranolaDocument[]>;
   nowIso: () => string;
-  setUiState?: (patch: Partial<GranolaAppUIState>) => void;
   state: {
     jobs: GranolaAppExportJobState[];
     notes?: GranolaAppExportRunState;
@@ -79,10 +77,6 @@ export class GranolaExportService {
   async listJobs(options: GranolaExportJobsListOptions = {}): Promise<GranolaExportJobsResult> {
     const limit = options.limit ?? 20;
     const jobs = this.deps.state.jobs.slice(0, limit).map((job) => cloneGranolaExportJobState(job));
-
-    this.deps.setUiState?.({
-      view: "exports-history",
-    });
 
     return {
       jobs,
@@ -306,12 +300,6 @@ export class GranolaExportService {
       };
     }
     this.deps.emitStateUpdate();
-    if (options.updateUi !== false) {
-      this.deps.setUiState?.({
-        selectedFolderId: options.scope.mode === "folder" ? options.scope.folderId : undefined,
-        view: "notes-export",
-      });
-    }
 
     return {
       documentCount: options.documents.length,
@@ -372,12 +360,6 @@ export class GranolaExportService {
       };
     }
     this.deps.emitStateUpdate();
-    if (options.updateUi !== false) {
-      this.deps.setUiState?.({
-        selectedFolderId: options.scope.mode === "folder" ? options.scope.folderId : undefined,
-        view: "transcripts-export",
-      });
-    }
 
     return {
       cacheData: options.cacheData,

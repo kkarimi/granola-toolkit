@@ -123,7 +123,6 @@ export class GranolaTuiWorkspace implements Component {
   ) {
     this.#appState = app.getState();
     this.#maxMeetings = options.maxMeetings ?? 200;
-    this.#selectedFolderId = this.#appState.ui.selectedFolderId;
   }
 
   async initialise(): Promise<void> {
@@ -161,8 +160,6 @@ export class GranolaTuiWorkspace implements Component {
   private handleAppUpdate(event: GranolaAppStateEvent): void {
     const previousDocumentsLoadedAt = this.#appState.documents.loadedAt;
     this.#appState = event.state;
-    this.#selectedFolderId = event.state.ui.selectedFolderId;
-    this.#selectedMeetingId = event.state.ui.selectedMeetingId ?? this.#selectedMeetingId;
 
     void this.loadAutomationRuns();
     void this.loadAutomationArtefacts();

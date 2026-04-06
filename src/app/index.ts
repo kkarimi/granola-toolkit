@@ -102,7 +102,6 @@ export type {
   GranolaSyncChangeKind,
   GranolaSyncEventKind,
   GranolaAppUIState,
-  GranolaAppView,
   GranolaMeetingBundle,
   GranolaMeetingListOptions,
   GranolaMeetingListResult,

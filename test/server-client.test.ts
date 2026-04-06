@@ -262,7 +262,7 @@ describe("GranolaServerClient", () => {
 
     const eventPromise = waitForStateUpdate(
       (listener) => client.subscribe(listener),
-      (event) => event.state.ui.view === "meeting-list",
+      (event) => event.state.documents.loaded,
     );
 
     const meetings = await client.listMeetings({
@@ -289,7 +289,7 @@ describe("GranolaServerClient", () => {
     expect(folder.meetings[0]?.id).toBe("doc-alpha-1111");
 
     const event = await eventPromise;
-    expect(event.state.ui.view).toBe("meeting-list");
+    expect(event.state.documents.loaded).toBe(true);
 
     setDocuments([
       ...documents,

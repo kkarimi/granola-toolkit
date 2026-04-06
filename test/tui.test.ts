@@ -296,7 +296,6 @@ describe("buildGranolaTuiSummary", () => {
         },
         ui: {
           surface: "tui",
-          view: "meeting-list",
         },
       },
       "live",

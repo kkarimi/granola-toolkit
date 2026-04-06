@@ -18,7 +18,7 @@ export class GranolaAuthService {
     }
 
     const auth = await this.deps.authController.inspect();
-    return this.applyAuthState(auth, { view: "auth" });
+    return this.applyAuthState(auth);
   }
 
   async loginAuth(
@@ -30,11 +30,10 @@ export class GranolaAuthService {
       const auth = await controller.login(options);
       return this.applyAuthState(auth, {
         resetDocuments: true,
-        view: "auth",
       });
     } catch (error) {
       const auth = await controller.inspect();
-      this.applyAuthState(auth, { view: "auth" });
+      this.applyAuthState(auth);
       throw error;
     }
   }
@@ -43,7 +42,6 @@ export class GranolaAuthService {
     const auth = await this.requireAuthController().logout();
     return this.applyAuthState(auth, {
       resetDocuments: true,
-      view: "auth",
     });
   }
 
@@ -54,11 +52,10 @@ export class GranolaAuthService {
       const auth = await controller.refresh();
       return this.applyAuthState(auth, {
         resetDocuments: true,
-        view: "auth",
       });
     } catch (error) {
       const auth = await controller.inspect();
-      this.applyAuthState(auth, { view: "auth" });
+      this.applyAuthState(auth);
       throw error;
     }
   }
@@ -70,11 +67,10 @@ export class GranolaAuthService {
       const auth = await controller.switchMode(mode);
       return this.applyAuthState(auth, {
         resetDocuments: true,
-        view: "auth",
       });
     } catch (error) {
       const auth = await controller.inspect();
-      this.applyAuthState(auth, { view: "auth" });
+      this.applyAuthState(auth);
       throw error;
     }
   }
@@ -91,7 +87,6 @@ export class GranolaAuthService {
     auth: GranolaAppAuthState,
     options: {
       resetDocuments?: boolean;
-      view?: GranolaAppState["ui"]["view"];
     } = {},
   ): GranolaAppAuthState {
     if (options.resetDocuments) {
@@ -99,12 +94,6 @@ export class GranolaAuthService {
     }
 
     this.deps.state.auth = { ...auth };
-    if (options.view) {
-      this.deps.state.ui = {
-        ...this.deps.state.ui,
-        view: options.view,
-      };
-    }
     this.deps.emitStateUpdate();
     return { ...auth };
   }

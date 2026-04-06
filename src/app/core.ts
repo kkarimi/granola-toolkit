@@ -453,7 +453,6 @@ function defaultState(
     },
     ui: {
       surface,
-      view: "idle",
     },
   };
 }
@@ -548,9 +547,6 @@ export class GranolaApp implements GranolaAppApi {
       loadFolders: async (options = {}) => await this.loadFolders(options),
       listDocuments: async () => await this.listDocuments(),
       nowIso: () => this.nowIso(),
-      setUiState: (patch) => {
-        this.setUiState(patch);
-      },
       state: this.#state.exports,
     });
     this.#state.automation = {
@@ -595,15 +591,6 @@ export class GranolaApp implements GranolaAppApi {
     return () => {
       this.#listeners.delete(listener);
     };
-  }
-
-  setUiState(patch: Partial<GranolaAppState["ui"]>): GranolaAppState {
-    this.#state.ui = {
-      ...this.#state.ui,
-      ...patch,
-    };
-    this.emitStateUpdate();
-    return this.getState();
   }
 
   private resetRemoteState(): void {
@@ -1055,9 +1042,6 @@ export class GranolaApp implements GranolaAppApi {
             return true;
           })
           .slice(0, limit);
-    this.setUiState({
-      view: "idle",
-    });
     return {
       artefacts: artefacts.map((artefact) => this.cloneAutomationArtefact(artefact)),
     };
@@ -1067,9 +1051,6 @@ export class GranolaApp implements GranolaAppApi {
     const harnesses = this.deps.agentHarnessStore
       ? await this.deps.agentHarnessStore.readHarnesses()
       : [];
-    this.setUiState({
-      view: "idle",
-    });
     return {
       harnesses,
     };
@@ -1081,9 +1062,6 @@ export class GranolaApp implements GranolaAppApi {
     }
 
     await this.deps.agentHarnessStore.writeHarnesses(harnesses);
-    this.setUiState({
-      view: "idle",
-    });
     return await this.listAgentHarnesses();
   }
 
@@ -1097,9 +1075,6 @@ export class GranolaApp implements GranolaAppApi {
       : [];
     const eventKind = defaultHarnessEventKind(bundle);
 
-    this.setUiState({
-      view: "idle",
-    });
     return {
       eventKind,
       harnesses: explainAgentHarnesses(harnesses, {
@@ -1212,9 +1187,6 @@ export class GranolaApp implements GranolaAppApi {
       }
     }
 
-    this.setUiState({
-      view: "idle",
-    });
     return {
       generatedAt,
       kind,
@@ -1228,9 +1200,6 @@ export class GranolaApp implements GranolaAppApi {
       throw new Error(`automation artefact not found: ${id}`);
     }
 
-    this.setUiState({
-      view: "idle",
-    });
     return this.cloneAutomationArtefact(artefact);
   }
 
@@ -1254,9 +1223,6 @@ export class GranolaApp implements GranolaAppApi {
       })
       .slice(0, limit);
 
-    this.setUiState({
-      view: "idle",
-    });
     return {
       issues: issues.map((issue) => ({ ...issue })),
     };
@@ -1264,9 +1230,6 @@ export class GranolaApp implements GranolaAppApi {
 
   async listAutomationRules(): Promise<GranolaAutomationRulesResult> {
     const rules = await this.loadAutomationRules({ forceRefresh: true });
-    this.setUiState({
-      view: "idle",
-    });
     return {
       rules: rules.map((rule) => this.cloneAutomationRule(rule)),
     };
@@ -1282,9 +1245,6 @@ export class GranolaApp implements GranolaAppApi {
     );
     this.#automationRules = rules.map((rule) => this.cloneAutomationRule(rule));
     this.refreshAutomationState();
-    this.setUiState({
-      view: "idle",
-    });
     this.emitStateUpdate();
     return {
       rules: this.#automationRules.map((rule) => this.cloneAutomationRule(rule)),
@@ -1298,9 +1258,6 @@ export class GranolaApp implements GranolaAppApi {
     const matches = this.deps.automationMatchStore
       ? await this.deps.automationMatchStore.readMatches(limit)
       : this.#automationMatches.slice(-limit).reverse();
-    this.setUiState({
-      view: "idle",
-    });
     return {
       matches: matches.map((match) => this.cloneAutomationMatch(match)),
     };
@@ -1318,10 +1275,6 @@ export class GranolaApp implements GranolaAppApi {
       : this.#automationActionRuns
           .filter((run) => (options.status ? run.status === options.status : true))
           .slice(0, limit);
-
-    this.setUiState({
-      view: "idle",
-    });
     return {
       runs: runs.map((run) => this.cloneAutomationRun(run)),
     };
@@ -2431,11 +2384,7 @@ export class GranolaApp implements GranolaAppApi {
       lastStartedAt: this.nowIso(),
       running: true,
     };
-    if (options.foreground) {
-      this.setUiState({ view: "sync" });
-    } else {
-      this.emitStateUpdate();
-    }
+    this.emitStateUpdate();
 
     try {
       const snapshot = await this.liveMeetingSnapshot({
@@ -2534,12 +2483,6 @@ export class GranolaApp implements GranolaAppApi {
       },
     );
 
-    this.setUiState({
-      folderSearch: options.search,
-      selectedFolderId: undefined,
-      view: "folder-list",
-    });
-
     return {
       folders: summaries,
     };
@@ -2564,11 +2507,6 @@ export class GranolaApp implements GranolaAppApi {
       sort: "updated-desc",
     });
     const record = buildFolderRecord(rawFolder, meetings);
-
-    this.setUiState({
-      selectedFolderId: folder.id,
-      view: "folder-detail",
-    });
 
     return record;
   }
@@ -2605,17 +2543,6 @@ export class GranolaApp implements GranolaAppApi {
             updatedTo: options.updatedTo,
           })
         : filterMeetingSummaries(this.#index.meetings(), options);
-      this.setUiState({
-        folderSearch: undefined,
-        meetingListSource: "index",
-        meetingSearch: options.search,
-        meetingSort: options.sort,
-        meetingUpdatedFrom: options.updatedFrom,
-        meetingUpdatedTo: options.updatedTo,
-        selectedFolderId: options.folderId,
-        selectedMeetingId: undefined,
-        view: "meeting-list",
-      });
       this.#index.triggerBackgroundRefresh(async () => {
         try {
           await this.runSync({ foreground: false });
@@ -2649,18 +2576,6 @@ export class GranolaApp implements GranolaAppApi {
 
     await this.#index.persistMeetingIndex(snapshot.meetings);
 
-    this.setUiState({
-      folderSearch: undefined,
-      meetingListSource: "live",
-      meetingSearch: options.search,
-      meetingSort: options.sort,
-      meetingUpdatedFrom: options.updatedFrom,
-      meetingUpdatedTo: options.updatedTo,
-      selectedFolderId: options.folderId,
-      selectedMeetingId: undefined,
-      view: "meeting-list",
-    });
-
     return {
       meetings,
       source: "live",
@@ -2685,15 +2600,7 @@ export class GranolaApp implements GranolaAppApi {
     id: string,
     options: { requireCache?: boolean } = {},
   ): Promise<GranolaMeetingBundle> {
-    const bundle = await this.readMeetingBundleById(id, options);
-
-    this.setUiState({
-      selectedFolderId: bundle.meeting.meeting.folders[0]?.id,
-      selectedMeetingId: bundle.document.id,
-      view: "meeting-detail",
-    });
-
-    return bundle;
+    return await this.readMeetingBundleById(id, options);
   }
 
   async findMeeting(
@@ -2711,12 +2618,6 @@ export class GranolaApp implements GranolaAppApi {
 
       bundle = await this.readMeetingBundleById(fallbackId, options);
     }
-
-    this.setUiState({
-      selectedFolderId: bundle.meeting.meeting.folders[0]?.id,
-      selectedMeetingId: bundle.document.id,
-      view: "meeting-detail",
-    });
 
     return bundle;
   }
