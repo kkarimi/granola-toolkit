@@ -3,117 +3,34 @@ import { readFile } from "node:fs/promises";
 
 import { parseCacheContents } from "../cache.ts";
 import type { AppConfig, CacheData } from "../types.ts";
-import { granolaSupabaseCandidates } from "../utils.ts";
-
-import {
-  CachedTokenProvider,
-  createDefaultApiKeyStore,
-  createDefaultSessionStore,
-  NoopTokenStore,
-  StoredSessionTokenProvider,
-  SupabaseFileSessionSource,
-  SupabaseFileTokenSource,
-} from "./auth.ts";
 import {
   createDefaultGranolaAuthController,
   inspectDefaultGranolaAuth,
   type DefaultGranolaAuthController,
   type DefaultGranolaAuthInfo,
 } from "./default-auth.ts";
-import { GranolaApiClient } from "./granola.ts";
-import { GranolaPublicApiClient } from "./granola-public.ts";
-import { AuthenticatedHttpClient } from "./http.ts";
-
-export type DefaultGranolaClient = Pick<GranolaApiClient, "listDocuments"> &
-  Partial<Pick<GranolaApiClient, "getDocumentTranscript" | "listFolders">>;
-
-export interface DefaultGranolaRuntime {
-  auth: DefaultGranolaAuthInfo;
-  client: DefaultGranolaClient;
-}
+import {
+  createDefaultGranolaSyncAdapterRegistry,
+  type DefaultGranolaClient,
+  type DefaultGranolaRuntime,
+  type GranolaSyncAdapterRegistry,
+} from "./sync-adapter-registry.ts";
 
 export async function createDefaultGranolaRuntime(
   config: AppConfig,
   logger: Pick<Console, "warn"> = console,
   options: {
+    adapter?: "granola";
+    adapterRegistry?: GranolaSyncAdapterRegistry;
     preferredMode?: DefaultGranolaAuthInfo["mode"];
   } = {},
 ): Promise<DefaultGranolaRuntime> {
-  const auth = await inspectDefaultGranolaAuth(config, {
+  const adapterRegistry =
+    options.adapterRegistry ?? createDefaultGranolaSyncAdapterRegistry(config, logger);
+  const adapter = adapterRegistry.resolve(options.adapter ?? "granola", "sync adapter");
+  return await adapter.createRuntime({
     preferredMode: options.preferredMode,
   });
-
-  if (!auth.apiKeyAvailable && !auth.storedSessionAvailable && !config.supabase) {
-    throw new Error(
-      `Granola credentials not found. Set --api-key or GRANOLA_API_KEY, use granola auth login --api-key, or fall back to --supabase. Expected supabase locations include: ${granolaSupabaseCandidates().join(", ")}`,
-    );
-  }
-
-  if (
-    config.supabase &&
-    !existsSync(config.supabase) &&
-    !auth.apiKeyAvailable &&
-    !auth.storedSessionAvailable
-  ) {
-    throw new Error(`supabase.json not found: ${config.supabase}`);
-  }
-
-  if (
-    auth.mode !== "api-key" &&
-    !auth.storedSessionAvailable &&
-    config.supabase &&
-    !existsSync(config.supabase)
-  ) {
-    throw new Error(`supabase.json not found: ${config.supabase}`);
-  }
-
-  if (auth.mode === "api-key") {
-    const apiKeyStore = createDefaultApiKeyStore();
-    const apiKey = config.apiKey?.trim() || (await apiKeyStore.readApiKey());
-    if (!apiKey) {
-      throw new Error(
-        "Granola API key not found. Set --api-key or GRANOLA_API_KEY, or run granola auth login --api-key <token>.",
-      );
-    }
-
-    return {
-      auth,
-      client: new GranolaPublicApiClient(
-        new AuthenticatedHttpClient({
-          logger,
-          tokenProvider: new CachedTokenProvider({
-            async loadAccessToken() {
-              return apiKey;
-            },
-          }),
-        }),
-      ),
-    };
-  }
-
-  const sessionStore = createDefaultSessionStore();
-  const tokenProvider =
-    auth.mode === "stored-session"
-      ? new StoredSessionTokenProvider(sessionStore, {
-          source:
-            config.supabase && existsSync(config.supabase)
-              ? new SupabaseFileSessionSource(config.supabase)
-              : undefined,
-        })
-      : new CachedTokenProvider(
-          new SupabaseFileTokenSource(config.supabase!),
-          new NoopTokenStore(),
-        );
-
-  return {
-    auth,
-    client: new GranolaApiClient(
-      new AuthenticatedHttpClient({
-        logger,
-        tokenProvider,
-      }),
-    ),
-  };
 }
 
 export function createDefaultGranolaAuth(config: AppConfig): DefaultGranolaAuthController {
@@ -137,7 +54,11 @@ export async function loadOptionalGranolaCache(cacheFile?: string): Promise<Cach
 
 export {
   createDefaultGranolaAuthController,
+  createDefaultGranolaSyncAdapterRegistry,
   inspectDefaultGranolaAuth,
+  type DefaultGranolaClient,
   type DefaultGranolaAuthController,
   type DefaultGranolaAuthInfo,
+  type DefaultGranolaRuntime,
+  type GranolaSyncAdapterRegistry,
 };

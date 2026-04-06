@@ -21,6 +21,7 @@ import {
   type GranolaAutomationAgentRequest,
   type GranolaAutomationAgentRunner,
 } from "../agents.ts";
+import type { GranolaAgentProviderRegistry } from "../agent-provider-registry.ts";
 import {
   automationActionName,
   buildAutomationApprovalActionRunId,
@@ -29,6 +30,7 @@ import {
   executeAutomationAction,
   type AutomationActionContext,
 } from "../automation-actions.ts";
+import type { GranolaAutomationActionRegistry } from "../automation-action-registry.ts";
 import {
   buildAutomationDeliveryPayload,
   renderSlackMessageText,
@@ -59,6 +61,7 @@ import {
   loadOptionalGranolaCache,
   type DefaultGranolaAuthController,
   type DefaultGranolaAuthInfo,
+  type GranolaSyncAdapterRegistry,
 } from "../client/default.ts";
 import {
   createDefaultExportJobStore,
@@ -180,14 +183,17 @@ import {
   cloneGranolaExportRunState,
   GranolaExportService,
 } from "./export-service.ts";
+import type { GranolaExporterRegistry } from "./export-registry.ts";
 import { GranolaIndexService } from "./index-service.ts";
 import { scopedCacheDataForMeeting } from "./meeting-read-model.ts";
 
 interface GranolaAppDependencies {
   agentHarnessStore?: AgentHarnessStore;
+  agentProviderRegistry?: GranolaAgentProviderRegistry;
   agentRunner?: GranolaAutomationAgentRunner;
   auth: GranolaAppAuthState;
   authController?: DefaultGranolaAuthController;
+  automationActionRegistry?: GranolaAutomationActionRegistry;
   automationArtefactStore?: AutomationArtefactStore;
   automationArtefacts?: GranolaAutomationArtefact[];
   automationMatchStore?: AutomationMatchStore;
@@ -202,6 +208,7 @@ interface GranolaAppDependencies {
     client: GranolaCatalogClient;
   }>;
   exportJobStore?: ExportJobStore;
+  exporterRegistry?: GranolaExporterRegistry;
   exportJobs?: GranolaAppExportJobState[];
   granolaClient?: GranolaCatalogClient;
   meetingIndex?: MeetingSummaryRecord[];
@@ -210,6 +217,7 @@ interface GranolaAppDependencies {
   now?: () => Date;
   searchIndex?: GranolaSearchIndexEntry[];
   searchIndexStore?: SearchIndexStore;
+  syncAdapterRegistry?: GranolaSyncAdapterRegistry;
   syncEventStore?: SyncEventStore;
   syncState?: GranolaAppSyncState;
   syncStateStore?: SyncStateStore;
@@ -476,6 +484,14 @@ export class GranolaApp implements GranolaAppApi {
     options: { surface?: GranolaAppSurface } = {},
   ) {
     this.#state = defaultState(config, deps.auth, options.surface ?? "cli");
+    const createGranolaClient =
+      deps.createGranolaClient ??
+      (deps.syncAdapterRegistry
+        ? async (mode?: GranolaAppAuthMode) =>
+            await deps
+              .syncAdapterRegistry!.resolve("granola", "sync adapter")
+              .createRuntime({ preferredMode: mode })
+        : undefined);
     this.#auth = new GranolaAuthService({
       authController: deps.authController,
       emitStateUpdate: () => {
@@ -488,7 +504,7 @@ export class GranolaApp implements GranolaAppApi {
     });
     this.#catalog = new GranolaCatalogService(config, {
       cacheLoader: deps.cacheLoader,
-      createGranolaClient: deps.createGranolaClient,
+      createGranolaClient,
       getAuthMode: () => this.#state.auth.mode,
       granolaClient: deps.granolaClient,
       nowIso: () => this.nowIso(),
@@ -543,6 +559,7 @@ export class GranolaApp implements GranolaAppApi {
       emitStateUpdate: () => {
         this.emitStateUpdate();
       },
+      exporterRegistry: deps.exporterRegistry,
       exportJobStore: deps.exportJobStore,
       loadCache: async (options = {}) => await this.loadCache(options),
       loadFolders: async (options = {}) => await this.loadFolders(options),
@@ -946,6 +963,7 @@ export class GranolaApp implements GranolaAppApi {
           context.action,
           this.automationActionHandlers(),
           {
+            registry: this.deps.automationActionRegistry,
             runId: this.createRecoveryRunId(context.match, context.action.id),
           },
         ),
@@ -1103,7 +1121,11 @@ export class GranolaApp implements GranolaAppApi {
     const harnesses = this.deps.agentHarnessStore
       ? await this.deps.agentHarnessStore.readHarnesses()
       : [];
-    const runner = this.deps.agentRunner ?? createDefaultAutomationAgentRunner(this.config);
+    const runner =
+      this.deps.agentRunner ??
+      createDefaultAutomationAgentRunner(this.config, {
+        providerRegistry: this.deps.agentProviderRegistry,
+      });
     const results: GranolaAutomationEvaluationResult["results"] = [];
 
     for (const evaluationCase of cases) {
@@ -1386,6 +1408,7 @@ export class GranolaApp implements GranolaAppApi {
               note: options.note,
               trigger: "approval",
             },
+            registry: this.deps.automationActionRegistry,
             runId,
           },
         ),
@@ -1612,6 +1635,7 @@ export class GranolaApp implements GranolaAppApi {
       action,
       this.automationActionHandlers(),
       {
+        registry: this.deps.automationActionRegistry,
         rerunOfId: current.runId,
         runId: `${current.runId}:rerun:${this.nowIso().replaceAll(/[-:.]/g, "").replace("T", "").replace("Z", "")}`,
       },
@@ -2233,7 +2257,11 @@ export class GranolaApp implements GranolaAppApi {
           }),
       )),
     ];
-    const runner = this.deps.agentRunner ?? createDefaultAutomationAgentRunner(this.config);
+    const runner =
+      this.deps.agentRunner ??
+      createDefaultAutomationAgentRunner(this.config, {
+        providerRegistry: this.deps.agentProviderRegistry,
+      });
     const attemptMeta: GranolaAutomationArtefactAttempt[] = [];
     let lastError: unknown;
 
@@ -2372,7 +2400,9 @@ export class GranolaApp implements GranolaAppApi {
 
         existingRunIds.add(runId);
         runs.push(
-          await executeAutomationAction(match, rule, action, this.automationActionHandlers()),
+          await executeAutomationAction(match, rule, action, this.automationActionHandlers(), {
+            registry: this.deps.automationActionRegistry,
+          }),
         );
       }
     }

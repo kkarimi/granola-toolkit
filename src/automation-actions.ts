@@ -1,6 +1,7 @@
 import type {
   GranolaAutomationAction,
   GranolaAutomationAgentAction,
+  GranolaAutomationArtefact,
   GranolaAutomationArtefactAttempt,
   GranolaAutomationActionRun,
   GranolaAutomationActionTrigger,
@@ -13,43 +14,14 @@ import type {
   GranolaAutomationSlackMessageAction,
   GranolaAutomationWebhookAction,
   GranolaAutomationWriteFileAction,
-  GranolaAutomationArtefact,
   GranolaExportScope,
 } from "./app/index.ts";
+import {
+  createDefaultGranolaAutomationActionRegistry,
+  type GranolaAutomationActionRegistry,
+} from "./automation-action-registry.ts";
 
-function cloneAction(action: GranolaAutomationAction): GranolaAutomationAction {
-  switch (action.kind) {
-    case "agent":
-      return {
-        ...action,
-        approvalMode: action.approvalMode,
-        fallbackHarnessIds: action.fallbackHarnessIds ? [...action.fallbackHarnessIds] : undefined,
-        pipeline: action.pipeline ? { ...action.pipeline } : undefined,
-      };
-    case "ask-user":
-      return { ...action };
-    case "command":
-      return {
-        ...action,
-        args: action.args ? [...action.args] : undefined,
-        env: action.env ? { ...action.env } : undefined,
-      };
-    case "export-notes":
-    case "export-transcript":
-      return { ...action };
-    case "pkm-sync":
-      return { ...action };
-    case "slack-message":
-      return { ...action };
-    case "webhook":
-      return {
-        ...action,
-        headers: action.headers ? { ...action.headers } : undefined,
-      };
-    case "write-file":
-      return { ...action };
-  }
-}
+const defaultAutomationActionRegistry = createDefaultGranolaAutomationActionRegistry();
 
 export function automationActionName(action: GranolaAutomationAction): string {
   return action.name || action.id;
@@ -57,17 +29,9 @@ export function automationActionName(action: GranolaAutomationAction): string {
 
 export function automationActionTrigger(
   action: GranolaAutomationAction,
+  registry: GranolaAutomationActionRegistry = defaultAutomationActionRegistry,
 ): GranolaAutomationActionTrigger {
-  switch (action.kind) {
-    case "command":
-    case "pkm-sync":
-    case "slack-message":
-    case "webhook":
-    case "write-file":
-      return action.trigger ?? "match";
-    default:
-      return "match";
-  }
+  return registry.resolve(action.kind, "automation action").trigger(action);
 }
 
 export function buildAutomationActionRunId(
@@ -86,28 +50,28 @@ export function buildAutomationApprovalActionRunId(
 
 export function enabledAutomationActions(
   rule: GranolaAutomationRule,
-  options: { sourceActionId?: string; trigger?: GranolaAutomationActionTrigger } = {},
+  options: {
+    registry?: GranolaAutomationActionRegistry;
+    sourceActionId?: string;
+    trigger?: GranolaAutomationActionTrigger;
+  } = {},
 ): GranolaAutomationAction[] {
+  const registry = options.registry ?? defaultAutomationActionRegistry;
   return (rule.actions ?? [])
     .filter((action) => action.enabled !== false)
-    .filter((action) => automationActionTrigger(action) === (options.trigger ?? "match"))
+    .filter((action) => automationActionTrigger(action, registry) === (options.trigger ?? "match"))
     .filter((action) => {
       if (options.trigger !== "approval") {
         return true;
       }
 
-      switch (action.kind) {
-        case "command":
-        case "pkm-sync":
-        case "slack-message":
-        case "webhook":
-        case "write-file":
-          return !options.sourceActionId || action.sourceActionId === options.sourceActionId;
-        default:
-          return false;
-      }
+      return (
+        registry
+          .resolve(action.kind, "automation action")
+          .matchesApprovalSourceAction?.(action, options.sourceActionId) ?? false
+      );
     })
-    .map((action) => cloneAction(action));
+    .map((action) => registry.resolve(action.kind, "automation action").clone(action));
 }
 
 export interface AutomationActionCommandResult {
@@ -189,6 +153,12 @@ export interface AutomationActionExecutionHandlers {
     action: GranolaAutomationCommandAction,
     context: AutomationActionContext,
   ): Promise<AutomationActionCommandResult>;
+  runPkmSync(
+    match: GranolaAutomationMatch,
+    rule: GranolaAutomationRule,
+    action: GranolaAutomationPkmSyncAction,
+    context: AutomationActionContext,
+  ): Promise<AutomationActionPkmResult>;
   runSlackMessage(
     match: GranolaAutomationMatch,
     rule: GranolaAutomationRule,
@@ -207,96 +177,6 @@ export interface AutomationActionExecutionHandlers {
     action: GranolaAutomationWriteFileAction,
     context: AutomationActionContext,
   ): Promise<AutomationActionWriteFileResult>;
-  runPkmSync(
-    match: GranolaAutomationMatch,
-    rule: GranolaAutomationRule,
-    action: GranolaAutomationPkmSyncAction,
-    context: AutomationActionContext,
-  ): Promise<AutomationActionPkmResult>;
-}
-
-function baseRun(
-  match: GranolaAutomationMatch,
-  rule: GranolaAutomationRule,
-  action: GranolaAutomationAction,
-  startedAt: string,
-  context: AutomationActionContext,
-  options: {
-    rerunOfId?: string;
-    runId?: string;
-  } = {},
-): GranolaAutomationActionRun {
-  return {
-    actionId: action.id,
-    actionKind: action.kind,
-    actionName: automationActionName(action),
-    artefactIds: context.artefact ? [context.artefact.id] : undefined,
-    eventId: match.eventId,
-    eventKind: match.eventKind,
-    folders: match.folders.map((folder) => ({ ...folder })),
-    id: options.runId ?? buildAutomationActionRunId(match, action.id),
-    matchId: match.id,
-    matchedAt: match.matchedAt,
-    meetingId: match.meetingId,
-    meta: {
-      sourceActionId:
-        action.kind === "command" ||
-        action.kind === "pkm-sync" ||
-        action.kind === "slack-message" ||
-        action.kind === "webhook" ||
-        action.kind === "write-file"
-          ? action.sourceActionId
-          : undefined,
-      trigger: context.trigger,
-    },
-    ruleId: rule.id,
-    ruleName: rule.name,
-    rerunOfId: options.rerunOfId,
-    startedAt,
-    status: "completed",
-    tags: [...match.tags],
-    title: match.title,
-    transcriptLoaded: match.transcriptLoaded,
-  };
-}
-
-function completedRun(
-  run: GranolaAutomationActionRun,
-  finishedAt: string,
-  patch: Partial<GranolaAutomationActionRun> = {},
-): GranolaAutomationActionRun {
-  return {
-    ...run,
-    ...patch,
-    finishedAt,
-    status: "completed",
-  };
-}
-
-function failedRun(
-  run: GranolaAutomationActionRun,
-  finishedAt: string,
-  error: unknown,
-): GranolaAutomationActionRun {
-  return {
-    ...run,
-    error: error instanceof Error ? error.message : String(error),
-    finishedAt,
-    status: "failed",
-  };
-}
-
-function skippedRun(
-  run: GranolaAutomationActionRun,
-  finishedAt: string,
-  reason: string,
-): GranolaAutomationActionRun {
-  return {
-    ...run,
-    finishedAt,
-    result: reason,
-    status: "skipped",
-  };
 }
 
 export async function executeAutomationAction(
@@ -306,155 +186,25 @@ export async function executeAutomationAction(
   handlers: AutomationActionExecutionHandlers,
   options: {
     context?: AutomationActionContext;
+    registry?: GranolaAutomationActionRegistry;
     rerunOfId?: string;
     runId?: string;
   } = {},
 ): Promise<GranolaAutomationActionRun> {
-  const context: AutomationActionContext = options.context ?? {
-    trigger: automationActionTrigger(action),
+  const registry = options.registry ?? defaultAutomationActionRegistry;
+  const runtimeContext: AutomationActionContext = options.context ?? {
+    trigger: automationActionTrigger(action, registry),
   };
-  const startedAt = handlers.nowIso();
-  const run = baseRun(match, rule, action, startedAt, context, options);
 
-  switch (action.kind) {
-    case "agent":
-      try {
-        const result = await handlers.runAgent(match, rule, action, run);
-        return completedRun(run, handlers.nowIso(), {
-          artefactIds: result.artefactIds ? [...result.artefactIds] : undefined,
-          meta: {
-            attempts: result.attempts,
-            artefactIds: result.artefactIds,
-            command: result.command,
-            dryRun: result.dryRun,
-            model: result.model,
-            pipelineKind: result.pipelineKind,
-            provider: result.provider,
-            systemPrompt: result.systemPrompt,
-          },
-          prompt: result.prompt,
-          result: result.output ?? (result.dryRun ? "Dry run: provider request not executed" : ""),
-        });
-      } catch (error) {
-        return failedRun(run, handlers.nowIso(), error);
-      }
-    case "ask-user":
-      return {
-        ...run,
-        meta: action.details ? { details: action.details } : undefined,
-        prompt: action.prompt,
-        result: "Pending user decision",
-        status: "pending",
-      };
-    case "command":
-      try {
-        const result = await handlers.runCommand(match, rule, action, context);
-        return completedRun(run, handlers.nowIso(), {
-          meta: {
-            ...(run.meta ? structuredClone(run.meta) : {}),
-            command: result.command,
-            cwd: result.cwd,
-          },
-          result: result.output,
-        });
-      } catch (error) {
-        return failedRun(run, handlers.nowIso(), error);
-      }
-    case "export-notes":
-      try {
-        const result = await handlers.exportNotes(match, action);
-        if (!result) {
-          return skippedRun(run, handlers.nowIso(), "Meeting notes were unavailable for export");
-        }
-
-        return completedRun(run, handlers.nowIso(), {
-          meta: {
-            format: result.format,
-            outputDir: result.outputDir,
-            scope: result.scope,
-            written: result.written,
-          },
-          result: `Exported notes to ${result.outputDir}`,
-        });
-      } catch (error) {
-        return failedRun(run, handlers.nowIso(), error);
-      }
-    case "export-transcript":
-      try {
-        const result = await handlers.exportTranscripts(match, action);
-        if (!result) {
-          return skippedRun(run, handlers.nowIso(), "Transcript data was unavailable for export");
-        }
-
-        return completedRun(run, handlers.nowIso(), {
-          meta: {
-            format: result.format,
-            outputDir: result.outputDir,
-            scope: result.scope,
-            written: result.written,
-          },
-          result: `Exported transcript to ${result.outputDir}`,
-        });
-      } catch (error) {
-        return failedRun(run, handlers.nowIso(), error);
-      }
-    case "slack-message":
-      try {
-        const result = await handlers.runSlackMessage(match, rule, action, context);
-        return completedRun(run, handlers.nowIso(), {
-          meta: {
-            ...(run.meta ? structuredClone(run.meta) : {}),
-            status: result.status,
-            text: result.text,
-            url: result.url,
-          },
-          result: result.output ?? `Posted Slack message (${result.status})`,
-        });
-      } catch (error) {
-        return failedRun(run, handlers.nowIso(), error);
-      }
-    case "pkm-sync":
-      try {
-        const result = await handlers.runPkmSync(match, rule, action, context);
-        return completedRun(run, handlers.nowIso(), {
-          meta: {
-            ...(run.meta ? structuredClone(run.meta) : {}),
-            filePath: result.filePath,
-            targetId: result.targetId,
-          },
-          result: `Synced PKM target ${result.targetId} to ${result.filePath}`,
-        });
-      } catch (error) {
-        return failedRun(run, handlers.nowIso(), error);
-      }
-    case "webhook":
-      try {
-        const result = await handlers.runWebhook(match, rule, action, context);
-        return completedRun(run, handlers.nowIso(), {
-          meta: {
-            ...(run.meta ? structuredClone(run.meta) : {}),
-            status: result.status,
-            url: result.url,
-          },
-          result: result.output ?? `Posted webhook (${result.status})`,
-        });
-      } catch (error) {
-        return failedRun(run, handlers.nowIso(), error);
-      }
-    case "write-file":
-      try {
-        const result = await handlers.writeFile(match, rule, action, context);
-        return completedRun(run, handlers.nowIso(), {
-          meta: {
-            ...(run.meta ? structuredClone(run.meta) : {}),
-            bytes: result.bytes,
-            filePath: result.filePath,
-            format: result.format,
-          },
-          result: `Wrote ${result.format} file to ${result.filePath}`,
-        });
-      } catch (error) {
-        return failedRun(run, handlers.nowIso(), error);
-      }
-  }
+  return await registry.resolve(action.kind, "automation action").execute({
+    action,
+    actionRunOptions: {
+      rerunOfId: options.rerunOfId,
+      runId: options.runId,
+    },
+    handlers,
+    match,
+    rule,
+    runtimeContext,
+  });
 }
