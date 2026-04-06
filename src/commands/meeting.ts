@@ -324,9 +324,7 @@ async function transcript(
   debug(config.debug, "authMode", app.getState().auth.mode);
 
   console.log("Fetching meeting from Granola API...");
-  const result = await app.getMeeting(id, {
-    requireCache: true,
-  });
+  const result = await app.getMeeting(id);
   const output = renderMeetingTranscript(result.document, result.cacheData, format);
   if (!output.trim()) {
     throw new Error(`no transcript found for meeting: ${result.document.id}`);

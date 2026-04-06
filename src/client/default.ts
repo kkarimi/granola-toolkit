@@ -25,7 +25,7 @@ import { GranolaPublicApiClient } from "./granola-public.ts";
 import { AuthenticatedHttpClient } from "./http.ts";
 
 export type DefaultGranolaClient = Pick<GranolaApiClient, "listDocuments"> &
-  Partial<Pick<GranolaApiClient, "listFolders">>;
+  Partial<Pick<GranolaApiClient, "getDocumentTranscript" | "listFolders">>;
 
 export interface DefaultGranolaRuntime {
   auth: DefaultGranolaAuthInfo;

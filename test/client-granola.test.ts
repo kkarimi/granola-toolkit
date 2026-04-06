@@ -93,4 +93,60 @@ describe("GranolaApiClient", () => {
       }),
     ]);
   });
+
+  test("loads transcript segments from the document transcript endpoint", async () => {
+    const client = new GranolaApiClient(
+      new AuthenticatedHttpClient({
+        fetchImpl: async (url, init) => {
+          const requestUrl =
+            typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
+          expect(requestUrl).toBe("https://api.granola.ai/v1/get-document-transcript");
+
+          const headers = new Headers(init?.headers);
+          expect(headers.get("user-agent")).toBe("Granola/9.9.9");
+          expect(headers.get("x-client-version")).toBe("9.9.9");
+
+          return new Response(
+            JSON.stringify([
+              {
+                document_id: "doc-alpha",
+                end_timestamp: "2024-01-01T09:00:04Z",
+                id: "segment-1",
+                is_final: true,
+                source: "microphone",
+                start_timestamp: "2024-01-01T09:00:01Z",
+                text: "Hello from Granola",
+              },
+            ]),
+            { status: 200 },
+          );
+        },
+        tokenProvider: new CachedTokenProvider({
+          async loadAccessToken() {
+            return "token-1";
+          },
+        }),
+      }),
+      {
+        clientVersion: "9.9.9",
+        documentsUrl: "https://example.test/documents",
+      },
+    );
+
+    const transcript = await client.getDocumentTranscript("doc-alpha", {
+      timeoutMs: 5_000,
+    });
+
+    expect(transcript).toEqual([
+      {
+        documentId: "doc-alpha",
+        endTimestamp: "2024-01-01T09:00:04Z",
+        id: "segment-1",
+        isFinal: true,
+        source: "microphone",
+        startTimestamp: "2024-01-01T09:00:01Z",
+        text: "Hello from Granola",
+      },
+    ]);
+  });
 });

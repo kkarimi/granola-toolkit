@@ -124,6 +124,7 @@ import type {
   CacheData,
   GranolaDocument,
   NoteOutputFormat,
+  TranscriptSegment,
   TranscriptOutputFormat,
 } from "../types.ts";
 import {
@@ -196,7 +197,7 @@ import type {
 import type { FolderRecord, FolderSummaryRecord, MeetingSummaryRecord } from "./models.ts";
 
 type GranolaRemoteClient = Pick<GranolaApiClient, "listDocuments"> &
-  Partial<Pick<GranolaApiClient, "listFolders">>;
+  Partial<Pick<GranolaApiClient, "getDocumentTranscript" | "listFolders">>;
 
 interface GranolaAppDependencies {
   agentHarnessStore?: AgentHarnessStore;
@@ -517,6 +518,7 @@ export class GranolaApp implements GranolaAppApi {
   #folders?: GranolaFolder[];
   #granolaClient?: GranolaRemoteClient;
   #documents?: GranolaDocument[];
+  #hydratedTranscriptSegments = new Map<string, TranscriptSegment[]>();
   #meetingIndex: MeetingSummaryRecord[];
   #searchIndex: GranolaSearchIndexEntry[];
   #listeners = new Set<(event: GranolaAppStateEvent) => void>();
@@ -615,6 +617,7 @@ export class GranolaApp implements GranolaAppApi {
 
   private resetDocumentsState(): void {
     this.#documents = undefined;
+    this.#hydratedTranscriptSegments.clear();
     this.#state.documents = {
       count: 0,
       loaded: false,
@@ -2121,6 +2124,83 @@ export class GranolaApp implements GranolaAppApi {
     }
   }
 
+  private cloneTranscriptSegments(segments: TranscriptSegment[]): TranscriptSegment[] {
+    return segments.map((segment) => ({ ...segment }));
+  }
+
+  private attachMeetingTranscriptSegments(
+    document: GranolaDocument,
+    segments: TranscriptSegment[],
+    cacheData?: CacheData,
+  ): GranolaDocument {
+    const nextSegments = this.cloneTranscriptSegments(segments);
+
+    if (cacheData) {
+      cacheData.transcripts[document.id] = this.cloneTranscriptSegments(nextSegments);
+      cacheData.documents[document.id] ??= {
+        createdAt: document.createdAt,
+        id: document.id,
+        title: document.title,
+        updatedAt: document.updatedAt,
+      };
+    }
+
+    const nextDocument = {
+      ...document,
+      transcriptSegments: nextSegments,
+    };
+
+    if (this.#documents) {
+      const index = this.#documents.findIndex((candidate) => candidate.id === document.id);
+      if (index >= 0) {
+        this.#documents[index] = nextDocument;
+      }
+    }
+
+    return nextDocument;
+  }
+
+  private async hydrateMeetingTranscript(
+    document: GranolaDocument,
+    cacheData?: CacheData,
+  ): Promise<GranolaDocument> {
+    const inlineSegments = document.transcriptSegments;
+    if (Array.isArray(inlineSegments) && inlineSegments.length > 0) {
+      return document;
+    }
+
+    const cachedSegments = cacheData?.transcripts[document.id];
+    if (Array.isArray(cachedSegments) && cachedSegments.length > 0) {
+      return document;
+    }
+
+    if (this.#hydratedTranscriptSegments.has(document.id)) {
+      return this.attachMeetingTranscriptSegments(
+        document,
+        this.#hydratedTranscriptSegments.get(document.id) ?? [],
+        cacheData,
+      );
+    }
+
+    const client = await this.getGranolaClient();
+    if (typeof client.getDocumentTranscript !== "function") {
+      return document;
+    }
+
+    try {
+      const transcriptSegments = await client.getDocumentTranscript(document.id, {
+        timeoutMs: this.config.notes.timeoutMs,
+      });
+      this.#hydratedTranscriptSegments.set(
+        document.id,
+        this.cloneTranscriptSegments(transcriptSegments),
+      );
+      return this.attachMeetingTranscriptSegments(document, transcriptSegments, cacheData);
+    } catch {
+      return document;
+    }
+  }
+
   private async runAutomationNotesAction(
     match: GranolaAutomationMatch,
     action: GranolaAutomationExportNotesAction,
@@ -3169,7 +3249,7 @@ export class GranolaApp implements GranolaAppApi {
     const documents = await this.listDocuments();
     const cacheData = await this.loadCache({ required: options.requireCache });
     const folders = await this.loadFolders();
-    const document = resolveMeeting(documents, id);
+    const document = await this.hydrateMeetingTranscript(resolveMeeting(documents, id), cacheData);
     const meeting = buildMeetingRecord(
       document,
       cacheData,
@@ -3190,7 +3270,10 @@ export class GranolaApp implements GranolaAppApi {
     const documents = await this.listDocuments();
     const cacheData = await this.loadCache({ required: options.requireCache });
     const folders = await this.loadFolders();
-    const document = resolveMeetingQuery(documents, query);
+    const document = await this.hydrateMeetingTranscript(
+      resolveMeetingQuery(documents, query),
+      cacheData,
+    );
     const meeting = buildMeetingRecord(
       document,
       cacheData,

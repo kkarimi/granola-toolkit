@@ -2455,6 +2455,71 @@ describe("GranolaApp", () => {
     expect(meeting.meeting.meeting.transcriptLoaded).toBe(true);
   });
 
+  test("hydrates transcript detail from the Granola API when the local cache has no segments", async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), "granola-cache-"));
+    const cacheFile = join(cacheDir, "cache-v6.json");
+    await writeFile(cacheFile, JSON.stringify({ cache: JSON.stringify({ state: {} }) }), "utf8");
+    const getDocumentTranscript = vi.fn(async () => [
+      {
+        documentId: "doc-alpha-1111",
+        endTimestamp: "2024-01-03T10:00:05Z",
+        id: "segment-api-1",
+        isFinal: true,
+        source: "microphone",
+        startTimestamp: "2024-01-03T10:00:00Z",
+        text: "Transcript loaded from the Granola API",
+      },
+    ]);
+
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        transcripts: {
+          cacheFile,
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          apiKeyAvailable: false,
+          mode: "stored-session",
+          refreshAvailable: true,
+          storedSessionAvailable: true,
+          supabaseAvailable: true,
+        },
+        cacheLoader: async () => ({
+          documents: {
+            "doc-alpha-1111": {
+              createdAt: "2024-01-01T09:00:00Z",
+              id: "doc-alpha-1111",
+              title: "Alpha Sync",
+              updatedAt: "2024-01-03T10:00:00Z",
+            },
+          },
+          transcripts: {},
+        }),
+        granolaClient: {
+          getDocumentTranscript,
+          listDocuments: async () => [documents[0]!],
+        },
+        now: () => new Date("2024-03-01T12:00:00Z"),
+      },
+    );
+
+    const meeting = await app.getMeeting("doc-alpha-1111");
+    const transcript = await app.getMeeting("doc-alpha-1111");
+
+    expect(getDocumentTranscript).toHaveBeenCalledTimes(1);
+    expect(meeting.meeting.meeting.transcriptLoaded).toBe(true);
+    expect(meeting.meeting.meeting.transcriptSegmentCount).toBe(1);
+    expect(meeting.meeting.transcriptText).toContain("Transcript loaded from the Granola API");
+    expect(transcript.meeting.transcriptText).toContain("Transcript loaded from the Granola API");
+  });
+
   test("uses the local meeting index as a fast path for web surfaces", async () => {
     const listDocuments = vi.fn(async () => documents);
     const meetingIndexStore = new MemoryMeetingIndexStore();

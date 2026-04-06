@@ -1,10 +1,12 @@
-import type { GranolaDocument, GranolaFolder } from "../types.ts";
+import type { GranolaDocument, GranolaFolder, TranscriptSegment } from "../types.ts";
+import { asRecord, stringValue } from "../utils.ts";
 
 import { parseDocument, parseFolder } from "./parsers.ts";
 import type { AuthenticatedHttpClient } from "./http.ts";
 
 const DEFAULT_CLIENT_VERSION = "5.354.0";
 const DOCUMENTS_URL = "https://api.granola.ai/v2/get-documents";
+const DOCUMENT_TRANSCRIPT_URL = "https://api.granola.ai/v1/get-document-transcript";
 const FOLDERS_URLS = [
   "https://api.granola.ai/v2/get-document-lists",
   "https://api.granola.ai/v1/get-document-lists",
@@ -12,6 +14,51 @@ const FOLDERS_URLS = [
 
 function resolveClientVersion(value?: string): string {
   return value?.trim() || process.env.GRANOLA_CLIENT_VERSION?.trim() || DEFAULT_CLIENT_VERSION;
+}
+
+function parseTranscriptSegment(
+  documentId: string,
+  value: unknown,
+  index: number,
+): TranscriptSegment | undefined {
+  const record = asRecord(value);
+  if (!record) {
+    return undefined;
+  }
+
+  const text = stringValue(record.text);
+  const startTimestamp =
+    stringValue(record.start_timestamp) ||
+    stringValue(record.startTimestamp) ||
+    stringValue(record.start_time);
+  const endTimestamp =
+    stringValue(record.end_timestamp) ||
+    stringValue(record.endTimestamp) ||
+    stringValue(record.end_time) ||
+    startTimestamp;
+  if (!text || !startTimestamp) {
+    return undefined;
+  }
+
+  const speaker = asRecord(record.speaker);
+  return {
+    documentId: stringValue(record.document_id) || stringValue(record.documentId) || documentId,
+    endTimestamp,
+    id: stringValue(record.id) || `${documentId}:transcript:${index + 1}`,
+    isFinal:
+      typeof record.is_final === "boolean"
+        ? record.is_final
+        : typeof record.isFinal === "boolean"
+          ? record.isFinal
+          : true,
+    source:
+      stringValue(record.source) ||
+      stringValue(speaker?.name) ||
+      stringValue(speaker?.source) ||
+      "unknown",
+    startTimestamp,
+    text,
+  };
 }
 
 export class GranolaApiClient {
@@ -120,5 +167,44 @@ export class GranolaApiClient {
     }
 
     throw lastError ?? new Error("failed to get folders");
+  }
+
+  async getDocumentTranscript(
+    documentId: string,
+    options: { timeoutMs: number },
+  ): Promise<TranscriptSegment[]> {
+    const response = await this.httpClient.postJson(
+      DOCUMENT_TRANSCRIPT_URL,
+      {
+        document_id: documentId,
+      },
+      {
+        headers: {
+          "User-Agent": `Granola/${this.clientVersion}`,
+          "X-Client-Version": this.clientVersion,
+        },
+        timeoutMs: options.timeoutMs,
+      },
+    );
+
+    if (!response.ok) {
+      const body = (await response.text()).slice(0, 500);
+      throw new Error(
+        `failed to get transcript: ${response.status} ${response.statusText}${body ? `: ${body}` : ""}`,
+      );
+    }
+
+    const payload = (await response.json()) as unknown;
+    const segments = Array.isArray(payload)
+      ? payload
+      : Array.isArray((payload as { transcript?: unknown[] }).transcript)
+        ? (payload as { transcript: unknown[] }).transcript
+        : Array.isArray((payload as { segments?: unknown[] }).segments)
+          ? (payload as { segments: unknown[] }).segments
+          : [];
+
+    return segments
+      .map((segment, index) => parseTranscriptSegment(documentId, segment, index))
+      .filter((segment): segment is TranscriptSegment => Boolean(segment));
   }
 }
