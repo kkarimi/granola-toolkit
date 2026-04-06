@@ -1013,37 +1013,57 @@ export function BrowsePromptPanel(props: {
 }
 
 export function FolderList(props: FolderListProps): JSX.Element {
+  const sortedFolders = () =>
+    [...props.folders].sort((left, right) => {
+      if (left.isFavourite !== right.isFavourite) {
+        return left.isFavourite ? -1 : 1;
+      }
+
+      return (right.updatedAt || "").localeCompare(left.updatedAt || "");
+    });
+
   return (
-    <section class="folder-panel">
-      <div class="folder-panel__head">
-        <h2>Folders</h2>
-        <p>Use folders as the default way to narrow the workspace before opening meetings.</p>
+    <section class="folder-directory">
+      <div class="section-head">
+        <div>
+          <h2>Folder directory</h2>
+          <p>Pick one part of your workspace first, then open one meeting from there.</p>
+        </div>
       </div>
-      <div class="folder-list">
+      <div class="folder-directory__grid">
         <Show
           when={!props.error}
           fallback={<div class="folder-empty folder-empty--error">{props.error}</div>}
         >
           <>
-            <For each={props.folders}>
+            <For each={sortedFolders()}>
               {(folder) => (
                 <button
-                  class="folder-row"
+                  class="folder-card"
                   data-selected={folder.id === props.selectedFolderId ? "true" : undefined}
                   onClick={() => {
                     props.onSelect(folder.id);
                   }}
                   type="button"
                 >
-                  <span class="folder-row__title">
-                    {(folder.isFavourite ? "★ " : "") + (folder.name || folder.id)}
+                  <span class="folder-card__eyebrow">
+                    {folder.isFavourite ? "Favourite folder" : "Folder"}
                   </span>
-                  <span class="folder-row__meta">{`${folder.documentCount} meetings`}</span>
+                  <strong class="folder-card__title">{folder.name || folder.id}</strong>
+                  <span class="folder-card__meta">{`${folder.documentCount} meetings`}</span>
+                  <span class="folder-card__meta">
+                    {folder.updatedAt
+                      ? `Updated ${relativeDateLabel(folder.updatedAt).toLowerCase()}`
+                      : "Waiting for folder activity"}
+                  </span>
                 </button>
               )}
             </For>
             <Show when={props.folders.length === 0}>
-              <div class="folder-empty">No folders found.</div>
+              <div class="empty empty--inline">
+                No folders are available yet. Run sync once your account is connected and Granola
+                has exposed folder data for this workspace.
+              </div>
             </Show>
           </>
         </Show>

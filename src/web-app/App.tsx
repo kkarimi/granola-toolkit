@@ -536,13 +536,14 @@ export function App() {
       setState("updatedFrom", "");
       setState("updatedTo", "");
       setState("searchSubmitted", false);
+      setState("selectedFolderId", null);
+      setState("selectedMeetingId", null);
+      setState("selectedMeeting", null);
+      setState("selectedMeetingBundle", null);
+      setState("meetings", []);
+      setState("listError", "");
       if (state.folders.length === 0) {
         await loadFolders(true);
-      }
-      if (state.selectedFolderId) {
-        await loadMeetings({ preferredMeetingId: state.selectedMeetingId ?? undefined });
-      } else {
-        setState("meetings", []);
       }
       return;
     }
@@ -1648,6 +1649,22 @@ export function App() {
               <PageHeader
                 actions={
                   <>
+                    <Show when={state.selectedFolderId}>
+                      <button
+                        class="button button--secondary"
+                        onClick={() => {
+                          setState("selectedFolderId", null);
+                          setState("selectedMeetingId", null);
+                          setState("selectedMeeting", null);
+                          setState("selectedMeetingBundle", null);
+                          setState("meetings", []);
+                          setState("listError", "");
+                        }}
+                        type="button"
+                      >
+                        All folders
+                      </button>
+                    </Show>
                     <button
                       class="button button--secondary"
                       onClick={() => {
@@ -1655,7 +1672,7 @@ export function App() {
                       }}
                       type="button"
                     >
-                      Refresh folders
+                      {state.selectedFolderId ? "Refresh folder" : "Refresh folders"}
                     </button>
                     <Show when={state.selectedFolderId}>
                       <button
@@ -1679,12 +1696,17 @@ export function App() {
                     </Show>
                   </>
                 }
-                description="Pick a folder first, then choose one meeting from that folder. The app no longer dumps every meeting into the navigation rail."
+                description={
+                  selectedFolder()
+                    ? `Open one meeting at a time from ${selectedFolder()?.name || selectedFolder()?.id}. Search and review stay on their own pages.`
+                    : "Choose one folder first. The folders page should feel like a directory, not another split-screen browser."
+                }
                 eyebrow="Folders"
-                title="Browse by folder"
+                title={selectedFolder()?.name || "Browse by folder"}
               />
-              <div class="browser-layout">
-                <section class="browser-layout__sidebar">
+              <Show
+                when={state.selectedFolderId}
+                fallback={
                   <FolderList
                     error={state.folderError}
                     folders={state.folders}
@@ -1697,42 +1719,58 @@ export function App() {
                     }}
                     selectedFolderId={state.selectedFolderId}
                   />
+                }
+              >
+                <section class="folder-focus">
+                  <div class="folder-focus__hero">
+                    <div>
+                      <p class="folder-focus__eyebrow">Selected folder</p>
+                      <h3>{selectedFolder()?.name || selectedFolder()?.id || "Folder"}</h3>
+                      <p>
+                        {selectedFolder()?.isFavourite
+                          ? "Marked as a favourite in Granola."
+                          : "Use this focused list to choose one meeting without browsing the entire workspace."}
+                      </p>
+                    </div>
+                    <div class="folder-focus__stats">
+                      <div class="folder-focus__stat">
+                        <span class="dashboard-stat__label">Meetings</span>
+                        <strong>{String(selectedFolder()?.documentCount ?? 0)}</strong>
+                      </div>
+                      <div class="folder-focus__stat">
+                        <span class="dashboard-stat__label">Updated</span>
+                        <strong>
+                          {selectedFolder()?.updatedAt
+                            ? selectedFolder()?.updatedAt.slice(0, 10)
+                            : "Unknown"}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
                 </section>
-                <section class="browser-layout__main">
-                  <Show
-                    when={state.selectedFolderId}
-                    fallback={
-                      <BrowsePromptPanel
-                        foldersAvailable={state.folders.length}
-                        hasRecentMeetings={state.recentMeetings.length > 0}
-                      />
-                    }
-                  >
-                    <MeetingList
-                      description={
-                        selectedFolder()
-                          ? `${selectedFolder()?.documentCount ?? 0} meetings in ${selectedFolder()?.name || selectedFolder()?.id}.`
-                          : "Choose a folder to load its meetings."
-                      }
-                      error={state.listError}
-                      emptyHint={meetingEmptyHint()}
-                      folders={state.folders}
-                      heading={selectedFolder()?.name || "Folder meetings"}
-                      meetings={state.meetings}
-                      onSelect={(meetingId) => {
-                        void openMeetingFromPage(meetingId, "folders", {
-                          folderId: state.selectedFolderId,
-                        });
-                      }}
-                      search=""
-                      selectedFolderId={state.selectedFolderId}
-                      selectedMeetingId={state.selectedMeetingId}
-                      updatedFrom=""
-                      updatedTo=""
-                    />
-                  </Show>
-                </section>
-              </div>
+                <MeetingList
+                  description={
+                    selectedFolder()
+                      ? `${selectedFolder()?.documentCount ?? 0} meetings in ${selectedFolder()?.name || selectedFolder()?.id}.`
+                      : "Choose a folder to load its meetings."
+                  }
+                  error={state.listError}
+                  emptyHint={meetingEmptyHint()}
+                  folders={state.folders}
+                  heading={`Meetings in ${selectedFolder()?.name || "this folder"}`}
+                  meetings={state.meetings}
+                  onSelect={(meetingId) => {
+                    void openMeetingFromPage(meetingId, "folders", {
+                      folderId: state.selectedFolderId,
+                    });
+                  }}
+                  search=""
+                  selectedFolderId={state.selectedFolderId}
+                  selectedMeetingId={state.selectedMeetingId}
+                  updatedFrom=""
+                  updatedTo=""
+                />
+              </Show>
             </Match>
             <Match when={state.activePage === "search"}>
               <PageHeader

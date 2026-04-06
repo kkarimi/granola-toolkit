@@ -47,16 +47,20 @@ test.describe("toolkit web workspace", () => {
     await expect(page.getByRole("heading", { name: "Browse by folder" })).toBeVisible({
       timeout: 20_000,
     });
-    await page
-      .locator(".browser-layout__sidebar")
-      .getByRole("button", { name: /Team/i })
-      .first()
-      .click();
-    await expect(page.getByRole("heading", { name: "Team" })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Folder directory" })).toBeVisible({
       timeout: 20_000,
     });
     await page
-      .locator(".browser-layout__main")
+      .locator(".folder-directory__grid")
+      .getByRole("button", { name: /Team/i })
+      .first()
+      .click();
+    await expect(page.locator(".page-header").getByRole("heading", { name: "Team" })).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByText("Selected folder")).toBeVisible();
+    await page
+      .locator(".meeting-list")
       .getByRole("button", { name: /Alpha Sync/i })
       .click();
     await expect(page.getByRole("heading", { name: "Alpha Sync" })).toBeVisible({
@@ -117,12 +121,12 @@ test.describe("toolkit web workspace", () => {
       .getByRole("button", { name: /Folders/i })
       .click();
     await page
-      .locator(".browser-layout__sidebar")
+      .locator(".folder-directory__grid")
       .getByRole("button", { name: /Team/i })
       .first()
       .click();
     await page
-      .locator(".browser-layout__main")
+      .locator(".meeting-list")
       .getByRole("button", { name: /Alpha Sync/i })
       .click();
     await page
