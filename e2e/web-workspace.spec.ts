@@ -34,7 +34,9 @@ test.describe("toolkit web workspace", () => {
       .locator(".latest-meetings-grid")
       .getByRole("button", { name: /Alpha Sync/i })
       .click();
-    await expect(page.getByRole("heading", { name: "Alpha Sync" })).toBeVisible({
+    await expect(
+      page.locator(".page-header").getByRole("heading", { name: "Alpha Sync" }),
+    ).toBeVisible({
       timeout: 20_000,
     });
     await page.getByRole("button", { name: "Back to home" }).click();
@@ -63,11 +65,14 @@ test.describe("toolkit web workspace", () => {
       .locator(".meeting-list")
       .getByRole("button", { name: /Alpha Sync/i })
       .click();
-    await expect(page.getByRole("heading", { name: "Alpha Sync" })).toBeVisible({
+    await expect(
+      page.locator(".page-header").getByRole("heading", { name: "Alpha Sync" }),
+    ).toBeVisible({
       timeout: 20_000,
     });
+    await expect(page.getByText("Selected meeting")).toBeVisible();
+    await expect(page.getByText("Notes source")).toBeVisible();
     await expect(page.getByRole("button", { name: "Back to folders" })).toBeVisible();
-    await expect(page.getByText("Selected meeting")).toHaveCount(0);
 
     await page
       .locator(".primary-nav")
@@ -85,7 +90,9 @@ test.describe("toolkit web workspace", () => {
       .locator(".meeting-list")
       .getByRole("button", { name: /Beta Review/i })
       .click();
-    await expect(page.getByRole("heading", { name: "Beta Review" })).toBeVisible({
+    await expect(
+      page.locator(".page-header").getByRole("heading", { name: "Beta Review" }),
+    ).toBeVisible({
       timeout: 20_000,
     });
 

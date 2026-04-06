@@ -244,26 +244,35 @@ function workspaceBody(
   bundle: GranolaMeetingBundle | null,
   record: MeetingRecord,
   tab: WorkspaceTab,
-): { body: string; title: string } {
+): { body: string; description: string; title: string } {
   switch (tab) {
     case "transcript":
       return {
         body: record.transcriptText || "(Transcript unavailable)",
+        description: record.meeting.transcriptLoaded
+          ? "Transcript view keeps the full conversation in one continuous reading surface."
+          : "Granola has not finished loading the transcript for this meeting yet.",
         title: "Transcript",
       };
     case "metadata":
       return {
         body: metadataLines(record),
+        description:
+          "Metadata keeps the raw meeting facts, ownership hints, and speaker breakdowns together.",
         title: "Metadata",
       };
     case "raw":
       return {
         body: JSON.stringify(bundle || record, null, 2),
+        description:
+          "Raw bundle is the structured payload for debugging, automation, and schema inspection.",
         title: "Raw Bundle",
       };
     default:
       return {
         body: record.noteMarkdown || "(No notes available)",
+        description:
+          "Notes view shows the current readable meeting note using the best content Granola Toolkit could resolve.",
         title: "Notes",
       };
   }
@@ -287,6 +296,57 @@ function formatFolderNames(folders: FolderSummaryRecord[]): string {
   }
 
   return folders.map((folder) => folder.name || folder.id).join(", ");
+}
+
+function noteSourceLabel(source: MeetingRecord["meeting"]["noteContentSource"]): string {
+  switch (source) {
+    case "notes":
+      return "Granola notes";
+    case "lastViewedPanel.content":
+      return "Rendered note panel";
+    case "lastViewedPanel.originalContent":
+      return "Original note panel";
+    case "content":
+    default:
+      return "Document content";
+  }
+}
+
+function tagSummary(tags: string[]): string {
+  if (tags.length === 0) {
+    return "No tags";
+  }
+
+  return tags.map((tag) => `#${tag}`).join(" ");
+}
+
+function ownerSummary(record: MeetingRecord): string {
+  if (record.roleHelpers.ownerCandidates.length === 0) {
+    return "No clear owner candidates";
+  }
+
+  return record.roleHelpers.ownerCandidates
+    .slice(0, 3)
+    .map((candidate) => candidate.label)
+    .join(", ");
+}
+
+function speakerSummary(record: MeetingRecord): string {
+  if (record.roleHelpers.speakers.length === 0) {
+    return "No speaker breakdown yet";
+  }
+
+  return record.roleHelpers.speakers
+    .slice(0, 3)
+    .map((speaker) => `${speaker.label} (${speaker.segmentCount})`)
+    .join(", ");
+}
+
+function meetingContextSummary(record: MeetingRecord): string {
+  const transcriptLabel = record.meeting.transcriptLoaded
+    ? `${record.meeting.transcriptSegmentCount} transcript segments ready`
+    : "Transcript still loading";
+  return `${formatDateLabel(record.meeting.updatedAt)} • ${formatFolderNames(record.meeting.folders)} • ${transcriptLabel}`;
 }
 
 function parseTimestamp(value?: string): number | null {
@@ -2226,21 +2286,42 @@ export function Workspace(props: WorkspaceProps): JSX.Element {
     >
       {(meeting) => (
         <>
-          <div class="detail-meta">
-            <div class="detail-chip">{`Updated ${formatDateLabel(meeting().meeting.updatedAt)}`}</div>
-            <div class="detail-chip">{`Folders: ${formatFolderNames(meeting().meeting.folders)}`}</div>
-            <div class="detail-chip">{`Notes: ${meeting().meeting.noteContentSource}`}</div>
-            <div class="detail-chip">
-              {meeting().meeting.transcriptLoaded
-                ? `${meeting().meeting.transcriptSegmentCount} transcript segments`
-                : "Transcript not loaded yet"}
+          <section class="meeting-context">
+            <div class="meeting-context__head">
+              <div>
+                <p class="meeting-context__eyebrow">Selected meeting</p>
+                <h2>{meeting().meeting.title || meeting().meeting.id}</h2>
+                <p class="meeting-context__summary">{meetingContextSummary(meeting())}</p>
+              </div>
+              <div class="meeting-context__stats">
+                <div class="meeting-context__stat">
+                  <span class="dashboard-stat__label">Notes source</span>
+                  <strong>{noteSourceLabel(meeting().meeting.noteContentSource)}</strong>
+                  <span>Best available note content for this meeting.</span>
+                </div>
+                <div class="meeting-context__stat">
+                  <span class="dashboard-stat__label">Owner signals</span>
+                  <strong>{ownerSummary(meeting())}</strong>
+                  <span>Derived from participants and transcript cues.</span>
+                </div>
+                <div class="meeting-context__stat">
+                  <span class="dashboard-stat__label">Speakers</span>
+                  <strong>{speakerSummary(meeting())}</strong>
+                  <span>Speaker labels currently visible in the local record.</span>
+                </div>
+              </div>
             </div>
-            <Show when={meeting().meeting.tags.length > 0}>
-              <For each={meeting().meeting.tags}>
-                {(tag) => <div class="detail-chip">{`#${tag}`}</div>}
-              </For>
-            </Show>
-          </div>
+            <div class="detail-meta">
+              <div class="detail-chip">{`Updated ${formatDateLabel(meeting().meeting.updatedAt)}`}</div>
+              <div class="detail-chip">{`Folders: ${formatFolderNames(meeting().meeting.folders)}`}</div>
+              <div class="detail-chip">{`Tags: ${tagSummary(meeting().meeting.tags)}`}</div>
+              <div class="detail-chip">
+                {meeting().meeting.transcriptLoaded
+                  ? `${meeting().meeting.transcriptSegmentCount} transcript segments ready`
+                  : "Transcript not loaded yet"}
+              </div>
+            </div>
+          </section>
           <nav class="workspace-tabs">
             <For each={["notes", "transcript", "metadata", "raw"] as const}>
               {(tab) => (
@@ -2265,12 +2346,15 @@ export function Workspace(props: WorkspaceProps): JSX.Element {
             <span class="workspace-hint">1-4 switch tabs, [ and ] cycle</span>
           </nav>
           <Show when={!props.detailError} fallback={<div class="empty">{props.detailError}</div>}>
-            <div class="detail-body">
-              <section class="detail-section workspace-main workspace-main--single">
+            <section class="workspace-frame">
+              <div class="workspace-frame__head">
                 <h2>{details()?.title}</h2>
+                <p>{details()?.description}</p>
+              </div>
+              <div class="detail-body workspace-frame__body">
                 <pre class="detail-pre">{details()?.body}</pre>
-              </section>
-            </div>
+              </div>
+            </section>
           </Show>
         </>
       )}

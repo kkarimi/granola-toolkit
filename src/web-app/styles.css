@@ -1148,6 +1148,41 @@ select {
   min-width: 0;
 }
 
+.workspace-frame {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.74));
+  overflow: hidden;
+}
+
+.workspace-frame__head {
+  display: grid;
+  gap: 8px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.workspace-frame__head h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.workspace-frame__head p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+  max-width: 72ch;
+}
+
+.workspace-frame__body {
+  padding: 18px 24px 24px;
+}
+
 .home-dashboard {
   display: grid;
   gap: 18px;
@@ -1394,17 +1429,46 @@ select {
 
 .meeting-context {
   display: grid;
-  gap: 10px;
-  padding: 0 24px 8px;
+  gap: 14px;
+  padding: 0 0 8px;
 }
 
 .meeting-context__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 18px;
   padding: 24px;
   border: 1px solid var(--line);
   border-radius: 24px;
   background:
     radial-gradient(circle at top right, rgba(163, 79, 47, 0.12), transparent 34%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.72));
+}
+
+.meeting-context__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.meeting-context__stat {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.meeting-context__stat strong {
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.meeting-context__stat span:last-child {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 .detail-section {
@@ -1488,6 +1552,8 @@ select {
   .home-dashboard__hero,
   .home-dashboard__stats,
   .home-dashboard__grid,
+  .meeting-context__head,
+  .meeting-context__stats,
   .latest-meetings-grid,
   .usage-snapshot-grid,
   .advanced-search-panel__body,
