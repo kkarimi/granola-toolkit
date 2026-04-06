@@ -60,7 +60,6 @@ import {
   type DefaultGranolaAuthController,
   type DefaultGranolaAuthInfo,
 } from "../client/default.ts";
-import type { GranolaApiClient } from "../client/granola.ts";
 import {
   createDefaultExportJobStore,
   createExportJobId,
@@ -73,13 +72,7 @@ import {
   meetingExportScope,
   resolveExportOutputDir,
 } from "../export-scope.ts";
-import {
-  buildMeetingRecord,
-  filterMeetingSummaries,
-  listMeetings,
-  resolveMeeting,
-  resolveMeetingQuery,
-} from "../meetings.ts";
+import { filterMeetingSummaries, listMeetings } from "../meetings.ts";
 import {
   buildFolderRecord,
   buildFolderSummary,
@@ -124,15 +117,9 @@ import type {
   CacheData,
   GranolaDocument,
   NoteOutputFormat,
-  TranscriptSegment,
   TranscriptOutputFormat,
 } from "../types.ts";
-import {
-  granolaCacheCandidates,
-  quoteYamlString,
-  sanitiseFilename,
-  writeTextFile,
-} from "../utils.ts";
+import { quoteYamlString, sanitiseFilename, writeTextFile } from "../utils.ts";
 
 import type {
   GranolaAppApi,
@@ -195,9 +182,11 @@ import type {
   GranolaTranscriptsExportResult,
 } from "./types.ts";
 import type { FolderRecord, FolderSummaryRecord, MeetingSummaryRecord } from "./models.ts";
-
-type GranolaRemoteClient = Pick<GranolaApiClient, "listDocuments"> &
-  Partial<Pick<GranolaApiClient, "getDocumentTranscript" | "listFolders">>;
+import {
+  GranolaCatalogService,
+  type GranolaCatalogClient,
+  type GranolaCatalogLiveSnapshot,
+} from "./catalog.ts";
 
 interface GranolaAppDependencies {
   agentHarnessStore?: AgentHarnessStore;
@@ -215,11 +204,11 @@ interface GranolaAppDependencies {
   cacheLoader: (cacheFile?: string) => Promise<CacheData | undefined>;
   createGranolaClient?: (mode?: GranolaAppAuthMode) => Promise<{
     auth: GranolaAppAuthState;
-    client: GranolaRemoteClient;
+    client: GranolaCatalogClient;
   }>;
   exportJobStore?: ExportJobStore;
   exportJobs?: GranolaAppExportJobState[];
-  granolaClient?: GranolaRemoteClient;
+  granolaClient?: GranolaCatalogClient;
   meetingIndex?: MeetingSummaryRecord[];
   meetingIndexStore?: MeetingIndexStore;
   pkmTargetStore?: PkmTargetStore;
@@ -513,12 +502,7 @@ export class GranolaApp implements GranolaAppApi {
   #automationArtefacts: GranolaAutomationArtefact[];
   #automationMatches: GranolaAutomationMatch[];
   #automationRules: GranolaAutomationRule[];
-  #cacheData?: CacheData;
-  #cacheResolved = false;
-  #folders?: GranolaFolder[];
-  #granolaClient?: GranolaRemoteClient;
-  #documents?: GranolaDocument[];
-  #hydratedTranscriptSegments = new Map<string, TranscriptSegment[]>();
+  #catalog: GranolaCatalogService;
   #meetingIndex: MeetingSummaryRecord[];
   #searchIndex: GranolaSearchIndexEntry[];
   #listeners = new Set<(event: GranolaAppStateEvent) => void>();
@@ -531,6 +515,29 @@ export class GranolaApp implements GranolaAppApi {
     options: { surface?: GranolaAppSurface } = {},
   ) {
     this.#state = defaultState(config, deps.auth, options.surface ?? "cli");
+    this.#catalog = new GranolaCatalogService(config, {
+      cacheLoader: deps.cacheLoader,
+      createGranolaClient: deps.createGranolaClient,
+      getAuthMode: () => this.#state.auth.mode,
+      granolaClient: deps.granolaClient,
+      nowIso: () => this.nowIso(),
+      onAuthState: (auth) => {
+        this.#state.auth = { ...auth };
+        this.emitStateUpdate();
+      },
+      onCacheState: (state) => {
+        this.#state.cache = { ...state };
+        this.emitStateUpdate();
+      },
+      onDocumentsState: (state) => {
+        this.#state.documents = { ...state };
+        this.emitStateUpdate();
+      },
+      onFoldersState: (state) => {
+        this.#state.folders = { ...state };
+        this.emitStateUpdate();
+      },
+    });
     this.#automationArtefacts = (deps.automationArtefacts ?? []).map((artefact) =>
       this.cloneAutomationArtefact(artefact),
     );
@@ -608,40 +615,19 @@ export class GranolaApp implements GranolaAppApi {
   }
 
   private resetRemoteState(): void {
-    this.#granolaClient = undefined;
-    this.#folders = undefined;
-    this.#documents = undefined;
-    this.resetDocumentsState();
-    this.resetFoldersState();
+    this.#catalog.resetRemoteState();
   }
 
   private resetDocumentsState(): void {
-    this.#documents = undefined;
-    this.#hydratedTranscriptSegments.clear();
-    this.#state.documents = {
-      count: 0,
-      loaded: false,
-    };
+    this.#catalog.resetDocumentsState();
   }
 
   private resetFoldersState(): void {
-    this.#folders = undefined;
-    this.#state.folders = {
-      count: 0,
-      loaded: false,
-    };
+    this.#catalog.resetFoldersState();
   }
 
   private resetCacheState(): void {
-    this.#cacheData = undefined;
-    this.#cacheResolved = false;
-    this.#state.cache = {
-      configured: Boolean(this.config.transcripts.cacheFile),
-      documentCount: 0,
-      filePath: this.config.transcripts.cacheFile || undefined,
-      loaded: false,
-      transcriptCount: 0,
-    };
+    this.#catalog.resetCacheState();
   }
 
   private async persistSyncState(): Promise<void> {
@@ -1046,34 +1032,10 @@ export class GranolaApp implements GranolaAppApi {
     }
   }
 
-  private async liveMeetingSnapshot(options: { forceRefresh?: boolean } = {}): Promise<{
-    cacheData?: CacheData;
-    documents: GranolaDocument[];
-    folders?: GranolaFolder[];
-    meetings: MeetingSummaryRecord[];
-  }> {
-    const cacheData = await this.loadCache({
-      forceRefresh: options.forceRefresh,
-    });
-    const documents = await this.listDocuments({
-      forceRefresh: options.forceRefresh,
-    });
-    const folders = await this.loadFolders({
-      forceRefresh: options.forceRefresh,
-    });
-    const meetings = listMeetings(documents, {
-      cacheData,
-      foldersByDocumentId: this.buildFoldersByDocumentId(folders),
-      limit: Math.max(documents.length, 1),
-      sort: "updated-desc",
-    });
-
-    return {
-      cacheData,
-      documents,
-      folders,
-      meetings,
-    };
+  private async liveMeetingSnapshot(
+    options: { forceRefresh?: boolean } = {},
+  ): Promise<GranolaCatalogLiveSnapshot> {
+    return await this.#catalog.liveMeetingSnapshot(options);
   }
 
   private triggerMeetingIndexRefresh(): void {
@@ -1108,90 +1070,10 @@ export class GranolaApp implements GranolaAppApi {
     }
   }
 
-  private async getGranolaClient(): Promise<GranolaRemoteClient> {
-    if (this.#granolaClient) {
-      return this.#granolaClient;
-    }
-
-    if (this.deps.granolaClient) {
-      this.#granolaClient = this.deps.granolaClient;
-      return this.#granolaClient;
-    }
-
-    if (!this.deps.createGranolaClient) {
-      throw new Error("Granola API client is not configured");
-    }
-
-    const runtime = await this.deps.createGranolaClient(this.#state.auth.mode);
-    this.#granolaClient = runtime.client;
-    this.applyAuthState(runtime.auth);
-    return this.#granolaClient;
-  }
-
   private buildFoldersByDocumentId(
     folders: GranolaFolder[] | undefined,
   ): Map<string, FolderSummaryRecord[]> | undefined {
-    if (!folders || folders.length === 0) {
-      return undefined;
-    }
-
-    const byDocumentId = new Map<string, FolderSummaryRecord[]>();
-    for (const folder of folders) {
-      const summary = buildFolderSummary(folder);
-      for (const documentId of folder.documentIds) {
-        const existing = byDocumentId.get(documentId) ?? [];
-        existing.push(summary);
-        byDocumentId.set(documentId, existing);
-      }
-    }
-
-    for (const [documentId, summaries] of byDocumentId.entries()) {
-      byDocumentId.set(
-        documentId,
-        summaries
-          .slice()
-          .sort((left, right) => left.name.localeCompare(right.name))
-          .map((folder) => cloneFolderSummary(folder)),
-      );
-    }
-
-    return byDocumentId;
-  }
-
-  private deriveFoldersFromDocuments(documents: GranolaDocument[]): GranolaFolder[] | undefined {
-    const byFolderId = new Map<string, GranolaFolder>();
-
-    for (const document of documents) {
-      for (const membership of document.folderMemberships ?? []) {
-        const existing = byFolderId.get(membership.id);
-        if (existing) {
-          existing.documentIds = [...new Set([...existing.documentIds, document.id])];
-          existing.updatedAt =
-            existing.updatedAt.localeCompare(document.updatedAt) >= 0
-              ? existing.updatedAt
-              : document.updatedAt;
-          if (!existing.createdAt || existing.createdAt.localeCompare(document.createdAt) > 0) {
-            existing.createdAt = document.createdAt;
-          }
-          continue;
-        }
-
-        byFolderId.set(membership.id, {
-          createdAt: document.createdAt,
-          documentIds: [document.id],
-          id: membership.id,
-          isFavourite: false,
-          name: membership.name,
-          updatedAt: document.updatedAt,
-        });
-      }
-    }
-
-    if (byFolderId.size === 0) {
-      return undefined;
-    }
-
-    return [...byFolderId.values()].sort((left, right) => left.name.localeCompare(right.name));
+    return this.#catalog.buildFoldersByDocumentId(folders);
   }
 
   async loadFolders(
@@ -1200,77 +1082,7 @@ export class GranolaApp implements GranolaAppApi {
       required?: boolean;
     } = {},
   ): Promise<GranolaFolder[] | undefined> {
-    if (options.forceRefresh) {
-      this.resetFoldersState();
-      this.emitStateUpdate();
-    }
-
-    if (this.#folders) {
-      return this.#folders.map((folder) => ({
-        ...folder,
-        documentIds: [...folder.documentIds],
-      }));
-    }
-
-    const client = await this.getGranolaClient();
-    if (!client.listFolders) {
-      const documents = await this.listDocuments({
-        forceRefresh: options.forceRefresh,
-      });
-      const folders = this.deriveFoldersFromDocuments(documents);
-      if (folders) {
-        this.#folders = folders.map((folder) => ({
-          ...folder,
-          documentIds: [...folder.documentIds],
-        }));
-        this.#state.folders = {
-          count: folders.length,
-          loaded: true,
-          loadedAt: this.nowIso(),
-        };
-        this.emitStateUpdate();
-        return this.#folders.map((folder) => ({
-          ...folder,
-          documentIds: [...folder.documentIds],
-        }));
-      }
-
-      if (options.required) {
-        throw new Error("Granola folder API is not configured");
-      }
-      return undefined;
-    }
-
-    try {
-      const folders = await client.listFolders({
-        timeoutMs: this.config.notes.timeoutMs,
-      });
-      this.#folders = folders.map((folder) => ({
-        ...folder,
-        documentIds: [...folder.documentIds],
-      }));
-      this.#state.folders = {
-        count: this.#folders.length,
-        loaded: true,
-        loadedAt: this.nowIso(),
-      };
-      this.emitStateUpdate();
-      return this.#folders.map((folder) => ({
-        ...folder,
-        documentIds: [...folder.documentIds],
-      }));
-    } catch (error) {
-      if (options.required) {
-        throw error;
-      }
-      return undefined;
-    }
-  }
-
-  private missingCacheError(): Error {
-    return new Error(
-      `Granola cache file not found. Pass --cache or create .granola.toml. Expected locations include: ${granolaCacheCandidates().join(", ")}`,
-    );
+    return await this.#catalog.loadFolders(options);
   }
 
   private async persistExportJobs(): Promise<void> {
@@ -2117,88 +1929,7 @@ export class GranolaApp implements GranolaAppApi {
     id: string,
     options: { requireCache?: boolean } = {},
   ): Promise<GranolaMeetingBundle | undefined> {
-    try {
-      return await this.readMeetingBundleById(id, options);
-    } catch {
-      return undefined;
-    }
-  }
-
-  private cloneTranscriptSegments(segments: TranscriptSegment[]): TranscriptSegment[] {
-    return segments.map((segment) => ({ ...segment }));
-  }
-
-  private attachMeetingTranscriptSegments(
-    document: GranolaDocument,
-    segments: TranscriptSegment[],
-    cacheData?: CacheData,
-  ): GranolaDocument {
-    const nextSegments = this.cloneTranscriptSegments(segments);
-
-    if (cacheData) {
-      cacheData.transcripts[document.id] = this.cloneTranscriptSegments(nextSegments);
-      cacheData.documents[document.id] ??= {
-        createdAt: document.createdAt,
-        id: document.id,
-        title: document.title,
-        updatedAt: document.updatedAt,
-      };
-    }
-
-    const nextDocument = {
-      ...document,
-      transcriptSegments: nextSegments,
-    };
-
-    if (this.#documents) {
-      const index = this.#documents.findIndex((candidate) => candidate.id === document.id);
-      if (index >= 0) {
-        this.#documents[index] = nextDocument;
-      }
-    }
-
-    return nextDocument;
-  }
-
-  private async hydrateMeetingTranscript(
-    document: GranolaDocument,
-    cacheData?: CacheData,
-  ): Promise<GranolaDocument> {
-    const inlineSegments = document.transcriptSegments;
-    if (Array.isArray(inlineSegments) && inlineSegments.length > 0) {
-      return document;
-    }
-
-    const cachedSegments = cacheData?.transcripts[document.id];
-    if (Array.isArray(cachedSegments) && cachedSegments.length > 0) {
-      return document;
-    }
-
-    if (this.#hydratedTranscriptSegments.has(document.id)) {
-      return this.attachMeetingTranscriptSegments(
-        document,
-        this.#hydratedTranscriptSegments.get(document.id) ?? [],
-        cacheData,
-      );
-    }
-
-    const client = await this.getGranolaClient();
-    if (typeof client.getDocumentTranscript !== "function") {
-      return document;
-    }
-
-    try {
-      const transcriptSegments = await client.getDocumentTranscript(document.id, {
-        timeoutMs: this.config.notes.timeoutMs,
-      });
-      this.#hydratedTranscriptSegments.set(
-        document.id,
-        this.cloneTranscriptSegments(transcriptSegments),
-      );
-      return this.attachMeetingTranscriptSegments(document, transcriptSegments, cacheData);
-    } catch {
-      return document;
-    }
+    return await this.#catalog.maybeReadMeetingBundleById(id, options);
   }
 
   private async runAutomationNotesAction(
@@ -2997,77 +2728,13 @@ export class GranolaApp implements GranolaAppApi {
   }
 
   async listDocuments(options: { forceRefresh?: boolean } = {}): Promise<GranolaDocument[]> {
-    if (options.forceRefresh) {
-      this.resetDocumentsState();
-      this.emitStateUpdate();
-    }
-
-    if (this.#documents) {
-      return this.#documents;
-    }
-
-    const documents = await (
-      await this.getGranolaClient()
-    ).listDocuments({
-      timeoutMs: this.config.notes.timeoutMs,
-    });
-
-    this.#documents = documents;
-    this.#state.documents = {
-      count: documents.length,
-      loaded: true,
-      loadedAt: this.nowIso(),
-    };
-    this.emitStateUpdate();
-    return documents;
+    return await this.#catalog.listDocuments(options);
   }
 
   async loadCache(
     options: { forceRefresh?: boolean; required?: boolean } = {},
   ): Promise<CacheData | undefined> {
-    if (options.forceRefresh) {
-      this.resetCacheState();
-      this.emitStateUpdate();
-    }
-
-    if (this.#cacheResolved) {
-      if (options.required && !this.#cacheData) {
-        throw this.missingCacheError();
-      }
-      return this.#cacheData;
-    }
-
-    const cacheFile = this.config.transcripts.cacheFile || undefined;
-    if (!cacheFile) {
-      this.#cacheResolved = true;
-      if (options.required) {
-        throw this.missingCacheError();
-      }
-      return undefined;
-    }
-
-    if (!existsSync(cacheFile)) {
-      throw new Error(`Granola cache file not found: ${cacheFile}`);
-    }
-
-    const cacheData = await this.deps.cacheLoader(cacheFile);
-    this.#cacheResolved = true;
-    this.#cacheData = cacheData;
-    this.#state.cache = {
-      configured: true,
-      documentCount: cacheData ? Object.keys(cacheData.documents).length : 0,
-      filePath: cacheFile,
-      loaded: Boolean(cacheData),
-      loadedAt: cacheData ? this.nowIso() : undefined,
-      transcriptCount: cacheData ? transcriptCount(cacheData) : 0,
-    };
-    this.emitStateUpdate();
-
-    if (options.required && !cacheData) {
-      throw this.missingCacheError();
-    }
-
-    return cacheData;
+    return await this.#catalog.loadCache(options);
   }
 
   async listFolders(options: GranolaFolderListOptions = {}): Promise<GranolaFolderListResult> {
@@ -3174,7 +2841,7 @@ export class GranolaApp implements GranolaAppApi {
       !options.forceRefresh &&
       preferIndex &&
       this.#meetingIndex.length > 0 &&
-      (canUseSearchIndex || !this.#documents)
+      (canUseSearchIndex || !this.#state.documents.loaded)
     ) {
       const meetings = canUseSearchIndex
         ? this.indexedMeetingsForSearch({
@@ -3246,45 +2913,14 @@ export class GranolaApp implements GranolaAppApi {
     id: string,
     options: { requireCache?: boolean } = {},
   ): Promise<GranolaMeetingBundle> {
-    const documents = await this.listDocuments();
-    const cacheData = await this.loadCache({ required: options.requireCache });
-    const folders = await this.loadFolders();
-    const document = await this.hydrateMeetingTranscript(resolveMeeting(documents, id), cacheData);
-    const meeting = buildMeetingRecord(
-      document,
-      cacheData,
-      this.buildFoldersByDocumentId(folders)?.get(document.id),
-    );
-
-    return {
-      cacheData,
-      document,
-      meeting,
-    };
+    return await this.#catalog.readMeetingBundleById(id, options);
   }
 
   private async readMeetingBundleByQuery(
     query: string,
     options: { requireCache?: boolean } = {},
   ): Promise<GranolaMeetingBundle> {
-    const documents = await this.listDocuments();
-    const cacheData = await this.loadCache({ required: options.requireCache });
-    const folders = await this.loadFolders();
-    const document = await this.hydrateMeetingTranscript(
-      resolveMeetingQuery(documents, query),
-      cacheData,
-    );
-    const meeting = buildMeetingRecord(
-      document,
-      cacheData,
-      this.buildFoldersByDocumentId(folders)?.get(document.id),
-    );
-
-    return {
-      cacheData,
-      document,
-      meeting,
-    };
+    return await this.#catalog.readMeetingBundleByQuery(query, options);
   }
 
   async getMeeting(
@@ -3439,7 +3075,7 @@ export class GranolaApp implements GranolaAppApi {
   ): Promise<GranolaTranscriptsExportResult> {
     const cacheData = await this.loadCache({ required: true });
     if (!cacheData) {
-      throw this.missingCacheError();
+      throw new Error("Granola cache file is required for transcript export");
     }
 
     const exportContext = await this.resolveExportContext(options.folderId);
