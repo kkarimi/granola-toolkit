@@ -52,6 +52,16 @@ function documentResponse(id: string): Response {
   );
 }
 
+function stubNoApiKeyStore() {
+  vi.spyOn(authModule, "createDefaultApiKeyStore").mockReturnValue({
+    async clearApiKey() {},
+    async readApiKey() {
+      return undefined;
+    },
+    async writeApiKey() {},
+  });
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -59,6 +69,7 @@ afterEach(() => {
 
 describe("createDefaultGranolaRuntime", () => {
   test("uses the supabase file token source when supabase mode is preferred", async () => {
+    stubNoApiKeyStore();
     const fixture = await readFile(
       new URL("./fixtures/granola-supabase.fixture.json", import.meta.url),
       "utf8",
@@ -107,6 +118,7 @@ describe("createDefaultGranolaRuntime", () => {
   });
 
   test("falls back from a stored session to supabase after a 401", async () => {
+    stubNoApiKeyStore();
     const fixture = await readFile(
       new URL("./fixtures/granola-supabase.fixture.json", import.meta.url),
       "utf8",
@@ -253,6 +265,7 @@ describe("createDefaultGranolaRuntime", () => {
   });
 
   test("throws a helpful error when neither a stored session nor supabase.json is available", async () => {
+    stubNoApiKeyStore();
     vi.spyOn(authModule, "createDefaultSessionStore").mockReturnValue(new MemorySessionStore());
 
     await expect(createDefaultGranolaRuntime(createConfig(), { warn: vi.fn() })).rejects.toThrow(

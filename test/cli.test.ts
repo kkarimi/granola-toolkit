@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 
-import { MemorySessionStore } from "../src/client/auth.ts";
+import { MemoryApiKeyStore, MemorySessionStore } from "../src/client/auth.ts";
 import { runCli } from "../src/cli.ts";
 import * as authModule from "../src/client/auth.ts";
 
@@ -177,6 +177,7 @@ describe("runCli", () => {
   test("surfaces a clean error for a missing supabase file", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(authModule, "createDefaultApiKeyStore").mockReturnValue(new MemoryApiKeyStore());
     vi.spyOn(authModule, "createDefaultSessionStore").mockReturnValue(new MemorySessionStore());
 
     const exitCode = await runCli(["notes", "--supabase", "/tmp/granola-missing-supabase.json"]);

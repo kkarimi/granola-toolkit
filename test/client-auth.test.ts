@@ -158,6 +158,7 @@ describe("CachedTokenProvider", () => {
         },
       },
       {
+        apiKeyStore: new MemoryApiKeyStore(),
         sessionStore: new MemorySessionStore(),
       },
     );
@@ -206,6 +207,7 @@ describe("CachedTokenProvider", () => {
         },
       },
       {
+        apiKeyStore: new MemoryApiKeyStore(),
         fetchImpl: async () =>
           new Response("bad refresh", { status: 400, statusText: "Bad Request" }),
         sessionStore: store,
