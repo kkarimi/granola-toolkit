@@ -92,9 +92,6 @@ import { buildSyncEvents, diffMeetingSummaries } from "../sync.ts";
 import {
   buildSearchIndex,
   createDefaultSearchIndexStore,
-  mergeSearchIndexArtefacts,
-  meetingIdsFromSearchResults,
-  searchSearchIndex,
   type GranolaSearchIndexEntry,
   type SearchIndexStore,
 } from "../search-index.ts";
@@ -159,7 +156,6 @@ import type {
   GranolaAppSurface,
   GranolaFolderListOptions,
   GranolaFolderListResult,
-  GranolaMeetingSort,
   GranolaPkmTarget,
   GranolaProcessingIssue,
   GranolaProcessingIssuesResult,
@@ -184,6 +180,7 @@ import {
   cloneGranolaExportRunState,
   GranolaExportService,
 } from "./export-service.ts";
+import { GranolaIndexService } from "./index-service.ts";
 
 interface GranolaAppDependencies {
   agentHarnessStore?: AgentHarnessStore;
@@ -275,19 +272,6 @@ function cloneMeetingSummary(meeting: MeetingSummaryRecord): MeetingSummaryRecor
       ? meeting.folders.map((folder) => cloneFolderSummary(folder))
       : [],
     tags: [...meeting.tags],
-  };
-}
-
-function cloneSearchIndexEntry(entry: GranolaSearchIndexEntry): GranolaSearchIndexEntry {
-  return {
-    ...entry,
-    artefactActionNames: [...entry.artefactActionNames],
-    artefactKinds: [...entry.artefactKinds],
-    artefactRuleNames: [...entry.artefactRuleNames],
-    artefactTitles: [...entry.artefactTitles],
-    folderIds: [...entry.folderIds],
-    folderNames: [...entry.folderNames],
-    tags: [...entry.tags],
   };
 }
 
@@ -482,10 +466,8 @@ export class GranolaApp implements GranolaAppApi {
   #auth: GranolaAuthService;
   #catalog: GranolaCatalogService;
   #exports: GranolaExportService;
-  #meetingIndex: MeetingSummaryRecord[];
-  #searchIndex: GranolaSearchIndexEntry[];
+  #index: GranolaIndexService;
   #listeners = new Set<(event: GranolaAppStateEvent) => void>();
-  #refreshingMeetingIndex?: Promise<void>;
   readonly #state: GranolaAppState;
 
   constructor(
@@ -544,6 +526,17 @@ export class GranolaApp implements GranolaAppApi {
     this.#state.exports.jobs = (deps.exportJobs ?? []).map((job) =>
       cloneGranolaExportJobState(job),
     );
+    this.#index = new GranolaIndexService({
+      emitStateUpdate: () => {
+        this.emitStateUpdate();
+      },
+      meetingIndex: deps.meetingIndex,
+      meetingIndexStore: deps.meetingIndexStore,
+      nowIso: () => this.nowIso(),
+      searchIndex: deps.searchIndex,
+      searchIndexStore: deps.searchIndexStore,
+      state: this.#state.index,
+    });
     this.#exports = new GranolaExportService({
       config,
       createExportJobId,
@@ -578,15 +571,7 @@ export class GranolaApp implements GranolaAppApi {
       runCount: this.#automationActionRuns.length,
       runsFile: defaultAutomationRunsFilePath(),
     };
-    this.#meetingIndex = (deps.meetingIndex ?? []).map((meeting) => cloneMeetingSummary(meeting));
-    this.#searchIndex = (deps.searchIndex ?? []).map((entry) => cloneSearchIndexEntry(entry));
-    this.#state.index = {
-      available: this.#meetingIndex.length > 0,
-      filePath: defaultMeetingIndexFilePath(),
-      loaded: this.#meetingIndex.length > 0,
-      loadedAt: this.#meetingIndex.length > 0 ? this.nowIso() : undefined,
-      meetingCount: this.#meetingIndex.length,
-    };
+    this.#state.index.filePath = defaultMeetingIndexFilePath();
     this.#state.sync = {
       ...this.#state.sync,
       ...cloneSyncState(
@@ -829,11 +814,7 @@ export class GranolaApp implements GranolaAppApi {
       await this.deps.automationArtefactStore.writeArtefacts(this.#automationArtefacts);
     }
 
-    if (this.#searchIndex.length > 0) {
-      await this.persistSearchIndex(
-        mergeSearchIndexArtefacts(this.#searchIndex, this.#automationArtefacts),
-      );
-    }
+    await this.#index.mergeArtefacts(this.#automationArtefacts);
 
     this.refreshAutomationState();
   }
@@ -937,8 +918,8 @@ export class GranolaApp implements GranolaAppApi {
   }
 
   private async currentMeetingSummariesForProcessing(): Promise<MeetingSummaryRecord[]> {
-    if (this.#meetingIndex.length > 0) {
-      return this.#meetingIndex.map((meeting) => cloneMeetingSummary(meeting));
+    if (this.#index.hasMeetings()) {
+      return this.#index.meetings();
     }
 
     const snapshot = await this.liveMeetingSnapshot({
@@ -992,51 +973,10 @@ export class GranolaApp implements GranolaAppApi {
     return `sync-${this.nowIso().replaceAll(/[-:.]/g, "").replace("T", "").replace("Z", "")}`;
   }
 
-  private async persistMeetingIndex(meetings: MeetingSummaryRecord[]): Promise<void> {
-    this.#meetingIndex = meetings.map((meeting) => cloneMeetingSummary(meeting));
-    this.#state.index = {
-      available: this.#meetingIndex.length > 0,
-      filePath: this.#state.index.filePath,
-      loaded: this.#meetingIndex.length > 0,
-      loadedAt: this.#meetingIndex.length > 0 ? this.nowIso() : undefined,
-      meetingCount: this.#meetingIndex.length,
-    };
-
-    if (this.deps.meetingIndexStore) {
-      await this.deps.meetingIndexStore.writeIndex(this.#meetingIndex);
-    }
-
-    this.emitStateUpdate();
-  }
-
-  private async persistSearchIndex(entries: GranolaSearchIndexEntry[]): Promise<void> {
-    this.#searchIndex = entries.map((entry) => cloneSearchIndexEntry(entry));
-
-    if (this.deps.searchIndexStore) {
-      await this.deps.searchIndexStore.writeIndex(this.#searchIndex);
-    }
-  }
-
   private async liveMeetingSnapshot(
     options: { forceRefresh?: boolean } = {},
   ): Promise<GranolaCatalogLiveSnapshot> {
     return await this.#catalog.liveMeetingSnapshot(options);
-  }
-
-  private triggerMeetingIndexRefresh(): void {
-    if (this.#refreshingMeetingIndex) {
-      return;
-    }
-
-    this.#refreshingMeetingIndex = (async () => {
-      try {
-        await this.runSync({ foreground: false });
-      } catch {
-        // Opportunistic background sync should not break the foreground view.
-      } finally {
-        this.#refreshingMeetingIndex = undefined;
-      }
-    })();
   }
 
   private nowIso(): string {
@@ -2484,7 +2424,7 @@ export class GranolaApp implements GranolaAppApi {
     forceRefresh?: boolean;
     foreground: boolean;
   }): Promise<GranolaAppSyncResult> {
-    const previousMeetings = this.#meetingIndex.map((meeting) => cloneMeetingSummary(meeting));
+    const previousMeetings = this.#index.meetings();
     this.#state.sync = {
       ...this.#state.sync,
       lastError: undefined,
@@ -2501,8 +2441,8 @@ export class GranolaApp implements GranolaAppApi {
       const snapshot = await this.liveMeetingSnapshot({
         forceRefresh: options.forceRefresh ?? true,
       });
-      await this.persistMeetingIndex(snapshot.meetings);
-      await this.persistSearchIndex(
+      await this.#index.persistMeetingIndex(snapshot.meetings);
+      await this.#index.persistSearchIndex(
         buildSearchIndex(snapshot.documents, {
           artefacts: this.#automationArtefacts,
           cacheData: snapshot.cacheData,
@@ -2530,9 +2470,7 @@ export class GranolaApp implements GranolaAppApi {
       const automationMatches = matchAutomationRules(rules, events, completedAt);
       await this.appendAutomationMatches(automationMatches);
       await this.runAutomationActions(rules, automationMatches);
-      await this.persistSearchIndex(
-        mergeSearchIndexArtefacts(this.#searchIndex, this.#automationArtefacts),
-      );
+      await this.#index.mergeArtefacts(this.#automationArtefacts);
       this.#state.sync = {
         ...this.#state.sync,
         eventCount: this.#state.sync.eventCount + events.length,
@@ -2644,53 +2582,21 @@ export class GranolaApp implements GranolaAppApi {
     return await this.getFolder(summary.id);
   }
 
-  private indexedMeetingsForSearch(options: {
-    folderId?: string;
-    limit?: number;
-    search: string;
-    sort?: GranolaMeetingSort;
-    updatedFrom?: string;
-    updatedTo?: string;
-  }): MeetingSummaryRecord[] {
-    const rankedIds = meetingIdsFromSearchResults(
-      searchSearchIndex(this.#searchIndex, options.search),
-    );
-    const rankById = new Map(rankedIds.map((id, index) => [id, index] as const));
-    const baseMeetings = this.#meetingIndex.filter((meeting) => rankById.has(meeting.id));
-    const rankedMeetings = [...baseMeetings].sort((left, right) => {
-      const leftRank = rankById.get(left.id) ?? Number.MAX_SAFE_INTEGER;
-      const rightRank = rankById.get(right.id) ?? Number.MAX_SAFE_INTEGER;
-      if (leftRank !== rightRank) {
-        return leftRank - rightRank;
-      }
-
-      return right.updatedAt.localeCompare(left.updatedAt);
-    });
-
-    return filterMeetingSummaries(rankedMeetings, {
-      folderId: options.folderId,
-      limit: options.limit,
-      sort: options.sort,
-      updatedFrom: options.updatedFrom,
-      updatedTo: options.updatedTo,
-    });
-  }
-
   async listMeetings(options: GranolaMeetingListOptions = {}): Promise<GranolaMeetingListResult> {
     const preferIndex =
       options.preferIndex ??
       (this.#state.ui.surface === "web" || this.#state.ui.surface === "server");
     const canUseSearchIndex =
-      Boolean(options.search?.trim()) && !options.forceRefresh && this.#searchIndex.length > 0;
+      Boolean(options.search?.trim()) && !options.forceRefresh && this.#index.hasSearchIndex();
 
     if (
       !options.forceRefresh &&
       preferIndex &&
-      this.#meetingIndex.length > 0 &&
+      this.#index.hasMeetings() &&
       (canUseSearchIndex || !this.#state.documents.loaded)
     ) {
       const meetings = canUseSearchIndex
-        ? this.indexedMeetingsForSearch({
+        ? this.#index.indexedMeetingsForSearch({
             folderId: options.folderId,
             limit: options.limit,
             search: options.search!,
@@ -2698,7 +2604,7 @@ export class GranolaApp implements GranolaAppApi {
             updatedFrom: options.updatedFrom,
             updatedTo: options.updatedTo,
           })
-        : filterMeetingSummaries(this.#meetingIndex, options);
+        : filterMeetingSummaries(this.#index.meetings(), options);
       this.setUiState({
         folderSearch: undefined,
         meetingListSource: "index",
@@ -2710,7 +2616,13 @@ export class GranolaApp implements GranolaAppApi {
         selectedMeetingId: undefined,
         view: "meeting-list",
       });
-      this.triggerMeetingIndexRefresh();
+      this.#index.triggerBackgroundRefresh(async () => {
+        try {
+          await this.runSync({ foreground: false });
+        } catch {
+          // Opportunistic background sync should not break the foreground view.
+        }
+      });
       return {
         meetings,
         source: "index",
@@ -2735,7 +2647,7 @@ export class GranolaApp implements GranolaAppApi {
       updatedTo: options.updatedTo,
     });
 
-    await this.persistMeetingIndex(snapshot.meetings);
+    await this.#index.persistMeetingIndex(snapshot.meetings);
 
     this.setUiState({
       folderSearch: undefined,
@@ -2792,9 +2704,7 @@ export class GranolaApp implements GranolaAppApi {
     try {
       bundle = await this.readMeetingBundleByQuery(query, options);
     } catch (error) {
-      const fallbackId = meetingIdsFromSearchResults(
-        searchSearchIndex(this.#searchIndex, query),
-      )[0];
+      const fallbackId = this.#index.searchFallbackMeetingId(query);
       if (!fallbackId) {
         throw error;
       }
