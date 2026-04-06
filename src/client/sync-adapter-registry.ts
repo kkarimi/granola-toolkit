@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { GranolaApiClient } from "./granola.ts";
 import { GranolaPublicApiClient } from "./granola-public.ts";
 import { AuthenticatedHttpClient } from "./http.ts";
+import { isGranolaRateLimitError } from "./errors.ts";
 import {
   CachedTokenProvider,
   createDefaultApiKeyStore,
@@ -32,6 +33,107 @@ export interface GranolaSyncAdapterDefinition {
     preferredMode?: DefaultGranolaAuthInfo["mode"];
   }): Promise<DefaultGranolaRuntime>;
   kind: GranolaSyncAdapterKind;
+}
+
+function resolveFallbackMode(
+  auth: DefaultGranolaAuthInfo,
+): DefaultGranolaAuthInfo["mode"] | undefined {
+  if (auth.mode !== "api-key") {
+    return undefined;
+  }
+
+  if (auth.storedSessionAvailable) {
+    return "stored-session";
+  }
+
+  if (auth.supabaseAvailable) {
+    return "supabase-file";
+  }
+
+  return undefined;
+}
+
+function createPrivateGranolaClient(
+  auth: DefaultGranolaAuthInfo,
+  config: AppConfig,
+  logger: Pick<Console, "warn">,
+): DefaultGranolaClient {
+  const sessionStore = createDefaultSessionStore();
+  const tokenProvider =
+    auth.mode === "stored-session"
+      ? new StoredSessionTokenProvider(sessionStore, {
+          source:
+            config.supabase && existsSync(config.supabase)
+              ? new SupabaseFileSessionSource(config.supabase)
+              : undefined,
+        })
+      : new CachedTokenProvider(
+          new SupabaseFileTokenSource(config.supabase!),
+          new NoopTokenStore(),
+        );
+
+  return new GranolaApiClient(
+    new AuthenticatedHttpClient({
+      logger,
+      tokenProvider,
+    }),
+  );
+}
+
+function createRateLimitedFallbackClient(options: {
+  fallbackFactory: () => Promise<DefaultGranolaClient>;
+  logger: Pick<Console, "warn">;
+  primary: DefaultGranolaClient;
+}): DefaultGranolaClient {
+  let fallbackPromise: Promise<DefaultGranolaClient> | undefined;
+  const fallbackClient = async () => {
+    fallbackPromise ??= options.fallbackFactory();
+    return await fallbackPromise;
+  };
+
+  const retryWithFallback = async <T>(
+    action: string,
+    fn: (client: DefaultGranolaClient) => Promise<T>,
+  ): Promise<T> => {
+    try {
+      return await fn(options.primary);
+    } catch (error) {
+      if (!isGranolaRateLimitError(error)) {
+        throw error;
+      }
+
+      options.logger.warn?.(
+        `Granola Personal API hit rate limits during ${action}; retrying with desktop auth fallback`,
+      );
+      return await fn(await fallbackClient());
+    }
+  };
+
+  return {
+    async listDocuments(requestOptions) {
+      return await retryWithFallback("document sync", async (client) => {
+        return await client.listDocuments(requestOptions);
+      });
+    },
+    async listFolders(requestOptions) {
+      return await retryWithFallback("folder sync", async (client) => {
+        if (typeof client.listFolders !== "function") {
+          throw new Error("folder listing not available for the active Granola client");
+        }
+
+        return await client.listFolders(requestOptions);
+      });
+    },
+    async getDocumentTranscript(documentId, requestOptions) {
+      return await retryWithFallback("transcript fetch", async (client) => {
+        if (typeof client.getDocumentTranscript !== "function") {
+          throw new Error("transcript loading not available for the active Granola client");
+        }
+
+        return await client.getDocumentTranscript(documentId, requestOptions);
+      });
+    },
+  };
 }
 
 export type GranolaSyncAdapterRegistry = GranolaCapabilityRegistry<
@@ -87,43 +189,38 @@ export function createDefaultGranolaSyncAdapterRegistry(
           );
         }
 
+        const publicClient = new GranolaPublicApiClient(
+          new AuthenticatedHttpClient({
+            logger,
+            tokenProvider: new CachedTokenProvider({
+              async loadAccessToken() {
+                return apiKey;
+              },
+            }),
+          }),
+        );
+        const fallbackMode = resolveFallbackMode(auth);
+
         return {
           auth,
-          client: new GranolaPublicApiClient(
-            new AuthenticatedHttpClient({
-              logger,
-              tokenProvider: new CachedTokenProvider({
-                async loadAccessToken() {
-                  return apiKey;
+          client: fallbackMode
+            ? createRateLimitedFallbackClient({
+                fallbackFactory: async () => {
+                  const fallbackAuth = await inspectDefaultGranolaAuth(config, {
+                    preferredMode: fallbackMode,
+                  });
+                  return createPrivateGranolaClient(fallbackAuth, config, logger);
                 },
-              }),
-            }),
-          ),
+                logger,
+                primary: publicClient,
+              })
+            : publicClient,
         };
       }
 
-      const sessionStore = createDefaultSessionStore();
-      const tokenProvider =
-        auth.mode === "stored-session"
-          ? new StoredSessionTokenProvider(sessionStore, {
-              source:
-                config.supabase && existsSync(config.supabase)
-                  ? new SupabaseFileSessionSource(config.supabase)
-                  : undefined,
-            })
-          : new CachedTokenProvider(
-              new SupabaseFileTokenSource(config.supabase!),
-              new NoopTokenStore(),
-            );
-
       return {
         auth,
-        client: new GranolaApiClient(
-          new AuthenticatedHttpClient({
-            logger,
-            tokenProvider,
-          }),
-        ),
+        client: createPrivateGranolaClient(auth, config, logger),
       };
     },
   });

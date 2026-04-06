@@ -264,6 +264,95 @@ describe("createDefaultGranolaRuntime", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  test("falls back from the public notes API to desktop auth after a 429", async () => {
+    vi.spyOn(authModule, "createDefaultApiKeyStore").mockReturnValue({
+      async clearApiKey() {},
+      async readApiKey() {
+        return "grn_test_123";
+      },
+      async writeApiKey() {},
+    });
+
+    const store = new MemorySessionStore();
+    await store.writeSession({
+      accessToken: "stored-token",
+      clientId: "client_GranolaMac",
+      refreshToken: "stored-refresh",
+    });
+    vi.spyOn(authModule, "createDefaultSessionStore").mockReturnValue(store);
+
+    let publicDetailRequests = 0;
+    const logger = { warn: vi.fn() };
+    const fetchMock = vi
+      .fn<(input: string | URL | Request, init?: RequestInit) => Promise<Response>>()
+      .mockImplementation(async (url, init) => {
+        const requestUrl =
+          typeof url === "string" ? url : url instanceof URL ? url.toString() : url.url;
+        const authorization = new Headers(init?.headers).get("authorization");
+
+        if (requestUrl.startsWith("https://public-api.granola.ai/v1/notes?page_size=")) {
+          expect(authorization).toBe("Bearer grn_test_123");
+          return new Response(
+            JSON.stringify({
+              cursor: null,
+              hasMore: false,
+              notes: [
+                {
+                  created_at: "2024-01-01T00:00:00Z",
+                  id: "not_rate_limited",
+                  title: "API Key Meeting",
+                  updated_at: "2024-01-02T00:00:00Z",
+                },
+              ],
+            }),
+            { status: 200 },
+          );
+        }
+
+        if (
+          requestUrl ===
+          "https://public-api.granola.ai/v1/notes/not_rate_limited?include=transcript"
+        ) {
+          publicDetailRequests += 1;
+          expect(authorization).toBe("Bearer grn_test_123");
+          return new Response(
+            JSON.stringify({
+              code: "RATE_LIMITED",
+              message: "Too Many Requests",
+            }),
+            { status: 429, statusText: "Too Many Requests" },
+          );
+        }
+
+        expect(requestUrl).toBe("https://api.granola.ai/v2/get-documents");
+        expect(authorization).toBe("Bearer stored-token");
+        return documentResponse("doc-fallback-after-rate-limit");
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const runtime = await createDefaultGranolaRuntime(
+      createConfig(undefined, "grn_test_123"),
+      logger,
+    );
+    const documents = await runtime.client.listDocuments({
+      limit: 10,
+      timeoutMs: 5_000,
+    });
+
+    expect(runtime.auth).toEqual(
+      expect.objectContaining({
+        apiKeyAvailable: true,
+        mode: "api-key",
+        storedSessionAvailable: true,
+      }),
+    );
+    expect(documents.map((document) => document.id)).toEqual(["doc-fallback-after-rate-limit"]);
+    expect(publicDetailRequests).toBe(3);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Granola Personal API hit rate limits during document sync; retrying with desktop auth fallback",
+    );
+  });
+
   test("throws a helpful error when neither a stored session nor supabase.json is available", async () => {
     stubNoApiKeyStore();
     vi.spyOn(authModule, "createDefaultSessionStore").mockReturnValue(new MemorySessionStore());

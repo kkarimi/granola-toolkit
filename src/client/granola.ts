@@ -2,6 +2,7 @@ import type { GranolaDocument, GranolaFolder, TranscriptSegment } from "../types
 import { asRecord, stringValue } from "../utils.ts";
 
 import { parseDocument, parseFolder } from "./parsers.ts";
+import { granolaClientHttpError } from "./errors.ts";
 import type { AuthenticatedHttpClient } from "./http.ts";
 
 const DEFAULT_CLIENT_VERSION = "5.354.0";
@@ -103,8 +104,11 @@ export class GranolaApiClient {
 
       if (!response.ok) {
         const body = (await response.text()).slice(0, 500);
-        throw new Error(
-          `failed to get documents: ${response.status} ${response.statusText}${body ? `: ${body}` : ""}`,
+        throw granolaClientHttpError(
+          "failed to get documents",
+          response.status,
+          response.statusText,
+          body,
         );
       }
 
@@ -149,8 +153,11 @@ export class GranolaApiClient {
 
       if (!response.ok) {
         const body = (await response.text()).slice(0, 500);
-        throw new Error(
-          `failed to get folders: ${response.status} ${response.statusText}${body ? `: ${body}` : ""}`,
+        throw granolaClientHttpError(
+          "failed to get folders",
+          response.status,
+          response.statusText,
+          body,
         );
       }
 
@@ -189,8 +196,11 @@ export class GranolaApiClient {
 
     if (!response.ok) {
       const body = (await response.text()).slice(0, 500);
-      throw new Error(
-        `failed to get transcript: ${response.status} ${response.statusText}${body ? `: ${body}` : ""}`,
+      throw granolaClientHttpError(
+        "failed to get transcript",
+        response.status,
+        response.statusText,
+        body,
       );
     }
 

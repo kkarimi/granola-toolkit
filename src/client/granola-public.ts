@@ -1,6 +1,7 @@
 import type { GranolaDocument } from "../types.ts";
 
 import { parsePublicNote, parsePublicNoteSummary, type PublicNoteSummary } from "./parsers.ts";
+import { granolaClientHttpError } from "./errors.ts";
 import type { AuthenticatedHttpClient } from "./http.ts";
 
 const PUBLIC_NOTES_URL = "https://public-api.granola.ai/v1/notes";
@@ -61,8 +62,11 @@ export class GranolaPublicApiClient {
 
       if (!response.ok) {
         const body = (await response.text()).slice(0, 500);
-        throw new Error(
-          `failed to list notes: ${response.status} ${response.statusText}${body ? `: ${body}` : ""}`,
+        throw granolaClientHttpError(
+          "failed to list notes",
+          response.status,
+          response.statusText,
+          body,
         );
       }
 
@@ -100,8 +104,11 @@ export class GranolaPublicApiClient {
 
     if (!response.ok) {
       const body = (await response.text()).slice(0, 500);
-      throw new Error(
-        `failed to get note ${noteId}: ${response.status} ${response.statusText}${body ? `: ${body}` : ""}`,
+      throw granolaClientHttpError(
+        `failed to get note ${noteId}`,
+        response.status,
+        response.statusText,
+        body,
       );
     }
 
