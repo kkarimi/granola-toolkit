@@ -65,13 +65,7 @@ import {
   createExportJobId,
   type ExportJobStore,
 } from "../export-jobs.ts";
-import {
-  allExportScope,
-  cloneExportScope,
-  folderExportScope,
-  meetingExportScope,
-  resolveExportOutputDir,
-} from "../export-scope.ts";
+import { meetingExportScope, resolveExportOutputDir } from "../export-scope.ts";
 import { filterMeetingSummaries, listMeetings } from "../meetings.ts";
 import {
   buildFolderRecord,
@@ -87,7 +81,6 @@ import {
   type MeetingIndexStore,
 } from "../meeting-index.ts";
 import { createDefaultPkmTargetStore, type PkmTargetStore } from "../pkm-targets.ts";
-import { writeNotes } from "../notes.ts";
 import {
   defaultSyncEventsFilePath,
   createDefaultSyncStateStore,
@@ -111,7 +104,6 @@ import {
   parseProcessingIssueId,
 } from "../processing-health.ts";
 import { buildPipelineInstructions, parsePipelineOutput } from "../processing.ts";
-import { writeTranscripts } from "../transcripts.ts";
 import type {
   AppConfig,
   CacheData,
@@ -151,7 +143,6 @@ import type {
   GranolaAppAuthMode,
   GranolaAppAuthState,
   GranolaAppExportJobState,
-  GranolaAppExportRunState,
   GranolaAgentHarnessesResult,
   GranolaAgentHarnessExplanationsResult,
   GranolaAppSyncChange,
@@ -187,6 +178,11 @@ import {
   type GranolaCatalogClient,
   type GranolaCatalogLiveSnapshot,
 } from "./catalog.ts";
+import {
+  cloneGranolaExportJobState,
+  cloneGranolaExportRunState,
+  GranolaExportService,
+} from "./export-service.ts";
 
 interface GranolaAppDependencies {
   agentHarnessStore?: AgentHarnessStore;
@@ -248,26 +244,6 @@ function harnessEvaluationMatch(
     tags: [...bundle.meeting.meeting.tags],
     title: bundle.meeting.meeting.title || bundle.document.title || bundle.document.id,
     transcriptLoaded: bundle.meeting.meeting.transcriptLoaded,
-  };
-}
-
-function transcriptCount(cacheData: CacheData): number {
-  return Object.values(cacheData.transcripts).filter((segments) => segments.length > 0).length;
-}
-
-function cloneExportState(state?: GranolaAppExportRunState): GranolaAppExportRunState | undefined {
-  return state
-    ? {
-        ...state,
-        scope: cloneExportScope(state.scope),
-      }
-    : undefined;
-}
-
-function cloneExportJob(job: GranolaAppExportJobState): GranolaAppExportJobState {
-  return {
-    ...job,
-    scope: cloneExportScope(job.scope),
   };
 }
 
@@ -423,9 +399,9 @@ function cloneState(state: GranolaAppState): GranolaAppState {
     documents: { ...state.documents },
     folders: { ...state.folders },
     exports: {
-      jobs: state.exports.jobs.map((job) => cloneExportJob(job)),
-      notes: cloneExportState(state.exports.notes),
-      transcripts: cloneExportState(state.exports.transcripts),
+      jobs: state.exports.jobs.map((job) => cloneGranolaExportJobState(job)),
+      notes: cloneGranolaExportRunState(state.exports.notes),
+      transcripts: cloneGranolaExportRunState(state.exports.transcripts),
     },
     index: { ...state.index },
     sync: cloneSyncState(state.sync),
@@ -503,6 +479,7 @@ export class GranolaApp implements GranolaAppApi {
   #automationMatches: GranolaAutomationMatch[];
   #automationRules: GranolaAutomationRule[];
   #catalog: GranolaCatalogService;
+  #exports: GranolaExportService;
   #meetingIndex: MeetingSummaryRecord[];
   #searchIndex: GranolaSearchIndexEntry[];
   #listeners = new Set<(event: GranolaAppStateEvent) => void>();
@@ -552,7 +529,25 @@ export class GranolaApp implements GranolaAppApi {
     this.#automationRules = (deps.automationRules ?? []).map((rule) =>
       this.cloneAutomationRule(rule),
     );
-    this.#state.exports.jobs = (deps.exportJobs ?? []).map((job) => cloneExportJob(job));
+    this.#state.exports.jobs = (deps.exportJobs ?? []).map((job) =>
+      cloneGranolaExportJobState(job),
+    );
+    this.#exports = new GranolaExportService({
+      config,
+      createExportJobId,
+      emitStateUpdate: () => {
+        this.emitStateUpdate();
+      },
+      exportJobStore: deps.exportJobStore,
+      loadCache: async (options = {}) => await this.loadCache(options),
+      loadFolders: async (options = {}) => await this.loadFolders(options),
+      listDocuments: async () => await this.listDocuments(),
+      nowIso: () => this.nowIso(),
+      setUiState: (patch) => {
+        this.setUiState(patch);
+      },
+      state: this.#state.exports,
+    });
     this.#state.automation = {
       artefactCount: this.#automationArtefacts.length,
       artefactsFile: config.automation?.artefactsFile ?? defaultAutomationArtefactsFilePath(),
@@ -1083,92 +1078,6 @@ export class GranolaApp implements GranolaAppApi {
     } = {},
   ): Promise<GranolaFolder[] | undefined> {
     return await this.#catalog.loadFolders(options);
-  }
-
-  private async persistExportJobs(): Promise<void> {
-    if (!this.deps.exportJobStore) {
-      return;
-    }
-
-    await this.deps.exportJobStore.writeJobs(this.#state.exports.jobs);
-  }
-
-  private async updateExportJob(job: GranolaAppExportJobState): Promise<GranolaAppExportJobState> {
-    const nextJobs = [
-      cloneExportJob(job),
-      ...this.#state.exports.jobs
-        .filter((candidate) => candidate.id !== job.id)
-        .map(cloneExportJob),
-    ].slice(0, 100);
-
-    this.#state.exports.jobs = nextJobs;
-    await this.persistExportJobs();
-    this.emitStateUpdate();
-    return cloneExportJob(job);
-  }
-
-  private async startExportJob(
-    kind: "notes" | "transcripts",
-    format: string,
-    itemCount: number,
-    outputDir: string,
-    scope: GranolaExportScope,
-  ): Promise<GranolaAppExportJobState> {
-    return await this.updateExportJob({
-      completedCount: 0,
-      format,
-      id: createExportJobId(kind),
-      itemCount,
-      kind,
-      outputDir,
-      scope: cloneExportScope(scope),
-      startedAt: this.nowIso(),
-      status: "running",
-      written: 0,
-    });
-  }
-
-  private async completeExportJob(
-    job: GranolaAppExportJobState,
-    patch: {
-      completedCount: number;
-      written: number;
-    },
-  ): Promise<GranolaAppExportJobState> {
-    return await this.updateExportJob({
-      ...job,
-      completedCount: patch.completedCount,
-      finishedAt: this.nowIso(),
-      status: "completed",
-      written: patch.written,
-    });
-  }
-
-  private async failExportJob(
-    job: GranolaAppExportJobState,
-    error: unknown,
-  ): Promise<GranolaAppExportJobState> {
-    const message = error instanceof Error ? error.message : String(error);
-    return await this.updateExportJob({
-      ...job,
-      error: message,
-      finishedAt: this.nowIso(),
-      status: "failed",
-    });
-  }
-
-  private async setExportJobProgress(
-    job: GranolaAppExportJobState,
-    patch: {
-      completedCount: number;
-      written: number;
-    },
-  ): Promise<GranolaAppExportJobState> {
-    return await this.updateExportJob({
-      ...job,
-      completedCount: patch.completedCount,
-      written: patch.written,
-    });
   }
 
   private requireAuthController(): DefaultGranolaAuthController {
@@ -1953,7 +1862,7 @@ export class GranolaApp implements GranolaAppApi {
       meetingId: bundle.document.id,
       meetingTitle: bundle.meeting.meeting.title || bundle.document.id,
     });
-    const result = await this.runNotesExport({
+    const result = await this.#exports.runNotesExport({
       documents: [bundle.document],
       format: action.format ?? "markdown",
       outputDir: resolveExportOutputDir(action.outputDir ?? this.config.notes.output, scope, {
@@ -1999,7 +1908,7 @@ export class GranolaApp implements GranolaAppApi {
       meetingId: bundle.document.id,
       meetingTitle: bundle.meeting.meeting.title || bundle.document.id,
     });
-    const result = await this.runTranscriptsExport({
+    const result = await this.#exports.runTranscriptsExport({
       cacheData: {
         documents: {
           [bundle.document.id]: cacheDocument,
@@ -2968,259 +2877,27 @@ export class GranolaApp implements GranolaAppApi {
   async listExportJobs(
     options: GranolaExportJobsListOptions = {},
   ): Promise<GranolaExportJobsResult> {
-    const limit = options.limit ?? 20;
-    const jobs = this.#state.exports.jobs.slice(0, limit).map((job) => cloneExportJob(job));
-
-    this.setUiState({
-      view: "exports-history",
-    });
-
-    return {
-      jobs,
-    };
+    return await this.#exports.listJobs(options);
   }
 
   async exportNotes(
     format: NoteOutputFormat = "markdown",
     options: GranolaExportRunOptions = {},
   ): Promise<GranolaNotesExportResult> {
-    const documents = await this.listDocuments();
-    const exportContext = await this.resolveExportContext(options.folderId);
-    const filteredDocuments = exportContext.documentIds
-      ? documents.filter((document) => exportContext.documentIds!.has(document.id))
-      : documents;
-
-    return await this.runNotesExport({
-      documents: filteredDocuments,
-      format,
-      outputDir: resolveExportOutputDir(
-        options.outputDir ?? this.config.notes.output,
-        exportContext.scope,
-        {
-          scopedDirectory: options.scopedOutput,
-        },
-      ),
-      scope: exportContext.scope,
-    });
-  }
-
-  private async runNotesExport(options: {
-    documents: GranolaDocument[];
-    format: NoteOutputFormat;
-    outputDir: string;
-    scope: GranolaExportScope;
-    trackLastRun?: boolean;
-    updateUi?: boolean;
-  }): Promise<GranolaNotesExportResult> {
-    let job = await this.startExportJob(
-      "notes",
-      options.format,
-      options.documents.length,
-      options.outputDir,
-      options.scope,
-    );
-    let written = 0;
-
-    try {
-      written = await writeNotes(options.documents, options.outputDir, options.format, {
-        onProgress: async (progress) => {
-          job = await this.setExportJobProgress(job, {
-            completedCount: progress.completed,
-            written: progress.written,
-          });
-        },
-      });
-      job = await this.completeExportJob(job, {
-        completedCount: options.documents.length,
-        written,
-      });
-    } catch (error) {
-      await this.failExportJob(job, error);
-      throw error;
-    }
-
-    if (options.trackLastRun !== false) {
-      this.#state.exports.notes = {
-        format: options.format,
-        itemCount: options.documents.length,
-        jobId: job.id,
-        outputDir: options.outputDir,
-        ranAt: this.nowIso(),
-        scope: cloneExportScope(options.scope),
-        written,
-      };
-    }
-    this.emitStateUpdate();
-    if (options.updateUi !== false) {
-      this.setUiState({
-        selectedFolderId: options.scope.mode === "folder" ? options.scope.folderId : undefined,
-        view: "notes-export",
-      });
-    }
-
-    return {
-      documentCount: options.documents.length,
-      documents: options.documents,
-      format: options.format,
-      job,
-      outputDir: options.outputDir,
-      scope: cloneExportScope(options.scope),
-      written,
-    };
+    return await this.#exports.exportNotes(format, options);
   }
 
   async exportTranscripts(
     format: TranscriptOutputFormat = "text",
     options: GranolaExportRunOptions = {},
   ): Promise<GranolaTranscriptsExportResult> {
-    const cacheData = await this.loadCache({ required: true });
-    if (!cacheData) {
-      throw new Error("Granola cache file is required for transcript export");
-    }
-
-    const exportContext = await this.resolveExportContext(options.folderId);
-    const scopedCacheData = exportContext.documentIds
-      ? {
-          documents: Object.fromEntries(
-            Object.entries(cacheData.documents).filter(([id]) =>
-              exportContext.documentIds!.has(id),
-            ),
-          ),
-          transcripts: Object.fromEntries(
-            Object.entries(cacheData.transcripts).filter(([id]) =>
-              exportContext.documentIds!.has(id),
-            ),
-          ),
-        }
-      : cacheData;
-
-    return await this.runTranscriptsExport({
-      cacheData: scopedCacheData,
-      format,
-      outputDir: resolveExportOutputDir(
-        options.outputDir ?? this.config.transcripts.output,
-        exportContext.scope,
-        {
-          scopedDirectory: options.scopedOutput,
-        },
-      ),
-      scope: exportContext.scope,
-    });
-  }
-
-  private async runTranscriptsExport(options: {
-    cacheData: CacheData;
-    format: TranscriptOutputFormat;
-    outputDir: string;
-    scope: GranolaExportScope;
-    trackLastRun?: boolean;
-    updateUi?: boolean;
-  }): Promise<GranolaTranscriptsExportResult> {
-    const count = transcriptCount(options.cacheData);
-    let job = await this.startExportJob(
-      "transcripts",
-      options.format,
-      count,
-      options.outputDir,
-      options.scope,
-    );
-    let written = 0;
-
-    try {
-      written = await writeTranscripts(options.cacheData, options.outputDir, options.format, {
-        onProgress: async (progress) => {
-          job = await this.setExportJobProgress(job, {
-            completedCount: progress.completed,
-            written: progress.written,
-          });
-        },
-      });
-      job = await this.completeExportJob(job, {
-        completedCount: count,
-        written,
-      });
-    } catch (error) {
-      await this.failExportJob(job, error);
-      throw error;
-    }
-
-    if (options.trackLastRun !== false) {
-      this.#state.exports.transcripts = {
-        format: options.format,
-        itemCount: count,
-        jobId: job.id,
-        outputDir: options.outputDir,
-        ranAt: this.nowIso(),
-        scope: cloneExportScope(options.scope),
-        written,
-      };
-    }
-    this.emitStateUpdate();
-    if (options.updateUi !== false) {
-      this.setUiState({
-        selectedFolderId: options.scope.mode === "folder" ? options.scope.folderId : undefined,
-        view: "transcripts-export",
-      });
-    }
-
-    return {
-      cacheData: options.cacheData,
-      format: options.format,
-      job,
-      outputDir: options.outputDir,
-      scope: cloneExportScope(options.scope),
-      transcriptCount: count,
-      written,
-    };
+    return await this.#exports.exportTranscripts(format, options);
   }
 
   async rerunExportJob(
     id: string,
   ): Promise<GranolaNotesExportResult | GranolaTranscriptsExportResult> {
-    const job = this.#state.exports.jobs.find((candidate) => candidate.id === id);
-    if (!job) {
-      throw new Error(`export job not found: ${id}`);
-    }
-
-    if (job.kind === "notes") {
-      return await this.exportNotes(job.format as NoteOutputFormat, {
-        folderId: job.scope.mode === "folder" ? job.scope.folderId : undefined,
-        outputDir: job.outputDir,
-        scopedOutput: false,
-      });
-    }
-
-    return await this.exportTranscripts(job.format as TranscriptOutputFormat, {
-      folderId: job.scope.mode === "folder" ? job.scope.folderId : undefined,
-      outputDir: job.outputDir,
-      scopedOutput: false,
-    });
-  }
-
-  private async resolveExportContext(folderId?: string): Promise<{
-    documentIds?: Set<string>;
-    scope: GranolaExportScope;
-  }> {
-    if (!folderId) {
-      return {
-        scope: allExportScope(),
-      };
-    }
-
-    const folders = await this.loadFolders({
-      required: true,
-    });
-    const summaries = (folders ?? []).map((folder) => buildFolderSummary(folder));
-    const summary = resolveFolder(summaries, folderId);
-    const rawFolder = (folders ?? []).find((candidate) => candidate.id === summary.id);
-    if (!rawFolder) {
-      throw new Error(`folder not found: ${folderId}`);
-    }
-
-    return {
-      documentIds: new Set(rawFolder.documentIds),
-      scope: folderExportScope(summary),
-    };
+    return await this.#exports.rerunJob(id);
   }
 }
 
