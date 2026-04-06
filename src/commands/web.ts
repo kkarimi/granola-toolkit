@@ -30,7 +30,7 @@ Options:
   --hostname <value>      Hostname to bind (overrides network default)
   --port <value>          Port to bind (default: 0 for any available port)
   --password <value>      Optional server password for API and browser access
-  --sync-interval <value> Background sync interval, e.g. 60s or 5m (default: 60s)
+  --sync-interval <value> Background sync interval, e.g. 15m or 1h (default: 15m)
   --no-sync               Disable the background sync loop
   --trusted-origins <v>   Comma-separated extra browser origins to trust
   --cache <path>          Path to Granola cache JSON

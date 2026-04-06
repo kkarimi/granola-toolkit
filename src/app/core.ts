@@ -52,6 +52,11 @@ import {
   type GranolaSyncAdapterRegistry,
 } from "../client/default.ts";
 import {
+  createDefaultCatalogSnapshotStore,
+  type CatalogSnapshotStore,
+  type GranolaCatalogSnapshot,
+} from "../catalog-snapshot.ts";
+import {
   createDefaultExportJobStore,
   createExportJobId,
   type ExportJobStore,
@@ -186,6 +191,8 @@ interface GranolaAppDependencies {
   automationRuns?: GranolaAutomationActionRun[];
   automationRuleStore?: AutomationRuleStore;
   automationRules?: GranolaAutomationRule[];
+  catalogSnapshot?: GranolaCatalogSnapshot;
+  catalogSnapshotStore?: CatalogSnapshotStore;
   cacheLoader: (cacheFile?: string) => Promise<CacheData | undefined>;
   createGranolaClient?: (mode?: GranolaAppAuthMode) => Promise<{
     auth: GranolaAppAuthState;
@@ -217,6 +224,55 @@ interface ResolvedAutomationAgentAttempt {
 
 function cloneFolderSummary(folder: FolderSummaryRecord): FolderSummaryRecord {
   return { ...folder };
+}
+
+function deriveFolderSummariesFromMeetings(
+  meetings: MeetingSummaryRecord[],
+): FolderSummaryRecord[] {
+  const foldersById = new Map<
+    string,
+    {
+      folder: FolderSummaryRecord;
+      meetingIds: Set<string>;
+    }
+  >();
+
+  for (const meeting of meetings) {
+    for (const folder of meeting.folders) {
+      const existing = foldersById.get(folder.id);
+      if (existing) {
+        existing.meetingIds.add(meeting.id);
+        existing.folder = {
+          ...existing.folder,
+          createdAt:
+            existing.folder.createdAt.localeCompare(folder.createdAt) <= 0
+              ? existing.folder.createdAt
+              : folder.createdAt,
+          description: existing.folder.description ?? folder.description,
+          documentCount: Math.max(existing.folder.documentCount, folder.documentCount),
+          isFavourite: existing.folder.isFavourite || folder.isFavourite,
+          updatedAt:
+            existing.folder.updatedAt.localeCompare(folder.updatedAt) >= 0
+              ? existing.folder.updatedAt
+              : folder.updatedAt,
+          workspaceId: existing.folder.workspaceId ?? folder.workspaceId,
+        };
+        continue;
+      }
+
+      foldersById.set(folder.id, {
+        folder: cloneFolderSummary(folder),
+        meetingIds: new Set([meeting.id]),
+      });
+    }
+  }
+
+  return [...foldersById.values()]
+    .map(({ folder, meetingIds }) => ({
+      ...folder,
+      documentCount: Math.max(folder.documentCount, meetingIds.size),
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name));
 }
 
 function cloneSyncChange(change: GranolaAppSyncChange): GranolaAppSyncChange {
@@ -525,6 +581,7 @@ export class GranolaApp implements GranolaAppApi {
     this.#catalog = new GranolaCatalogService(config, {
       cacheLoader: deps.cacheLoader,
       createGranolaClient,
+      initialSnapshot: deps.catalogSnapshot,
       getAuthMode: () => this.#state.auth.mode,
       granolaClient: deps.granolaClient,
       nowIso: () => this.nowIso(),
@@ -544,6 +601,7 @@ export class GranolaApp implements GranolaAppApi {
         this.#state.folders = { ...state };
         this.emitStateUpdate();
       },
+      snapshotStore: deps.catalogSnapshotStore,
     });
     this.#state.exports.jobs = (deps.exportJobs ?? []).map((job) =>
       cloneGranolaExportJobState(job),
@@ -1577,6 +1635,25 @@ export class GranolaApp implements GranolaAppApi {
   }
 
   async listFolders(options: GranolaFolderListOptions = {}): Promise<GranolaFolderListResult> {
+    if (!options.forceRefresh && this.#index.hasMeetings()) {
+      const summaries = filterFolders(deriveFolderSummariesFromMeetings(this.#index.meetings()), {
+        limit: options.limit,
+        search: options.search,
+      });
+
+      if (summaries.length > 0) {
+        this.#state.folders = {
+          count: summaries.length,
+          loaded: true,
+          loadedAt: this.nowIso(),
+        };
+        this.emitStateUpdate();
+        return {
+          folders: summaries,
+        };
+      }
+    }
+
     const folders = await this.loadFolders({
       forceRefresh: options.forceRefresh,
       required: true,
@@ -1764,6 +1841,8 @@ export async function createGranolaApp(
   } = {},
 ): Promise<GranolaApp> {
   const auth = await inspectDefaultGranolaAuth(config);
+  const catalogSnapshotStore = createDefaultCatalogSnapshotStore();
+  const catalogSnapshot = await catalogSnapshotStore.readSnapshot();
   const automationArtefactStore = createDefaultAutomationArtefactStore(
     config.automation?.artefactsFile,
   );
@@ -1805,6 +1884,8 @@ export async function createGranolaApp(
       automationRuns,
       automationRules,
       automationRuleStore,
+      catalogSnapshot,
+      catalogSnapshotStore,
       cacheLoader: loadOptionalGranolaCache,
       createGranolaClient: async (mode) =>
         await createDefaultGranolaRuntime(config, options.logger, {

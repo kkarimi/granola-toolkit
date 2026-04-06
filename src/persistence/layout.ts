@@ -10,6 +10,7 @@ export interface GranolaToolkitPersistenceLayout {
   automationRulesFile: string;
   automationRunsFile: string;
   apiKeyFile: string;
+  catalogSnapshotFile: string;
   dataDirectory: string;
   exportJobsFile: string;
   meetingIndexFile: string;
@@ -52,6 +53,7 @@ export function defaultGranolaToolkitPersistenceLayout(
     automationRulesFile: join(dataDirectory, "automation-rules.json"),
     automationRunsFile: join(dataDirectory, "automation-runs.jsonl"),
     apiKeyFile: join(dataDirectory, "api-key.txt"),
+    catalogSnapshotFile: join(dataDirectory, "catalog-snapshot.json"),
     dataDirectory,
     exportJobsFile: join(dataDirectory, "export-jobs.json"),
     meetingIndexFile: join(dataDirectory, "meeting-index.json"),

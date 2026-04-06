@@ -444,6 +444,7 @@ function createWorkspaceHarness(
       title: string;
     }>;
     failNextRefresh?: boolean;
+    initialMeetingId?: string;
     processingIssues?: Array<{
       id: string;
       kind:
@@ -456,10 +457,34 @@ function createWorkspaceHarness(
       severity: "error" | "warning";
       title: string;
     }>;
+    state?: Partial<GranolaAppState>;
   } = {},
 ) {
   const host = new FakeTuiHost();
-  const state = createAppState();
+  const state = {
+    ...createAppState(),
+    ...options.state,
+    cache: {
+      ...createAppState().cache,
+      ...options.state?.cache,
+    },
+    documents: {
+      ...createAppState().documents,
+      ...options.state?.documents,
+    },
+    folders: {
+      ...createAppState().folders,
+      ...options.state?.folders,
+    },
+    index: {
+      ...createAppState().index,
+      ...options.state?.index,
+    },
+    sync: {
+      ...createAppState().sync,
+      ...options.state?.sync,
+    },
+  };
   const listeners = new Set<(event: GranolaAppStateEvent) => void>();
   let failNextRefresh = options.failNextRefresh ?? false;
 
@@ -774,7 +799,7 @@ function createWorkspaceHarness(
   };
 
   const workspace = new GranolaTuiWorkspace(host, app, {
-    initialMeetingId: "doc-alpha-1111",
+    initialMeetingId: "initialMeetingId" in options ? options.initialMeetingId : "doc-alpha-1111",
     onExit: vi.fn(),
   });
 
@@ -911,6 +936,29 @@ describe("GranolaTuiWorkspace", () => {
 
     harness.workspace.handleInput("[");
     expect(harness.workspace.render(100).join("\n")).toContain("Notes source: notes");
+  });
+
+  test("waits for explicit open when the document snapshot is not loaded yet", async () => {
+    const harness = createWorkspaceHarness({
+      initialMeetingId: undefined,
+      state: {
+        documents: {
+          count: 0,
+          loaded: false,
+        },
+      },
+    });
+
+    await harness.workspace.initialise();
+
+    expect(harness.getMeeting).not.toHaveBeenCalled();
+    expect(harness.workspace.render(100).join("\n")).toContain("Enter to load this meeting");
+
+    harness.workspace.handleInput("\n");
+    await harness.waitFor(() => harness.getMeeting.mock.calls.length === 1);
+
+    expect(harness.getMeeting).toHaveBeenCalledWith("doc-alpha-1111");
+    expect(harness.workspace.render(100).join("\n")).toContain("Opened Alpha Sync");
   });
 
   test("surfaces refresh failures and recovers on the next refresh", async () => {

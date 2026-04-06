@@ -2,7 +2,10 @@ import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 
 import * as appModule from "../src/app/index.ts";
 import * as configModule from "../src/config.ts";
-import { createCommandAppContext } from "../src/commands/shared.ts";
+import {
+  createCommandAppContext,
+  shouldStartBackgroundSyncImmediately,
+} from "../src/commands/shared.ts";
 import type { AppConfig } from "../src/types.ts";
 
 function makeConfig(overrides: Partial<AppConfig> = {}): AppConfig {
@@ -104,5 +107,58 @@ describe("createCommandAppContext", () => {
     expect(error).not.toHaveBeenCalledWith("[debug]", "supabase", expect.anything());
     expect(error).not.toHaveBeenCalledWith("[debug]", "cacheFile", expect.anything());
     expect(error).not.toHaveBeenCalledWith("[debug]", "timeoutMs", expect.anything());
+  });
+});
+
+describe("shouldStartBackgroundSyncImmediately", () => {
+  test("starts immediately when no local index is available yet", () => {
+    expect(
+      shouldStartBackgroundSyncImmediately({
+        index: {
+          available: true,
+          filePath: "/tmp/meeting-index.json",
+          loaded: false,
+          meetingCount: 0,
+        },
+        sync: {
+          eventCount: 0,
+          eventsFile: "/tmp/sync-events.jsonl",
+          filePath: "/tmp/sync-state.json",
+          lastChanges: [],
+          running: false,
+        },
+      } as never),
+    ).toBe(true);
+  });
+
+  test("skips the immediate refresh when the last sync is recent", () => {
+    const now = new Date("2026-04-06T12:00:00Z").valueOf();
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    expect(
+      shouldStartBackgroundSyncImmediately(
+        {
+          index: {
+            available: true,
+            filePath: "/tmp/meeting-index.json",
+            loaded: true,
+            loadedAt: "2026-04-06T11:55:00Z",
+            meetingCount: 700,
+          },
+          sync: {
+            eventCount: 0,
+            eventsFile: "/tmp/sync-events.jsonl",
+            filePath: "/tmp/sync-state.json",
+            lastChanges: [],
+            lastCompletedAt: "2026-04-06T11:58:00Z",
+            running: false,
+          },
+        } as never,
+        15 * 60 * 1000,
+      ),
+    ).toBe(false);
+
+    vi.useRealTimers();
   });
 });

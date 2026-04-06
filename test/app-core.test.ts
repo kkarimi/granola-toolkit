@@ -2646,4 +2646,145 @@ describe("GranolaApp", () => {
       }),
     );
   });
+
+  test("uses the local catalog snapshot before hitting live Granola APIs", async () => {
+    const listDocuments = vi.fn(async () => documents);
+    const listFolders = vi.fn(async () => folders);
+    const cacheLoader = vi.fn(async () => cacheData);
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        transcripts: {
+          cacheFile: "",
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          mode: "api-key",
+          apiKeyAvailable: true,
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: false,
+        },
+        cacheLoader,
+        catalogSnapshot: {
+          cacheData,
+          documents,
+          folders,
+          updatedAt: "2024-03-01T12:00:00Z",
+        },
+        granolaClient: {
+          listDocuments,
+          listFolders,
+        },
+        now: () => new Date("2024-03-01T12:05:00Z"),
+      },
+      { surface: "tui" },
+    );
+
+    const folderList = await app.listFolders({ limit: 10 });
+    const meeting = await app.getMeeting("doc-alpha-1111");
+
+    expect(folderList.folders).toEqual([
+      expect.objectContaining({
+        id: "folder-team-1111",
+        name: "Team",
+      }),
+    ]);
+    expect(meeting.meeting.transcriptText).toContain("Hello team");
+    expect(listDocuments).not.toHaveBeenCalled();
+    expect(listFolders).not.toHaveBeenCalled();
+    expect(cacheLoader).not.toHaveBeenCalled();
+    expect(app.getState().cache).toEqual(
+      expect.objectContaining({
+        configured: true,
+        loaded: true,
+        transcriptCount: 1,
+      }),
+    );
+  });
+
+  test("derives folders from the local meeting index before a live refresh", async () => {
+    const meetingIndexStore = new MemoryMeetingIndexStore();
+    await meetingIndexStore.writeIndex([
+      {
+        createdAt: "2024-01-01T09:00:00Z",
+        folders: [
+          {
+            createdAt: "2024-01-01T08:00:00Z",
+            documentCount: 1,
+            id: "folder-team-1111",
+            isFavourite: true,
+            name: "Team",
+            updatedAt: "2024-01-04T10:00:00Z",
+            workspaceId: "workspace-1",
+          },
+        ],
+        id: "doc-alpha-1111",
+        noteContentSource: "notes",
+        tags: ["team", "alpha"],
+        title: "Alpha Sync",
+        transcriptLoaded: true,
+        transcriptSegmentCount: 1,
+        updatedAt: "2024-01-03T10:00:00Z",
+      },
+    ]);
+
+    const listDocuments = vi.fn(async () => documents);
+    const listFolders = vi.fn(async () => folders);
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        transcripts: {
+          cacheFile: "",
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          mode: "api-key",
+          apiKeyAvailable: true,
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: false,
+        },
+        cacheLoader: async () => undefined,
+        granolaClient: {
+          listDocuments,
+          listFolders,
+        },
+        meetingIndex: await meetingIndexStore.readIndex(),
+        meetingIndexStore,
+        now: () => new Date("2024-03-01T12:00:00Z"),
+      },
+      { surface: "tui" },
+    );
+
+    const result = await app.listFolders({ limit: 10 });
+
+    expect(result.folders).toEqual([
+      expect.objectContaining({
+        documentCount: 1,
+        id: "folder-team-1111",
+        name: "Team",
+      }),
+    ]);
+    expect(listDocuments).not.toHaveBeenCalled();
+    expect(listFolders).not.toHaveBeenCalled();
+    expect(app.getState().folders).toEqual(
+      expect.objectContaining({
+        count: 1,
+        loaded: true,
+      }),
+    );
+  });
 });

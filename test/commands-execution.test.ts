@@ -453,6 +453,11 @@ describe("command execution", () => {
         auth: {
           mode: "stored-session",
         },
+        index: {
+          loaded: false,
+          meetingCount: 0,
+        },
+        sync: {},
       }),
     };
     const close = vi.fn(async () => {});
@@ -498,7 +503,7 @@ describe("command execution", () => {
       runtime: {
         mode: "server",
         syncEnabled: true,
-        syncIntervalMs: 60_000,
+        syncIntervalMs: 900_000,
       },
       security: {
         password: "secret-pass",
@@ -507,14 +512,14 @@ describe("command execution", () => {
     });
     expect(createGranolaSyncLoop).toHaveBeenCalledWith({
       app,
-      intervalMs: 60_000,
+      intervalMs: 900_000,
       logger: console,
     });
     expect(waitForShutdown).toHaveBeenCalled();
     expect(stopSyncLoop).toHaveBeenCalled();
     expect(close).toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith("Server password protection: enabled");
-    expect(log).toHaveBeenCalledWith("Background sync: enabled (60000ms)");
+    expect(log).toHaveBeenCalledWith("Background sync: enabled (900000ms)");
     expect(log).toHaveBeenCalledWith("Trusted origins: https://app.example, https://admin.example");
   });
 
@@ -1343,6 +1348,11 @@ describe("command execution", () => {
         auth: {
           mode: "stored-session",
         },
+        index: {
+          loaded: false,
+          meetingCount: 0,
+        },
+        sync: {},
       }),
     };
     const start = vi.fn();
@@ -1367,7 +1377,9 @@ describe("command execution", () => {
     );
 
     expect(exitCode).toBe(0);
-    expect(start).toHaveBeenCalledWith();
+    expect(start).toHaveBeenCalledWith({
+      immediate: true,
+    });
     expect(stop).toHaveBeenCalled();
     expect(runGranolaTui).toHaveBeenCalledWith(app, {
       initialMeetingId: "doc-alpha-1111",

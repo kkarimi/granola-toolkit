@@ -31,7 +31,7 @@ describe("web workspace helpers", () => {
       password: "secret-pass",
       port: 4096,
       syncEnabled: true,
-      syncIntervalMs: 60_000,
+      syncIntervalMs: 900_000,
       trustedOrigins: ["https://app.example", "https://admin.example"],
     });
   });
@@ -39,7 +39,15 @@ describe("web workspace helpers", () => {
   test("starts the browser workspace and focuses a meeting URL", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const openExternalUrl = vi.spyOn(browserModule, "openExternalUrl").mockResolvedValue();
-    const app = {} as never;
+    const app = {
+      getState: () => ({
+        index: {
+          loaded: false,
+          meetingCount: 0,
+        },
+        sync: {},
+      }),
+    } as never;
     const close = vi.fn(async () => {});
     const stopSyncLoop = vi.fn(async () => {});
     const startGranolaServer = vi.spyOn(serverModule, "startGranolaServer").mockResolvedValue({
@@ -88,7 +96,9 @@ describe("web workspace helpers", () => {
     expect(String(openExternalUrl.mock.calls[0]?.[0])).toBe(
       "http://127.0.0.1:4096/?meeting=doc-alpha-1111",
     );
-    expect(startSyncLoop).toHaveBeenCalledWith();
+    expect(startSyncLoop).toHaveBeenCalledWith({
+      immediate: true,
+    });
     expect(stopSyncLoop).toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith(
       "Focused meeting URL: http://127.0.0.1:4096/?meeting=doc-alpha-1111",
@@ -100,7 +110,15 @@ describe("web workspace helpers", () => {
   test("reports browser-open failures without aborting startup", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(browserModule, "openExternalUrl").mockRejectedValue(new Error("open failed"));
-    const app = {} as never;
+    const app = {
+      getState: () => ({
+        index: {
+          loaded: false,
+          meetingCount: 0,
+        },
+        sync: {},
+      }),
+    } as never;
     vi.spyOn(serverModule, "startGranolaServer").mockResolvedValue({
       app,
       close: vi.fn(async () => {}),

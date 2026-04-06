@@ -114,7 +114,7 @@ export class GranolaTuiWorkspace implements Component {
       await this.loadMeeting(this.options.initialMeetingId, {
         ensureMeetingVisible: true,
       });
-    } else if (this.#selectedMeetingId) {
+    } else if (this.#selectedMeetingId && this.#appState.documents.loaded) {
       void this.loadMeeting(this.#selectedMeetingId);
     }
   }
@@ -480,6 +480,16 @@ export class GranolaTuiWorkspace implements Component {
     await this.moveMeetingSelection(delta);
   }
 
+  private async openSelectedMeeting(): Promise<void> {
+    if (!this.#selectedMeetingId) {
+      return;
+    }
+
+    await this.loadMeeting(this.#selectedMeetingId, {
+      ensureMeetingVisible: true,
+    });
+  }
+
   private viewModel(): GranolaTuiWorkspaceViewModel {
     return {
       activePane: this.#activePane,
@@ -792,6 +802,9 @@ export class GranolaTuiWorkspace implements Component {
       },
       moveSelection: (delta) => {
         void this.moveSelection(delta);
+      },
+      openSelectedMeeting: () => {
+        void this.openSelectedMeeting();
       },
       openAuth: () => {
         this.openAuthPanel();

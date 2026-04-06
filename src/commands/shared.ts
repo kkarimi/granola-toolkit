@@ -1,4 +1,9 @@
-import { createGranolaApp, type GranolaApp, type GranolaAppSurface } from "../app/index.ts";
+import {
+  createGranolaApp,
+  type GranolaApp,
+  type GranolaAppState,
+  type GranolaAppSurface,
+} from "../app/index.ts";
 import { loadConfig, type FlagValues } from "../config.ts";
 import type { AppConfig } from "../types.ts";
 import { parseDuration } from "../utils.ts";
@@ -20,6 +25,9 @@ export interface CommandAppContextOptions {
   includeTimeoutMs?: boolean;
   surface?: GranolaAppSurface;
 }
+
+export const DEFAULT_BACKGROUND_SYNC_INTERVAL_MS = 15 * 60 * 1000;
+export const DEFAULT_SYNC_WATCH_INTERVAL_MS = 60 * 1000;
 
 function logCommandConfig(config: AppConfig, options: CommandAppContextOptions): void {
   debug(config.debug, "using config", config.configFileUsed ?? "(none)");
@@ -118,7 +126,7 @@ export function parseTrustedOrigins(value: string | boolean | undefined): string
 
 export function parseSyncInterval(
   value: string | boolean | undefined,
-  fallbackMs = 60_000,
+  fallbackMs = DEFAULT_BACKGROUND_SYNC_INTERVAL_MS,
 ): number {
   if (value === undefined) {
     return fallbackMs;
@@ -129,6 +137,27 @@ export function parseSyncInterval(
   }
 
   return parseDuration(value);
+}
+
+export function shouldStartBackgroundSyncImmediately(
+  state: GranolaAppState,
+  intervalMs = DEFAULT_BACKGROUND_SYNC_INTERVAL_MS,
+): boolean {
+  if (!state?.index?.loaded || (state.index.meetingCount ?? 0) === 0) {
+    return true;
+  }
+
+  const lastCompletedAt = state.sync?.lastCompletedAt;
+  if (!lastCompletedAt) {
+    return true;
+  }
+
+  const lastCompletedAtMs = Date.parse(lastCompletedAt);
+  if (!Number.isFinite(lastCompletedAtMs)) {
+    return true;
+  }
+
+  return Date.now() - lastCompletedAtMs >= intervalMs;
 }
 
 export function syncEnabled(commandFlags: Record<string, string | boolean | undefined>): boolean {

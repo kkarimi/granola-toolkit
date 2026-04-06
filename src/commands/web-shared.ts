@@ -6,11 +6,13 @@ import { createGranolaSyncLoop } from "../sync-loop.ts";
 import { buildGranolaMeetingUrl } from "../web-url.ts";
 
 import {
+  DEFAULT_BACKGROUND_SYNC_INTERVAL_MS,
   parseNetworkMode,
   parsePort,
   parseSyncInterval,
   parseTrustedOrigins,
   resolveServerHostname,
+  shouldStartBackgroundSyncImmediately,
   syncEnabled,
   type ServerNetworkMode,
   waitForShutdown,
@@ -40,7 +42,10 @@ export function resolveGranolaWebWorkspaceOptions(
       ? commandFlags.password.trim()
       : undefined;
   const backgroundSyncEnabled = syncEnabled(commandFlags);
-  const syncIntervalMs = parseSyncInterval(commandFlags["sync-interval"]);
+  const syncIntervalMs = parseSyncInterval(
+    commandFlags["sync-interval"],
+    DEFAULT_BACKGROUND_SYNC_INTERVAL_MS,
+  );
   const trustedOrigins = parseTrustedOrigins(commandFlags["trusted-origins"]);
 
   return {
@@ -108,7 +113,9 @@ export async function runGranolaWebWorkspace(
         logger: console,
       })
     : undefined;
-  syncLoop?.start();
+  syncLoop?.start({
+    immediate: shouldStartBackgroundSyncImmediately(app.getState(), options.syncIntervalMs),
+  });
   const targetUrl = options.targetMeetingId
     ? buildGranolaMeetingUrl(server.url, options.targetMeetingId)
     : new URL(server.url);

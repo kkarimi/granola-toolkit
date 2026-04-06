@@ -2,7 +2,12 @@ import { createGranolaApp, type GranolaAppSyncResult } from "../app/index.ts";
 import { loadConfig } from "../config.ts";
 import { createGranolaSyncLoop } from "../sync-loop.ts";
 
-import { debug, parseSyncInterval, waitForShutdown } from "./shared.ts";
+import {
+  debug,
+  DEFAULT_SYNC_WATCH_INTERVAL_MS,
+  parseSyncInterval,
+  waitForShutdown,
+} from "./shared.ts";
 import type { CommandDefinition } from "./types.ts";
 
 function syncHelp(): string {
@@ -101,7 +106,7 @@ export const syncCommand: CommandDefinition = {
     }
 
     if (commandFlags.watch === true) {
-      const intervalMs = parseSyncInterval(commandFlags.interval);
+      const intervalMs = parseSyncInterval(commandFlags.interval, DEFAULT_SYNC_WATCH_INTERVAL_MS);
       const syncLoop = createGranolaSyncLoop({
         app,
         intervalMs,

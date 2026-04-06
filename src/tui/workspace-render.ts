@@ -125,6 +125,13 @@ export function currentDetailBody(view: GranolaTuiWorkspaceViewModel, width: num
   }
 
   if (!view.selectedMeeting) {
+    if (view.selectedMeetingId) {
+      return wrapBlock(
+        "Select Enter to load this meeting's full notes, transcript, and metadata from the local snapshot or Granola.",
+        width,
+      );
+    }
+
     return wrapBlock("Select a meeting to inspect its notes, transcript, and metadata.", width);
   }
 
@@ -385,7 +392,7 @@ export function renderWorkspace(
   const footerStatus = padLine(toneText(view.statusTone, view.statusMessage), width);
   const footerHints = padLine(
     granolaTuiTheme.dim(
-      "h/l or Tab pane  j/k move  / palette  a auth  u automation  r sync  1-4 tabs  PgUp/PgDn scroll  q quit",
+      "h/l or Tab pane  j/k move  Enter open  / palette  a auth  u automation  r sync  1-4 tabs  PgUp/PgDn scroll  q quit",
     ),
     width,
   );

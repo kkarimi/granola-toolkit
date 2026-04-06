@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 
+import type { CatalogSnapshotStore, GranolaCatalogSnapshot } from "../catalog-snapshot.ts";
 import { buildFolderSummary } from "../folders.ts";
 import {
   buildMeetingRecord,
@@ -33,12 +34,14 @@ export interface GranolaCatalogDependencies {
     client: GranolaCatalogClient;
   }>;
   getAuthMode: () => GranolaAppAuthMode;
+  initialSnapshot?: GranolaCatalogSnapshot;
   granolaClient?: GranolaCatalogClient;
   nowIso: () => string;
   onAuthState: (auth: GranolaAppAuthState) => void;
   onCacheState: (state: GranolaAppCacheState) => void;
   onDocumentsState: (state: GranolaAppDocumentsState) => void;
   onFoldersState: (state: GranolaAppFoldersState) => void;
+  snapshotStore?: CatalogSnapshotStore;
 }
 
 export interface GranolaCatalogLiveSnapshot {
@@ -74,7 +77,9 @@ export class GranolaCatalogService {
   constructor(
     private readonly config: AppConfig,
     private readonly deps: GranolaCatalogDependencies,
-  ) {}
+  ) {
+    this.seedFromSnapshot(deps.initialSnapshot);
+  }
 
   resetRemoteState(): void {
     this.#granolaClient = undefined;
@@ -113,6 +118,56 @@ export class GranolaCatalogService {
     });
   }
 
+  private seedFromSnapshot(snapshot?: GranolaCatalogSnapshot): void {
+    if (!snapshot) {
+      return;
+    }
+
+    if (Array.isArray(snapshot.documents) && snapshot.documents.length > 0) {
+      this.#documents = structuredClone(snapshot.documents);
+      this.deps.onDocumentsState({
+        count: this.#documents.length,
+        loaded: true,
+        loadedAt: snapshot.updatedAt,
+      });
+    }
+
+    if (Array.isArray(snapshot.folders) && snapshot.folders.length > 0) {
+      this.#folders = snapshot.folders.map(cloneGranolaFolder);
+      this.deps.onFoldersState({
+        count: this.#folders.length,
+        loaded: true,
+        loadedAt: snapshot.updatedAt,
+      });
+    }
+
+    if (snapshot.cacheData) {
+      this.#cacheData = structuredClone(snapshot.cacheData);
+      this.#cacheResolved = true;
+      this.deps.onCacheState({
+        configured: true,
+        documentCount: Object.keys(this.#cacheData.documents).length,
+        filePath: this.config.transcripts.cacheFile || undefined,
+        loaded: true,
+        loadedAt: snapshot.updatedAt,
+        transcriptCount: transcriptCount(this.#cacheData),
+      });
+    }
+  }
+
+  private async persistSnapshot(): Promise<void> {
+    if (!this.deps.snapshotStore || !this.#documents || this.#documents.length === 0) {
+      return;
+    }
+
+    await this.deps.snapshotStore.writeSnapshot({
+      cacheData: this.#cacheData ? structuredClone(this.#cacheData) : undefined,
+      documents: structuredClone(this.#documents),
+      folders: this.#folders ? this.#folders.map(cloneGranolaFolder) : undefined,
+      updatedAt: this.deps.nowIso(),
+    });
+  }
+
   async listDocuments(options: { forceRefresh?: boolean } = {}): Promise<GranolaDocument[]> {
     if (options.forceRefresh) {
       this.resetDocumentsState();
@@ -134,6 +189,7 @@ export class GranolaCatalogService {
       loaded: true,
       loadedAt: this.deps.nowIso(),
     });
+    await this.persistSnapshot();
     return documents;
   }
 
@@ -154,6 +210,17 @@ export class GranolaCatalogService {
     const cacheFile = this.config.transcripts.cacheFile || undefined;
     if (!cacheFile) {
       this.#cacheResolved = true;
+      if (this.#cacheData) {
+        this.deps.onCacheState({
+          configured: true,
+          documentCount: Object.keys(this.#cacheData.documents).length,
+          filePath: undefined,
+          loaded: true,
+          loadedAt: this.deps.nowIso(),
+          transcriptCount: transcriptCount(this.#cacheData),
+        });
+        return this.#cacheData;
+      }
       if (options.required) {
         throw this.missingCacheError();
       }
@@ -175,6 +242,7 @@ export class GranolaCatalogService {
       loadedAt: cacheData ? this.deps.nowIso() : undefined,
       transcriptCount: cacheData ? transcriptCount(cacheData) : 0,
     });
+    await this.persistSnapshot();
 
     if (options.required && !cacheData) {
       throw this.missingCacheError();
@@ -210,6 +278,7 @@ export class GranolaCatalogService {
           loaded: true,
           loadedAt: this.deps.nowIso(),
         });
+        await this.persistSnapshot();
         return this.#folders.map(cloneGranolaFolder);
       }
 
@@ -229,6 +298,7 @@ export class GranolaCatalogService {
         loaded: true,
         loadedAt: this.deps.nowIso(),
       });
+      await this.persistSnapshot();
       return this.#folders.map(cloneGranolaFolder);
     } catch (error) {
       if (options.required) {
@@ -439,6 +509,8 @@ export class GranolaCatalogService {
         this.#documents[index] = nextDocument;
       }
     }
+
+    void this.persistSnapshot();
 
     return nextDocument;
   }

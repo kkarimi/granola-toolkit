@@ -4,12 +4,14 @@ import { startGranolaServer } from "../server/http.ts";
 import { createGranolaSyncLoop } from "../sync-loop.ts";
 
 import {
+  DEFAULT_BACKGROUND_SYNC_INTERVAL_MS,
   debug,
   parseNetworkMode,
   parsePort,
   parseSyncInterval,
   parseTrustedOrigins,
   resolveServerHostname,
+  shouldStartBackgroundSyncImmediately,
   syncEnabled,
   waitForShutdown,
 } from "./shared.ts";
@@ -26,7 +28,7 @@ Options:
   --hostname <value>      Hostname to bind (overrides network default)
   --port <value>          Port to bind (default: 0 for any available port)
   --password <value>      Optional server password for API and browser access
-  --sync-interval <value> Background sync interval, e.g. 60s or 5m (default: 60s)
+  --sync-interval <value> Background sync interval, e.g. 15m or 1h (default: 15m)
   --no-sync               Disable the background sync loop
   --trusted-origins <v>   Comma-separated extra browser origins to trust
   --cache <path>          Path to Granola cache JSON
@@ -76,7 +78,10 @@ export const serveCommand: CommandDefinition = {
         ? commandFlags.password
         : undefined;
     const backgroundSyncEnabled = syncEnabled(commandFlags);
-    const syncIntervalMs = parseSyncInterval(commandFlags["sync-interval"]);
+    const syncIntervalMs = parseSyncInterval(
+      commandFlags["sync-interval"],
+      DEFAULT_BACKGROUND_SYNC_INTERVAL_MS,
+    );
     const trustedOrigins = parseTrustedOrigins(commandFlags["trusted-origins"]);
     const server = await startGranolaServer(app, {
       hostname,
@@ -98,7 +103,9 @@ export const serveCommand: CommandDefinition = {
           logger: console,
         })
       : undefined;
-    syncLoop?.start();
+    syncLoop?.start({
+      immediate: shouldStartBackgroundSyncImmediately(app.getState(), syncIntervalMs),
+    });
 
     console.log(`Granola server listening on ${server.url.href}`);
     console.log(`Network mode: ${networkMode}`);

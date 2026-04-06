@@ -7,6 +7,7 @@ interface GranolaTuiWorkspaceInputActions {
   cycleTab: (delta: number) => void;
   exit: () => void;
   moveSelection: (delta: number) => void;
+  openSelectedMeeting: () => void;
   openAuth: () => void;
   openAutomation: () => void;
   openQuickOpen: () => void;
@@ -72,6 +73,11 @@ export function handleWorkspaceInput(
 
   if (matchesKey(data, "down") || matchesKey(data, "j")) {
     actions.moveSelection(1);
+    return true;
+  }
+
+  if (matchesKey(data, "enter")) {
+    actions.openSelectedMeeting();
     return true;
   }
 
