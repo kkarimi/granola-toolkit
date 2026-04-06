@@ -1,26 +1,26 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, FolderTree, Globe, TerminalSquare } from "lucide-react";
+import { ArrowRight, BookOpen, Bot, Globe, RefreshCw } from "lucide-react";
 
 const surfaces = [
   {
-    title: "Export and automate",
+    title: "Sync and own your archive",
     description:
-      "Batch CLI commands for notes, transcripts, folders, export jobs, and single-meeting workflows.",
-    href: "/docs/exporting",
-    icon: TerminalSquare,
-  },
-  {
-    title: "Browse meetings by folder",
-    description:
-      "Move through folders and meetings instead of one flat global list, in both scripts and interactive clients.",
-    href: "/docs/meetings-and-folders",
-    icon: FolderTree,
-  },
-  {
-    title: "Run shared local workspaces",
-    description:
-      "Serve one local Granola Toolkit app instance to the browser, terminal UI, and attached clients.",
+      "Keep a local Granola runtime warm, cache meetings aggressively, and stop depending on a single brittle app path.",
     href: "/docs/server-web-and-tui",
+    icon: RefreshCw,
+  },
+  {
+    title: "Bring your own agents",
+    description:
+      "Run your own prompts, harnesses, and reviewable pipelines against Granola transcripts with OpenRouter, OpenAI-compatible APIs, or Codex.",
+    href: "/docs/automation",
+    icon: Bot,
+  },
+  {
+    title: "Work anywhere locally",
+    description:
+      "Use the same local meeting state from the CLI, browser workspace, terminal UI, and attached clients.",
+    href: "/docs/getting-started",
     icon: Globe,
   },
 ];
@@ -35,11 +35,12 @@ export default function HomePage() {
           </p>
           <div className="space-y-4">
             <h1 className="max-w-4xl text-4xl font-semibold tracking-tight text-fd-foreground sm:text-6xl">
-              Work with Granola meetings beyond a flat export CLI.
+              The unofficial open-source swiss army knife for Granola.
             </h1>
             <p className="max-w-3xl text-lg leading-8 text-fd-muted-foreground">
-              Granola Toolkit pulls together exports, meeting browsing, folders, a shared local
-              server, a browser workspace, and a full-screen terminal UI on one TypeScript core.
+              Granola Toolkit gives you a local-first way to sync, search, export, review, and
+              automate Granola meetings with your own tools and your own agents instead of living
+              inside one closed workflow.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -61,20 +62,27 @@ export default function HomePage() {
         </div>
         <aside className="rounded-3xl border border-fd-border bg-gradient-to-br from-fd-card to-fd-card/60 p-6 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-fd-muted-foreground">
-            Core surfaces
+            Why people use it
           </p>
           <ul className="mt-4 space-y-4 text-sm text-fd-muted-foreground">
             <li>
-              <strong className="block text-fd-foreground">CLI</strong>
-              Batch exports, auth, meetings, folders, server, and attach flows.
+              <strong className="block text-fd-foreground">Local-first control</strong>
+              Keep a local copy of your meeting archive, not just whatever the Granola app exposes
+              today.
             </li>
             <li>
-              <strong className="block text-fd-foreground">Web</strong>
-              Local browser workspace with folder-aware meeting navigation and exports.
+              <strong className="block text-fd-foreground">BYOA pipelines</strong>
+              Turn transcripts into reviewable notes and follow-ups with your own prompts and
+              providers.
             </li>
             <li>
-              <strong className="block text-fd-foreground">TUI</strong>
-              Keyboard-first terminal workspace built on `pi-tui`.
+              <strong className="block text-fd-foreground">Three surfaces, one core</strong>
+              CLI, browser, and TUI all ride on the same local runtime instead of drifting apart.
+            </li>
+            <li>
+              <strong className="block text-fd-foreground">Open-source escape hatch</strong>
+              Exports, folders, search, automation, and integrations live in one hackable TypeScript
+              codebase.
             </li>
           </ul>
         </aside>

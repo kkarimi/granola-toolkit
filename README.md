@@ -1,6 +1,9 @@
 # granola-toolkit
 
-Toolkit for working with Granola meetings, notes, transcripts, folders, and local workspaces.
+The unofficial open-source swiss army knife for Granola.
+
+Sync your meeting archive locally, browse it in the browser or terminal, export anything you need,
+and run your own agents against transcripts and notes.
 
 ## Install
 
@@ -63,12 +66,15 @@ Key docs entry points:
 
 - [`Overview`](https://kkarimi.github.io/granola-toolkit/docs/)
 - [`Getting Started`](https://kkarimi.github.io/granola-toolkit/docs/getting-started/)
-- [`Exporting`](https://kkarimi.github.io/granola-toolkit/docs/exporting/)
-- [`Meetings and Folders`](https://kkarimi.github.io/granola-toolkit/docs/meetings-and-folders/)
+- [`Automation`](https://kkarimi.github.io/granola-toolkit/docs/automation/)
 - [`Server, Web, and TUI`](https://kkarimi.github.io/granola-toolkit/docs/server-web-and-tui/)
 - [`Auth and Configuration`](https://kkarimi.github.io/granola-toolkit/docs/auth-and-configuration/)
-- [`Development`](https://kkarimi.github.io/granola-toolkit/docs/development/)
+- [`Exporting`](https://kkarimi.github.io/granola-toolkit/docs/exporting/)
+- [`Meetings and Folders`](https://kkarimi.github.io/granola-toolkit/docs/meetings-and-folders/)
+- [`Agent Skills`](https://kkarimi.github.io/granola-toolkit/docs/agent-skills/)
+- [`Architecture`](https://kkarimi.github.io/granola-toolkit/docs/architecture/)
 - [`Releases`](https://kkarimi.github.io/granola-toolkit/docs/releases/)
+- [`Development`](https://kkarimi.github.io/granola-toolkit/docs/development/)
 
 Release history is also tracked in
 [`CHANGELOG.md`](https://github.com/kkarimi/granola-toolkit/blob/main/CHANGELOG.md).

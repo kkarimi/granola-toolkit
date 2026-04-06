@@ -1,17 +1,22 @@
 ---
 title: Overview
-description: One toolkit for Granola exports, folders, meetings, browser workspaces, and terminal workspaces.
+description: "The unofficial open-source swiss army knife for Granola: sync locally, browse anywhere, export anything, and run your own agents."
 ---
 
-Granola Toolkit started as an exporter and is now a local workbench for Granola meetings.
+Granola Toolkit is an unofficial open-source toolkit for getting more out of Granola than the
+desktop app and official exports expose on their own.
 
-The fastest way to start is now `granola init`, which creates a local config, starter harnesses,
-starter automation rules, and prompt files so you can get to a real review loop without building
-the whole shape from scratch.
+It started as an exporter. It is now a local-first workbench for your Granola archive:
 
-The next v1 foundation is explicit local sync. `granola sync` now refreshes the shared meeting
-index and records structured changes instead of leaving refresh entirely to opportunistic command
-paths, and the long-lived surfaces can keep that sync running in the background.
+- sync meetings, notes, transcripts, folders, and change history into a local runtime
+- browse that state from the CLI, browser workspace, and terminal UI
+- export notes and transcripts without getting trapped in a closed format
+- run your own agents and reviewable pipelines against meeting transcripts
+- script and extend the whole thing in plain TypeScript and local files
+
+The fastest way to start is `granola init`, which creates a local config, starter harnesses,
+starter automation rules, and prompt files so you can get from “I have Granola data” to “I have a
+real local workflow” without assembling JSON by hand.
 
 It has three user-facing surfaces on one shared TypeScript core:
 
@@ -23,33 +28,35 @@ It has three user-facing surfaces on one shared TypeScript core:
 
 <Cards>
   <Card title="Getting started" href="/docs/getting-started" />
-  <Card title="Architecture" href="/docs/architecture" />
-  <Card title="Exporting notes and transcripts" href="/docs/exporting" />
-  <Card title="Meetings and folders" href="/docs/meetings-and-folders" />
+  <Card title="Automation and BYOA" href="/docs/automation" />
   <Card title="Server, web, and TUI" href="/docs/server-web-and-tui" />
   <Card title="Auth and configuration" href="/docs/auth-and-configuration" />
+  <Card title="Exporting notes and transcripts" href="/docs/exporting" />
+  <Card title="Meetings and folders" href="/docs/meetings-and-folders" />
+  <Card title="Agent skills" href="/docs/agent-skills" />
+  <Card title="Architecture" href="/docs/architecture" />
   <Card title="Development" href="/docs/development" />
   <Card title="Releases" href="/docs/releases" />
 </Cards>
 
 ## Core Ideas
 
-### Shared app core
+### Local-first sync and ownership
+
+Granola Toolkit is built around the idea that your meeting archive should be usable from a local
+runtime you control, with explicit sync, caching, search, exports, and background work.
+
+### Bring your own agents
+
+Transcripts and notes are not the end of the flow. You can layer local harnesses, `AGENT.md`-style
+prompts, review queues, and downstream actions on top of them.
+
+### One shared core across surfaces
 
 CLI commands, the browser workspace, and the TUI all talk to the same application core for auth,
-meeting discovery, folders, transcripts, notes, and export jobs.
+meeting discovery, folders, transcripts, notes, automation, and export jobs.
 
-### Explicit service seams
+### Open and hackable by design
 
-Catalog loading, auth, exports, indexing, and extension points now live behind service boundaries
-and registries so new capabilities do not have to reopen one giant module.
-
-### Local-first server
-
-`granola serve` is the seam that lets different clients share one live stateful app instead of
-repeating the same work in separate processes.
-
-### Folders are first-class
-
-Folders are not bolted on as a filter. They are part of the shared domain model and are available
-through CLI commands, the browser, the TUI, and export flows.
+Registries, local config files, prompt files, and documented service seams are there so you can
+extend the toolkit instead of waiting for an official integration to exist.

@@ -3,13 +3,13 @@
   "pages": [
     "index",
     "getting-started",
-    "architecture",
-    "agent-skills",
     "automation",
-    "exporting",
-    "meetings-and-folders",
     "server-web-and-tui",
     "auth-and-configuration",
+    "exporting",
+    "meetings-and-folders",
+    "agent-skills",
+    "architecture",
     "development",
     "releases"
   ]
