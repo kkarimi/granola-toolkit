@@ -5,6 +5,14 @@ The unofficial open-source swiss army knife for Granola.
 Sync your meeting archive locally, browse it in the browser or terminal, export anything you need,
 and run your own agents against transcripts and notes.
 
+What it is good at:
+
+- keeping a local copy of your Granola archive instead of depending on one app surface
+- browsing meetings from the CLI, browser, and TUI on one shared runtime
+- exporting notes and transcripts into files you actually own
+- running BYOA pipelines and review loops on top of meeting transcripts
+- extending the workflow with local prompts, rules, skills, and scripts
+
 ## Install
 
 ```bash

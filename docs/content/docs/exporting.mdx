@@ -1,7 +1,11 @@
 ---
 title: Exporting
-description: Export notes or transcripts, filter by folder, and rely on stable incremental output state.
+description: Export notes and transcripts into durable local files you control, with stable incremental output state.
 ---
+
+Exports are still a core part of the toolkit, but the point is no longer “dump markdown once”.
+The point is to keep a local copy of your notes and transcripts in formats you can search, version,
+review, and feed into other tools.
 
 ## Notes
 
@@ -67,7 +71,8 @@ granola transcripts --folder Team
 ## Export Jobs
 
 Exports are tracked as jobs with persistent history, scope metadata, status, progress counters, and
-rerun support.
+rerun support, so the browser and future automation flows can treat exports as part of the shared
+local runtime instead of a fire-and-forget shell command.
 
 ```bash
 granola exports list
