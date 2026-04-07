@@ -68,7 +68,7 @@
     "transcripts": "node dist/cli.js transcripts",
     "test": "vp test",
     "typecheck": "vp exec tsc --noEmit",
-    "prepare": "vp config && node scripts/install-hooks.mjs",
+    "prepare": "vp config && npm run web:build && node scripts/install-hooks.mjs",
     "web:build": "node scripts/build-web-client.mjs",
     "web:check": "node scripts/build-web-client.mjs --check",
     "web:restart": "npm run web:build && vp pack && node dist/cli.js web --restart"

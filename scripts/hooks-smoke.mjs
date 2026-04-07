@@ -61,9 +61,15 @@ try {
     .map((line) => line.trim())
     .filter(Boolean);
 
-  if (!committedFiles.includes("src/web/generated.ts")) {
+  if (committedFiles.includes("src/web/generated.ts")) {
     throw new Error(
-      "Pre-commit smoke test failed: commit did not include src/web/generated.ts for a transitive web dependency.",
+      "Pre-commit smoke test failed: commit should not include ignored src/web/generated.ts.",
+    );
+  }
+
+  if (!existsSync(resolve(tempDir, "src/web/generated.ts"))) {
+    throw new Error(
+      "Pre-commit smoke test failed: ignored src/web/generated.ts was not regenerated.",
     );
   }
 

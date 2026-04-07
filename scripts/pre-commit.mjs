@@ -32,5 +32,4 @@ run("vp", ["staged"]);
 
 if (affectsWebBundle(files)) {
   run("npm", ["run", "web:build"]);
-  run("git", ["add", "src/web/generated.ts"]);
 }

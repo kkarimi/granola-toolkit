@@ -7,6 +7,7 @@ dist
 *.tgz
 playwright-report
 test-results
+src/web/generated.ts
 
 # code coverage
 coverage
