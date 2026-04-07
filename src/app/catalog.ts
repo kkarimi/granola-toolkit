@@ -66,6 +66,22 @@ function cloneTranscriptSegments(segments: TranscriptSegment[]): TranscriptSegme
   return segments.map((segment) => ({ ...segment }));
 }
 
+function folderNameKey(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+function uniqueDocumentIds(documentIds: string[]): string[] {
+  return [...new Set(documentIds)];
+}
+
+function earlierTimestamp(left: string, right: string): string {
+  return left.localeCompare(right) <= 0 ? left : right;
+}
+
+function laterTimestamp(left: string, right: string): string {
+  return left.localeCompare(right) >= 0 ? left : right;
+}
+
 export class GranolaCatalogService {
   #cacheData?: CacheData;
   #cacheResolved = false;
@@ -271,6 +287,11 @@ export class GranolaCatalogService {
     }
 
     if (this.#folders) {
+      if (this.#documents?.length) {
+        this.#folders = (this.mergeFoldersWithDocuments(this.#folders, this.#documents) ?? []).map(
+          cloneGranolaFolder,
+        );
+      }
       return this.#folders.map(cloneGranolaFolder);
     }
 
@@ -291,12 +312,15 @@ export class GranolaCatalogService {
       const folders = await client.listFolders({
         timeoutMs: this.config.notes.timeoutMs,
       });
-      this.#folders = folders.map(cloneGranolaFolder);
+      const documents = await this.listDocuments();
+      this.#folders = (this.mergeFoldersWithDocuments(folders, documents) ?? []).map(
+        cloneGranolaFolder,
+      );
       this.deps.onFoldersState({
         count: this.#folders.length,
         loaded: true,
         loadedAt: this.deps.nowIso(),
-        source: "live",
+        source: "documents",
       });
       await this.persistSnapshot();
       return this.#folders.map(cloneGranolaFolder);
@@ -343,6 +367,65 @@ export class GranolaCatalogService {
     }
 
     return byDocumentId;
+  }
+
+  private mergeFoldersWithDocuments(
+    folders: GranolaFolder[] | undefined,
+    documents: GranolaDocument[],
+  ): GranolaFolder[] | undefined {
+    const derivedFolders = this.deriveFoldersFromDocuments(documents);
+    if (!folders || folders.length === 0) {
+      return derivedFolders;
+    }
+
+    if (!derivedFolders || derivedFolders.length === 0) {
+      return folders.map(cloneGranolaFolder);
+    }
+
+    const derivedById = new Map(derivedFolders.map((folder) => [folder.id, folder] as const));
+    const derivedByName = new Map<string, GranolaFolder[]>();
+
+    for (const folder of derivedFolders) {
+      const key = folderNameKey(folder.name);
+      const existing = derivedByName.get(key) ?? [];
+      existing.push(folder);
+      derivedByName.set(key, existing);
+    }
+
+    const seenIds = new Set<string>();
+    const merged: GranolaFolder[] = [];
+
+    for (const folder of folders) {
+      const exactMatch = derivedById.get(folder.id);
+      const nameMatches = derivedByName.get(folderNameKey(folder.name)) ?? [];
+      const derivedMatch = exactMatch ?? (nameMatches.length === 1 ? nameMatches[0] : undefined);
+      const effectiveId = derivedMatch?.id ?? folder.id;
+
+      merged.push({
+        createdAt: derivedMatch
+          ? earlierTimestamp(folder.createdAt, derivedMatch.createdAt)
+          : folder.createdAt,
+        description: folder.description,
+        documentIds: uniqueDocumentIds(derivedMatch?.documentIds ?? folder.documentIds),
+        id: effectiveId,
+        isFavourite: folder.isFavourite || derivedMatch?.isFavourite || false,
+        name: derivedMatch?.name ?? folder.name,
+        updatedAt: derivedMatch
+          ? laterTimestamp(folder.updatedAt, derivedMatch.updatedAt)
+          : folder.updatedAt,
+        workspaceId: folder.workspaceId,
+      });
+      seenIds.add(effectiveId);
+    }
+
+    for (const folder of derivedFolders) {
+      if (seenIds.has(folder.id)) {
+        continue;
+      }
+      merged.push(cloneGranolaFolder(folder));
+    }
+
+    return merged.sort((left, right) => left.name.localeCompare(right.name));
   }
 
   async liveMeetingSnapshot(

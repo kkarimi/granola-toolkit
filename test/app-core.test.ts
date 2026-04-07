@@ -2902,6 +2902,92 @@ describe("GranolaApp", () => {
     expect(listFolders).toHaveBeenCalledTimes(1);
   });
 
+  test("normalises folder API ids onto document memberships before listing folder meetings", async () => {
+    const personalDocuments: GranolaDocument[] = [
+      {
+        content: "## Personal note",
+        createdAt: "2024-01-01T09:00:00Z",
+        folderMemberships: [
+          {
+            id: "fol_personal_123",
+            name: "Personal",
+          },
+        ],
+        id: "not_personal_001",
+        notesPlain: "Personal note",
+        tags: [],
+        title: "Personal catch-up",
+        updatedAt: "2024-01-02T10:00:00Z",
+      },
+    ];
+    const personalFolders: GranolaFolder[] = [
+      {
+        createdAt: "2024-01-01T08:00:00Z",
+        documentIds: ["2b03dca3-a634-4bcc-9734-c998d065d572"],
+        id: "2b03dca3-a634-4bcc-9734-c998d065d572",
+        isFavourite: false,
+        name: "Personal",
+        updatedAt: "2024-01-03T10:00:00Z",
+      },
+    ];
+    const listDocuments = vi.fn(async () => personalDocuments);
+    const listFolders = vi.fn(async () => personalFolders);
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        transcripts: {
+          cacheFile: "",
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          apiKeyAvailable: true,
+          mode: "api-key",
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: false,
+        },
+        cacheLoader: async () => undefined,
+        granolaClient: {
+          listDocuments,
+          listFolders,
+        },
+        now: () => new Date("2024-03-01T12:00:00Z"),
+      },
+      { surface: "web" },
+    );
+
+    const folderList = await app.listFolders({ limit: 10 });
+    const meetings = await app.listMeetings({ folderId: "fol_personal_123", limit: 10 });
+    const folder = await app.getFolder("fol_personal_123");
+
+    expect(folderList.folders).toEqual([
+      expect.objectContaining({
+        documentCount: 1,
+        id: "fol_personal_123",
+        name: "Personal",
+      }),
+    ]);
+    expect(meetings.meetings).toEqual([
+      expect.objectContaining({
+        id: "not_personal_001",
+        folders: [expect.objectContaining({ id: "fol_personal_123", name: "Personal" })],
+      }),
+    ]);
+    expect(folder.meetings).toEqual([
+      expect.objectContaining({
+        id: "not_personal_001",
+      }),
+    ]);
+    expect(listDocuments).toHaveBeenCalled();
+    expect(listFolders).toHaveBeenCalled();
+  });
+
   test("uses the local catalog snapshot before hitting live Granola APIs", async () => {
     const listDocuments = vi.fn(async () => documents);
     const listFolders = vi.fn(async () => folders);
