@@ -1714,17 +1714,19 @@ export class GranolaApp implements GranolaAppApi {
             updatedTo: options.updatedTo,
           })
         : filterMeetingSummaries(this.#index.meetings(), options);
-      this.#index.triggerBackgroundRefresh(async () => {
-        try {
-          await this.runSync({ foreground: false });
-        } catch {
-          // Opportunistic background sync should not break the foreground view.
-        }
-      });
-      return {
-        meetings,
-        source: "index",
-      };
+      if (!(options.folderId && meetings.length === 0)) {
+        this.#index.triggerBackgroundRefresh(async () => {
+          try {
+            await this.runSync({ foreground: false });
+          } catch {
+            // Opportunistic background sync should not break the foreground view.
+          }
+        });
+        return {
+          meetings,
+          source: "index",
+        };
+      }
     }
 
     const snapshot = await this.liveMeetingSnapshot({

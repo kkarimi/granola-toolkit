@@ -2808,6 +2808,83 @@ describe("GranolaApp", () => {
     );
   });
 
+  test("falls back to the live snapshot for folder-scoped meeting lists when the index lacks folder metadata", async () => {
+    const listDocuments = vi.fn(async () => [
+      {
+        ...documents[0]!,
+        folderMemberships: [
+          {
+            id: "folder-team-1111",
+            name: "Team",
+          },
+        ],
+      },
+    ]);
+    const listFolders = vi.fn(async () => folders);
+    const meetingIndexStore = new MemoryMeetingIndexStore();
+    await meetingIndexStore.writeIndex([
+      {
+        createdAt: "2024-01-01T09:00:00Z",
+        folders: [],
+        id: "doc-alpha-1111",
+        noteContentSource: "notes",
+        tags: ["team", "alpha"],
+        title: "Alpha Sync",
+        transcriptLoaded: false,
+        transcriptSegmentCount: 0,
+        updatedAt: "2024-01-03T10:00:00Z",
+      },
+    ]);
+
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile: "",
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          mode: "supabase-file",
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: true,
+          supabasePath: "/tmp/supabase.json",
+        },
+        cacheLoader: async () => undefined,
+        granolaClient: {
+          listDocuments,
+          listFolders,
+        },
+        meetingIndex: await meetingIndexStore.readIndex(),
+        meetingIndexStore,
+        now: () => new Date("2024-03-01T12:00:00Z"),
+      },
+      { surface: "web" },
+    );
+
+    const result = await app.listMeetings({
+      folderId: "folder-team-1111",
+      limit: 10,
+    });
+
+    expect(result.source).toBe("live");
+    expect(result.meetings).toEqual([
+      expect.objectContaining({
+        id: "doc-alpha-1111",
+        folders: [expect.objectContaining({ id: "folder-team-1111", name: "Team" })],
+      }),
+    ]);
+    expect(listDocuments).toHaveBeenCalledTimes(1);
+    expect(listFolders).toHaveBeenCalledTimes(1);
+  });
+
   test("uses the local catalog snapshot before hitting live Granola APIs", async () => {
     const listDocuments = vi.fn(async () => documents);
     const listFolders = vi.fn(async () => folders);
