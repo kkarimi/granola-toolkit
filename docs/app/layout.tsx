@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     template: "%s | Granola Toolkit Docs",
   },
   description:
-    "Documentation for Granola Toolkit, a toolkit for working with Granola meetings, notes, transcripts, folders, and local workspaces.",
+    "Documentation for Granola Toolkit, the unofficial open-source Swiss army knife for syncing, browsing, exporting, and automating Granola meetings locally.",
   metadataBase: new URL(docsSiteUrl),
 };
 

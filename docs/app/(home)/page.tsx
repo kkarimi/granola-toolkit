@@ -5,7 +5,7 @@ const surfaces = [
   {
     title: "Sync and own your archive",
     description:
-      "Keep a local Granola runtime warm, cache meetings aggressively, and stop depending on a single brittle app path.",
+      "Keep a local Granola runtime warm, sync once, and stop depending on a single brittle app path.",
     href: "/docs/server-web-and-tui",
     icon: RefreshCw,
   },
@@ -35,7 +35,7 @@ export default function HomePage() {
           </p>
           <div className="space-y-4">
             <h1 className="max-w-4xl text-4xl font-semibold tracking-tight text-fd-foreground sm:text-6xl">
-              The unofficial open-source swiss army knife for Granola.
+              The unofficial open-source Swiss army knife for Granola.
             </h1>
             <p className="max-w-3xl text-lg leading-8 text-fd-muted-foreground">
               Granola Toolkit gives you a local-first way to sync, search, export, review, and

@@ -1,6 +1,6 @@
 # granola-toolkit
 
-The unofficial open-source swiss army knife for Granola.
+The unofficial open-source Swiss army knife for Granola.
 
 Sync your meeting archive locally, browse it in the browser or terminal, export anything you need,
 and run your own agents against transcripts and notes.
