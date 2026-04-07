@@ -166,7 +166,7 @@ describe("web meeting helpers", () => {
         },
         transport: "local-http",
       }),
-    ).toBe("Background sync every 15 min");
+    ).toBe("Checks Granola for changes every 15 min");
     expect(
       syncCadenceLabel({
         build: {

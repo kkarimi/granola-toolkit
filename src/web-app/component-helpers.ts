@@ -477,10 +477,10 @@ export function syncCadenceLabel(serverInfo?: GranolaServerInfo | null): string 
   const totalMinutes = Math.max(1, Math.round(intervalMs / 60_000));
   if (totalMinutes % 60 === 0) {
     const hours = totalMinutes / 60;
-    return `Background sync every ${hours} hour${hours === 1 ? "" : "s"}`;
+    return `Checks Granola for changes every ${hours} hour${hours === 1 ? "" : "s"}`;
   }
 
-  return `Background sync every ${totalMinutes} min`;
+  return `Checks Granola for changes every ${totalMinutes} min`;
 }
 
 function localReferenceLabel(
