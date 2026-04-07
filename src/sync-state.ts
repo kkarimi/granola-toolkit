@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 
 import type {
   GranolaAppSyncChange,
+  GranolaAppSyncRun,
   GranolaAppSyncState,
   GranolaAppSyncSummary,
 } from "./app/types.ts";
@@ -11,6 +12,7 @@ import { parseJsonString } from "./utils.ts";
 
 const SYNC_STATE_VERSION = 1;
 const MAX_STORED_CHANGES = 50;
+const MAX_STORED_RUNS = 25;
 
 interface SyncStateFile {
   eventCount?: number;
@@ -21,6 +23,7 @@ interface SyncStateFile {
   lastFailedAt?: string;
   lastRunId?: string;
   lastStartedAt?: string;
+  recentRuns?: GranolaAppSyncRun[];
   summary?: GranolaAppSyncSummary;
   version: number;
 }
@@ -33,10 +36,19 @@ function cloneSyncSummary(summary?: GranolaAppSyncSummary): GranolaAppSyncSummar
   return summary ? { ...summary } : undefined;
 }
 
+function cloneSyncRun(run: GranolaAppSyncRun): GranolaAppSyncRun {
+  return {
+    ...run,
+    changes: run.changes.map(cloneSyncChange),
+    summary: cloneSyncSummary(run.summary),
+  };
+}
+
 function cloneSyncState(state: GranolaAppSyncState): GranolaAppSyncState {
   return {
     ...state,
     lastChanges: state.lastChanges.map(cloneSyncChange),
+    recentRuns: (state.recentRuns ?? []).slice(0, MAX_STORED_RUNS).map(cloneSyncRun),
     running: false,
     summary: cloneSyncSummary(state.summary),
   };
@@ -48,6 +60,7 @@ function normaliseSyncState(filePath: string, file?: SyncStateFile): GranolaAppS
     eventsFile: file?.eventsFile ?? defaultSyncEventsFilePath(),
     filePath,
     lastChanges: (file?.lastChanges ?? []).slice(0, MAX_STORED_CHANGES).map(cloneSyncChange),
+    recentRuns: (file?.recentRuns ?? []).slice(0, MAX_STORED_RUNS).map(cloneSyncRun),
     running: false,
     ...(file?.lastCompletedAt ? { lastCompletedAt: file.lastCompletedAt } : {}),
     ...(file?.lastError ? { lastError: file.lastError } : {}),
@@ -72,6 +85,7 @@ export class MemorySyncStateStore implements SyncStateStore {
       eventCount: initialState.eventCount ?? 0,
       eventsFile: initialState.eventsFile ?? defaultSyncEventsFilePath(),
       lastChanges: (initialState.lastChanges ?? []).map(cloneSyncChange),
+      recentRuns: (initialState.recentRuns ?? []).map(cloneSyncRun),
       lastCompletedAt: initialState.lastCompletedAt,
       lastError: initialState.lastError,
       lastFailedAt: initialState.lastFailedAt,
@@ -114,6 +128,7 @@ export class FileSyncStateStore implements SyncStateStore {
       eventCount: state.eventCount,
       eventsFile: state.eventsFile,
       lastChanges: state.lastChanges.slice(0, MAX_STORED_CHANGES).map(cloneSyncChange),
+      recentRuns: (state.recentRuns ?? []).slice(0, MAX_STORED_RUNS).map(cloneSyncRun),
       lastCompletedAt: state.lastCompletedAt,
       lastError: state.lastError,
       lastFailedAt: state.lastFailedAt,

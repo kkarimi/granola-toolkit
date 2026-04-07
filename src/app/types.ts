@@ -145,7 +145,20 @@ export interface GranolaAppSyncState {
   lastFailedAt?: string;
   lastRunId?: string;
   lastStartedAt?: string;
+  recentRuns?: GranolaAppSyncRun[];
   running: boolean;
+  summary?: GranolaAppSyncSummary;
+}
+
+export interface GranolaAppSyncRun {
+  changeCount: number;
+  changes: GranolaAppSyncChange[];
+  completedAt?: string;
+  error?: string;
+  failedAt?: string;
+  id: string;
+  startedAt: string;
+  status: "failed" | "succeeded";
   summary?: GranolaAppSyncSummary;
 }
 

@@ -118,6 +118,8 @@ test.describe("toolkit web workspace", () => {
     await expect(page.getByRole("button", { name: "Disable markdown viewer" })).toBeVisible();
     await page.locator(".settings-shell").getByRole("button", { name: "Diagnostics" }).click();
     await expect(page.getByRole("heading", { name: "Sync and local files" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Recent sync runs" })).toBeVisible();
+    await expect(page.locator(".sync-run-detail")).toContainText("2 meetings checked");
     await expect(page.getByText("Desktop transcript cache")).toBeVisible();
     await expect(
       page

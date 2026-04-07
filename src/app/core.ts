@@ -143,6 +143,7 @@ import type {
   GranolaAppSyncChange,
   GranolaAppSyncEvent,
   GranolaAppSyncEventsResult,
+  GranolaAppSyncRun,
   GranolaAppSyncResult,
   GranolaAppSyncState,
   GranolaExportRunOptions,
@@ -292,10 +293,19 @@ function cloneSyncChange(change: GranolaAppSyncChange): GranolaAppSyncChange {
   return { ...change };
 }
 
+function cloneSyncRun(run: GranolaAppSyncRun): GranolaAppSyncRun {
+  return {
+    ...run,
+    changes: run.changes.map(cloneSyncChange),
+    summary: run.summary ? { ...run.summary } : undefined,
+  };
+}
+
 function cloneSyncState(state: GranolaAppSyncState): GranolaAppSyncState {
   return {
     ...state,
     lastChanges: state.lastChanges.map(cloneSyncChange),
+    recentRuns: (state.recentRuns ?? []).map(cloneSyncRun),
     summary: state.summary ? { ...state.summary } : undefined,
   };
 }
@@ -497,6 +507,7 @@ function defaultState(
       eventsFile: defaultSyncEventsFilePath(),
       filePath: defaultSyncStateFilePath(),
       lastChanges: [],
+      recentRuns: [],
       running: false,
     },
     ui: {
@@ -674,6 +685,7 @@ export class GranolaApp implements GranolaAppApi {
           eventsFile: defaultSyncEventsFilePath(),
           filePath: defaultSyncStateFilePath(),
           lastChanges: [],
+          recentRuns: [],
           running: false,
         },
       ),
@@ -736,8 +748,17 @@ export class GranolaApp implements GranolaAppApi {
     return snapshot.meetings.map((meeting) => cloneMeetingSummary(meeting));
   }
 
-  private createSyncRunId(): string {
-    return `sync-${this.nowIso().replaceAll(/[-:.]/g, "").replace("T", "").replace("Z", "")}`;
+  private createSyncRunId(timestamp = this.nowIso()): string {
+    return `sync-${timestamp.replaceAll(/[-:.]/g, "").replace("T", "").replace("Z", "")}`;
+  }
+
+  private recordSyncRun(run: GranolaAppSyncRun): GranolaAppSyncRun[] {
+    return [
+      cloneSyncRun(run),
+      ...(this.#state.sync.recentRuns ?? []).filter((entry) => entry.id !== run.id),
+    ]
+      .slice(0, 25)
+      .map(cloneSyncRun);
   }
 
   private async liveMeetingSnapshot(
@@ -1535,10 +1556,13 @@ export class GranolaApp implements GranolaAppApi {
     foreground: boolean;
   }): Promise<GranolaAppSyncResult> {
     const previousMeetings = this.#index.meetings();
+    const startedAt = this.nowIso();
+    const runId = this.createSyncRunId(startedAt);
     this.#state.sync = {
       ...this.#state.sync,
       lastError: undefined,
-      lastStartedAt: this.nowIso(),
+      lastRunId: runId,
+      lastStartedAt: startedAt,
       running: true,
     };
     this.emitStateUpdate();
@@ -1561,7 +1585,6 @@ export class GranolaApp implements GranolaAppApi {
         snapshot.folders?.length ?? 0,
       );
       const completedAt = this.nowIso();
-      const runId = this.createSyncRunId();
       const events = buildSyncEvents(
         runId,
         completedAt,
@@ -1582,6 +1605,15 @@ export class GranolaApp implements GranolaAppApi {
         lastCompletedAt: completedAt,
         lastError: undefined,
         lastRunId: runId,
+        recentRuns: this.recordSyncRun({
+          changeCount: changes.length,
+          changes: changes.slice(0, 20).map(cloneSyncChange),
+          completedAt,
+          id: runId,
+          startedAt,
+          status: "succeeded",
+          summary: { ...summary },
+        }),
         running: false,
         summary: { ...summary },
       };
@@ -1594,10 +1626,22 @@ export class GranolaApp implements GranolaAppApi {
         summary: { ...summary },
       };
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const failedAt = this.nowIso();
       this.#state.sync = {
         ...this.#state.sync,
-        lastError: error instanceof Error ? error.message : String(error),
-        lastFailedAt: this.nowIso(),
+        lastError: message,
+        lastFailedAt: failedAt,
+        lastRunId: runId,
+        recentRuns: this.recordSyncRun({
+          changeCount: 0,
+          changes: [],
+          error: message,
+          failedAt,
+          id: runId,
+          startedAt,
+          status: "failed",
+        }),
         running: false,
       };
       await this.persistSyncState();

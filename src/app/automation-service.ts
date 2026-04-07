@@ -129,6 +129,11 @@ function cloneSyncState(state: GranolaAppSyncState): GranolaAppSyncState {
   return {
     ...state,
     lastChanges: state.lastChanges.map((change) => ({ ...change })),
+    recentRuns: (state.recentRuns ?? []).map((run) => ({
+      ...run,
+      changes: run.changes.map((change) => ({ ...change })),
+      summary: run.summary ? { ...run.summary } : undefined,
+    })),
     summary: state.summary ? { ...state.summary } : undefined,
   };
 }

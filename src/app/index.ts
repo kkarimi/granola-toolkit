@@ -94,6 +94,7 @@ export type {
   GranolaAppSyncChange,
   GranolaAppSyncEvent,
   GranolaAppSyncEventsResult,
+  GranolaAppSyncRun,
   GranolaAppSyncResult,
   GranolaAppSyncState,
   GranolaAppSyncSummary,

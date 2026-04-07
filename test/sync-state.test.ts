@@ -26,6 +26,31 @@ describe("FileSyncStateStore", () => {
       lastCompletedAt: "2024-03-01T12:00:00.000Z",
       lastRunId: "sync-20240301120000",
       lastStartedAt: "2024-03-01T11:59:59.000Z",
+      recentRuns: [
+        {
+          changeCount: 1,
+          changes: [
+            {
+              kind: "created",
+              meetingId: "doc-alpha-1111",
+              title: "Alpha Sync",
+              updatedAt: "2024-01-03T10:00:00Z",
+            },
+          ],
+          completedAt: "2024-03-01T12:00:00.000Z",
+          id: "sync-20240301120000",
+          startedAt: "2024-03-01T11:59:59.000Z",
+          status: "succeeded",
+          summary: {
+            changedCount: 0,
+            createdCount: 1,
+            folderCount: 1,
+            meetingCount: 1,
+            removedCount: 0,
+            transcriptReadyCount: 0,
+          },
+        },
+      ],
       running: true,
       summary: {
         changedCount: 0,
@@ -52,6 +77,31 @@ describe("FileSyncStateStore", () => {
       lastCompletedAt: "2024-03-01T12:00:00.000Z",
       lastRunId: "sync-20240301120000",
       lastStartedAt: "2024-03-01T11:59:59.000Z",
+      recentRuns: [
+        {
+          changeCount: 1,
+          changes: [
+            {
+              kind: "created",
+              meetingId: "doc-alpha-1111",
+              title: "Alpha Sync",
+              updatedAt: "2024-01-03T10:00:00Z",
+            },
+          ],
+          completedAt: "2024-03-01T12:00:00.000Z",
+          id: "sync-20240301120000",
+          startedAt: "2024-03-01T11:59:59.000Z",
+          status: "succeeded",
+          summary: {
+            changedCount: 0,
+            createdCount: 1,
+            folderCount: 1,
+            meetingCount: 1,
+            removedCount: 0,
+            transcriptReadyCount: 0,
+          },
+        },
+      ],
       running: false,
       summary: {
         changedCount: 0,

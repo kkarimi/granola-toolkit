@@ -492,6 +492,16 @@ describe("GranolaApp", () => {
     expect(persistedSyncState.summary).toEqual(result.summary);
     expect(persistedSyncState.eventCount).toBe(syncEvents.events.length);
     expect(persistedSyncState.lastCompletedAt).toBe("2024-03-01T12:00:00.000Z");
+    expect(persistedSyncState.recentRuns).toEqual([
+      expect.objectContaining({
+        changeCount: result.changes.length,
+        completedAt: "2024-03-01T12:00:00.000Z",
+        id: expect.stringMatching(/^sync-/),
+        startedAt: "2024-03-01T12:00:00.000Z",
+        status: "succeeded",
+        summary: result.summary,
+      }),
+    ]);
     expect(syncEvents.events).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -508,6 +518,13 @@ describe("GranolaApp", () => {
       expect.objectContaining({
         eventCount: syncEvents.events.length,
         lastCompletedAt: "2024-03-01T12:00:00.000Z",
+        recentRuns: [
+          expect.objectContaining({
+            changeCount: result.changes.length,
+            status: "succeeded",
+            summary: result.summary,
+          }),
+        ],
         running: false,
         summary: result.summary,
       }),

@@ -1,12 +1,13 @@
 /** @jsxImportSource solid-js */
 
-import { createSignal, For, onCleanup, Show, type JSX } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
 
 import type {
   GranolaAppAuthState,
   GranolaAppExportJobState,
   GranolaAppPluginState,
   GranolaAppState,
+  GranolaAppSyncRun,
 } from "../app/index.ts";
 import { pluginStateStatusDetail } from "../app/plugin-state.ts";
 import { granolaAgentProviderLabel } from "../agent-defaults.ts";
@@ -182,6 +183,208 @@ function DiagnosticsFileRow(props: {
   );
 }
 
+function syncRunOccurredAt(run: GranolaAppSyncRun): string {
+  return run.completedAt || run.failedAt || run.startedAt;
+}
+
+function syncRunStatusLabel(run: GranolaAppSyncRun): string {
+  return run.status === "failed" ? "Failed" : "Succeeded";
+}
+
+function syncRunResultTitle(run: GranolaAppSyncRun): string {
+  if (run.status === "failed") {
+    return "Sync failed";
+  }
+
+  if (run.changeCount === 0) {
+    return "No changes";
+  }
+
+  return `${run.changeCount} change${run.changeCount === 1 ? "" : "s"}`;
+}
+
+function syncRunResultDetail(run: GranolaAppSyncRun): string {
+  if (run.status === "failed") {
+    return run.error || "No error message recorded.";
+  }
+
+  if (!run.summary) {
+    return "No sync summary recorded.";
+  }
+
+  return [
+    `${run.summary.meetingCount} meetings`,
+    `${run.summary.createdCount} created`,
+    `${run.summary.changedCount} changed`,
+    `${run.summary.removedCount} removed`,
+    `${run.summary.transcriptReadyCount} transcripts ready`,
+    `${run.summary.folderCount} folders`,
+  ].join(" · ");
+}
+
+function SyncRunHistoryPanel(props: { runs?: GranolaAppSyncRun[] }): JSX.Element {
+  const runs = () => props.runs ?? [];
+  const [selectedRunId, setSelectedRunId] = createSignal<string | null>(runs()[0]?.id ?? null);
+
+  createEffect(() => {
+    const current = selectedRunId();
+    const availableRuns = runs();
+    if (availableRuns.length === 0) {
+      if (current !== null) {
+        setSelectedRunId(null);
+      }
+      return;
+    }
+
+    if (!current || !availableRuns.some((run) => run.id === current)) {
+      setSelectedRunId(availableRuns[0]!.id);
+    }
+  });
+
+  const selectedRun = () => runs().find((run) => run.id === selectedRunId()) ?? runs()[0] ?? null;
+
+  return (
+    <section class="detail-section">
+      <div class="section-head">
+        <div>
+          <h2>Recent sync runs</h2>
+          <p>
+            Each background or manual sync leaves behind a local result summary you can inspect.
+          </p>
+        </div>
+      </div>
+      <Show
+        when={runs().length > 0}
+        fallback={
+          <p class="section-note">
+            No sync runs have been recorded yet. The first completed sync will appear here.
+          </p>
+        }
+      >
+        <div class="sync-run-history">
+          <div class="sync-run-list" role="list">
+            <For each={runs()}>
+              {(run) => (
+                <button
+                  class="sync-run-list__item"
+                  data-selected={selectedRunId() === run.id ? "true" : undefined}
+                  onClick={() => setSelectedRunId(run.id)}
+                  type="button"
+                >
+                  <span class="status-label">{syncRunStatusLabel(run)}</span>
+                  <strong>{syncRunResultTitle(run)}</strong>
+                  <span class="diagnostic-card__meta">
+                    {relativeTimeLabel(syncRunOccurredAt(run))}
+                  </span>
+                  <span class="diagnostic-card__detail">{syncRunResultDetail(run)}</span>
+                </button>
+              )}
+            </For>
+          </div>
+          <Show when={selectedRun()}>
+            {(run) => {
+              const selected = run();
+              const summary = selected.summary;
+              return (
+                <article class="sync-run-detail">
+                  <div class="sync-run-detail__head">
+                    <div>
+                      <span class="status-label">Selected run</span>
+                      <strong>{syncRunStatusLabel(selected)}</strong>
+                      <span class="diagnostic-card__meta">
+                        {formatDateTimeLabel(syncRunOccurredAt(selected))}
+                      </span>
+                    </div>
+                    <div
+                      class="state-badge"
+                      data-tone={selected.status === "failed" ? "error" : "ok"}
+                    >
+                      {syncRunResultTitle(selected)}
+                    </div>
+                  </div>
+                  <div class="diagnostic-card-grid diagnostic-card-grid--metrics">
+                    <DiagnosticsMetricCard
+                      detail={formatDateTimeLabel(selected.startedAt)}
+                      label="Started"
+                      meta={relativeTimeLabel(selected.startedAt)}
+                      title="Run started"
+                    />
+                    <DiagnosticsMetricCard
+                      detail={formatDateTimeLabel(syncRunOccurredAt(selected))}
+                      label={selected.status === "failed" ? "Failed" : "Completed"}
+                      meta={relativeTimeLabel(syncRunOccurredAt(selected))}
+                      title={syncRunStatusLabel(selected)}
+                    />
+                    <DiagnosticsMetricCard
+                      detail={
+                        summary
+                          ? `${summary.createdCount} created · ${summary.changedCount} changed · ${summary.removedCount} removed`
+                          : "No summary recorded."
+                      }
+                      label="Changes"
+                      meta={
+                        selected.changeCount > selected.changes.length
+                          ? `Showing ${selected.changes.length} of ${selected.changeCount}`
+                          : undefined
+                      }
+                      title={`${selected.changeCount} change${selected.changeCount === 1 ? "" : "s"}`}
+                    />
+                    <DiagnosticsMetricCard
+                      detail={
+                        summary
+                          ? `${summary.folderCount} folders · ${summary.transcriptReadyCount} transcripts ready`
+                          : selected.error || "No sync summary recorded."
+                      }
+                      label="Result"
+                      meta={summary ? undefined : "Failure details"}
+                      title={
+                        summary
+                          ? `${summary.meetingCount} meetings checked`
+                          : syncRunResultTitle(selected)
+                      }
+                    />
+                  </div>
+                  <Show when={selected.status === "failed" && selected.error}>
+                    {(error) => <p class="auth-card__meta auth-card__error">{error()}</p>}
+                  </Show>
+                  <Show
+                    when={selected.changes.length > 0}
+                    fallback={
+                      <p class="section-note">
+                        {selected.status === "failed"
+                          ? "This run failed before any meeting changes were recorded."
+                          : "No meeting changes were detected in this run."}
+                      </p>
+                    }
+                  >
+                    <div class="sync-run-change-list">
+                      <For each={selected.changes}>
+                        {(change) => (
+                          <article class="sync-run-change-row">
+                            <div>
+                              <span class="status-label">{change.kind.replaceAll("-", " ")}</span>
+                              <strong>{change.title || change.meetingId}</strong>
+                            </div>
+                            <span class="diagnostic-card__detail">
+                              {change.updatedAt
+                                ? `Updated ${formatDateTimeLabel(change.updatedAt)}`
+                                : change.meetingId}
+                            </span>
+                          </article>
+                        )}
+                      </For>
+                    </div>
+                  </Show>
+                </article>
+              );
+            }}
+          </Show>
+        </div>
+      </Show>
+    </section>
+  );
+}
+
 export function DiagnosticsPanel(props: {
   appState?: GranolaAppState | null;
   serverInfo?: GranolaServerInfo | null;
@@ -354,6 +557,7 @@ export function DiagnosticsPanel(props: {
             />
           </div>
         </section>
+        <SyncRunHistoryPanel runs={sync()?.recentRuns} />
         <section class="detail-section">
           <h2>Local files</h2>
           <div class="diagnostic-file-list">
