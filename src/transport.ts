@@ -58,6 +58,7 @@ export interface GranolaServerInfo {
     dataDirectory?: GranolaLocalPathInfo;
     meetingIndex?: GranolaLocalPathInfo;
     pluginSettings?: GranolaLocalPathInfo;
+    serviceLog?: GranolaLocalPathInfo;
     session?: GranolaLocalPathInfo;
     syncEvents?: GranolaLocalPathInfo;
     syncState?: GranolaLocalPathInfo;

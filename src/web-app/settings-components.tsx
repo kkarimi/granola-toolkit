@@ -126,9 +126,12 @@ function DiagnosticsFileRow(props: {
   file?: GranolaLocalPathInfo;
   fallbackPath?: string;
   label: string;
+  missingDetail?: string;
+  missingStateLabel?: string;
   title: string;
 }): JSX.Element {
   const path = () => props.file?.path || props.fallbackPath;
+  const pathLabel = () => (props.file?.exists === false ? "Expected path" : "Path");
   const pathLeaf = () => {
     const value = path();
     if (!value) {
@@ -140,12 +143,14 @@ function DiagnosticsFileRow(props: {
   };
   const meta = () => {
     const parts = [
+      props.file?.exists === false ? (props.missingStateLabel ?? "Not created yet") : null,
       props.file?.sizeBytes != null ? formatBytesLabel(props.file.sizeBytes) : null,
       props.file?.updatedAt ? `updated ${relativeTimeLabel(props.file.updatedAt)}` : null,
-      props.file?.exists === false ? "missing" : null,
     ].filter(Boolean);
     return parts.length > 0 ? parts.join(" · ") : undefined;
   };
+  const detail = () =>
+    props.file?.exists === false && props.missingDetail ? props.missingDetail : props.detail;
 
   return (
     <article class="diagnostic-file-row">
@@ -158,7 +163,7 @@ function DiagnosticsFileRow(props: {
       </div>
       <div class="diagnostic-file-row__path">
         <label class="diagnostic-path-field">
-          <span class="diagnostic-path-field__label">Path</span>
+          <span class="diagnostic-path-field__label">{pathLabel()}</span>
           <input
             class="diagnostic-path-field__input"
             readonly
@@ -172,8 +177,8 @@ function DiagnosticsFileRow(props: {
         <Show when={meta()}>
           {(value) => <span class="diagnostic-card__detail">{value()}</span>}
         </Show>
-        <Show when={props.detail}>
-          {(detail) => <span class="diagnostic-card__detail">{detail()}</span>}
+        <Show when={detail()}>
+          {(value) => <span class="diagnostic-card__detail">{value()}</span>}
         </Show>
       </div>
       <div class="diagnostic-file-row__actions">
@@ -454,6 +459,7 @@ export function DiagnosticsPanel(props: {
           props.appState?.index.filePath || props.serverInfo?.persistence.meetingIndexFile,
         file: props.serverInfo?.files?.meetingIndex,
         label: "Meeting index",
+        missingDetail: "This file will be created after the first successful sync.",
         title: props.appState?.index.loaded
           ? `${props.appState.index.meetingCount} meetings in local index`
           : "Local meeting index",
@@ -464,6 +470,7 @@ export function DiagnosticsPanel(props: {
         fallbackPath: props.serverInfo?.persistence.catalogSnapshotFile,
         file: props.serverInfo?.files?.catalogSnapshot,
         label: "Catalog snapshot",
+        missingDetail: "This file will be created after the first successful sync.",
         title: "Catalog snapshot",
       },
       {
@@ -472,16 +479,39 @@ export function DiagnosticsPanel(props: {
           props.appState?.cache.filePath || props.serverInfo?.config.transcriptCacheFile,
         file: props.serverInfo?.files?.transcriptCache,
         label: "Desktop transcript data",
+        missingDetail:
+          "This configured desktop transcript file is not present yet. Granola Toolkit will fetch transcripts on demand until it appears.",
+        missingStateLabel: "Not found on disk",
         title: props.appState?.cache.filePath ? "Desktop transcript file" : "Transcripts on demand",
       },
       {
         detail: props.appState?.sync.eventsFile
-          ? `${pathLeafLabel(props.appState.sync.eventsFile)} tracks event history.`
-          : "Tracks recent sync runs and changes.",
+          ? `${pathLeafLabel(props.appState.sync.eventsFile)} records every sync result, including failures and changed meetings.`
+          : "Append-only sync history log with recent run results and changed meetings.",
+        fallbackPath:
+          props.appState?.sync.eventsFile || props.serverInfo?.persistence.syncEventsFile,
+        file: props.serverInfo?.files?.syncEvents,
+        label: "Sync history log",
+        missingDetail: "This log file will be created after the first sync run finishes.",
+        title: "Sync run history",
+      },
+      {
+        detail:
+          "Stores the latest sync status, timestamps, summary counts, and recent run pointers.",
         fallbackPath: props.appState?.sync.filePath || props.serverInfo?.persistence.syncStateFile,
         file: props.serverInfo?.files?.syncState,
         label: "Sync state",
+        missingDetail: "This file will be created after the first sync run finishes.",
         title: "Sync state file",
+      },
+      {
+        detail:
+          "Background service stdout and startup diagnostics are written here while the service is running.",
+        fallbackPath: props.serverInfo?.persistence.serviceLogFile,
+        file: props.serverInfo?.files?.serviceLog,
+        label: "Service log",
+        missingDetail: "This log file will be created the next time the background service starts.",
+        title: "Background service log",
       },
       {
         detail: "Stores plugin enablement and plugin-local settings.",
@@ -489,6 +519,8 @@ export function DiagnosticsPanel(props: {
           props.appState?.config.plugins?.settingsFile || props.serverInfo?.config.pluginsFile,
         file: props.serverInfo?.files?.pluginSettings,
         label: "Plugin settings",
+        missingDetail:
+          "This file will be created when you first change a plugin setting or enable a plugin-local configuration.",
         title: "Plugin settings",
       },
       {
@@ -498,6 +530,8 @@ export function DiagnosticsPanel(props: {
           props.serverInfo?.config.automationRulesFile,
         file: props.serverInfo?.files?.automationRules,
         label: "Automation rules",
+        missingDetail:
+          "This file will be created when you first save automation rules or enable automation workflows.",
         title: "Automation rules",
       },
     ] as const;

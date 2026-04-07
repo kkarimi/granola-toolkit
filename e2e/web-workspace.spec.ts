@@ -121,6 +121,8 @@ test.describe("toolkit web workspace", () => {
     await expect(page.getByRole("heading", { name: "Recent sync runs" })).toBeVisible();
     await expect(page.locator(".sync-run-detail")).toContainText("2 meetings checked");
     await expect(page.getByText("Desktop transcript file")).toBeVisible();
+    await expect(page.getByText("Sync run history")).toBeVisible();
+    await expect(page.getByText("Background service log")).toBeVisible();
     await expect(
       page
         .locator(".diagnostic-file-row")

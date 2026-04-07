@@ -123,6 +123,7 @@ export async function startGranolaServer(
       app.config.plugins?.settingsFile || persistenceLayout.pluginsFile,
       "file",
     ),
+    serviceLog: await describeLocalPath(persistenceLayout.serviceLogFile, "file"),
     session: await describeLocalPath(persistenceLayout.sessionFile, "file"),
     syncEvents: await describeLocalPath(persistenceLayout.syncEventsFile, "file"),
     syncState: await describeLocalPath(persistenceLayout.syncStateFile, "file"),

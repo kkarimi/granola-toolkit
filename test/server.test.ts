@@ -165,6 +165,14 @@ describe("startGranolaServer", () => {
           folders: true,
           webClient: false,
         }),
+        files: expect.objectContaining({
+          serviceLog: expect.objectContaining({
+            path: expect.any(String),
+          }),
+          syncEvents: expect.objectContaining({
+            path: expect.any(String),
+          }),
+        }),
         persistence: expect.objectContaining({
           catalogSnapshotFile: expect.any(String),
           dataDirectory: expect.any(String),
