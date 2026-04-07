@@ -28,7 +28,7 @@ function rootHelp(): string {
 
   return `Granola Toolkit
 
-Work with Granola meetings, notes, and transcripts.
+Sync, search, export, and automate your Granola archive locally.
 
 Usage:
   granola <command> [options]

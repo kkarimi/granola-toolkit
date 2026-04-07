@@ -1,12 +1,18 @@
 {
   "name": "granola-toolkit",
   "version": "0.66.0",
-  "description": "Toolkit for exporting and working with Granola meetings, notes, and transcripts",
+  "description": "Unofficial open-source toolkit for syncing, browsing, exporting, and automating Granola locally",
   "keywords": [
+    "automation",
+    "byoa",
     "cli",
     "granola",
     "notes",
-    "transcripts"
+    "search",
+    "sync",
+    "transcripts",
+    "tui",
+    "web"
   ],
   "homepage": "https://kkarimi.github.io/granola-toolkit/",
   "bugs": {
