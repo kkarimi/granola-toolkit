@@ -33,6 +33,7 @@ interface AuthPanelProps {
   apiKeyDraft: string;
   auth?: GranolaAppAuthState;
   onApiKeyDraftChange: (value: string) => void;
+  onClearApiKey: () => void;
   onImportDesktopSession: () => void;
   onLogout: () => void;
   onRefresh: () => void;
@@ -677,6 +678,27 @@ export function AuthPanel(props: AuthPanelProps): JSX.Element {
   };
   const authAvailabilityLabel = (available: boolean, readyLabel = "Ready") =>
     available ? readyLabel : "Unavailable";
+  const savedApiKeyStatus = () => {
+    if (!props.auth?.apiKeyAvailable) {
+      return {
+        detail:
+          "No Personal API key is currently saved. Add one here to make it the default connection path.",
+        title: "No saved key",
+      };
+    }
+
+    if (props.auth.mode === "api-key") {
+      return {
+        detail: "This saved key is currently the active Granola connection source.",
+        title: "Saved and active",
+      };
+    }
+
+    return {
+      detail: "A saved key is ready and can be switched to without re-entering it.",
+      title: "Saved",
+    };
+  };
 
   return (
     <section class="auth-panel">
@@ -716,10 +738,10 @@ export function AuthPanel(props: AuthPanelProps): JSX.Element {
                 </div>
                 <div class="diagnostic-card-grid diagnostic-card-grid--metrics">
                   <DiagnosticsMetricCard
-                    detail="Recommended for web, background sync, and automation."
+                    detail={savedApiKeyStatus().detail}
                     label="Personal API key"
-                    meta={auth().apiKeyAvailable ? "Saved in toolkit auth state" : undefined}
-                    title={authAvailabilityLabel(Boolean(auth().apiKeyAvailable))}
+                    meta={auth().apiKeyAvailable ? "Stored in toolkit auth state" : undefined}
+                    title={savedApiKeyStatus().title}
                   />
                   <DiagnosticsMetricCard
                     detail={fallbackSources()}
@@ -789,13 +811,28 @@ export function AuthPanel(props: AuthPanelProps): JSX.Element {
               <div class="auth-card">
                 <div class="auth-section-head">
                   <div>
-                    <span class="status-label">Personal API key</span>
-                    <h4>Save or rotate your key</h4>
+                    <span class="status-label">Saved API key</span>
+                    <h4>Manage the saved key</h4>
                   </div>
                   <p>
-                    Keep a Personal API key here for the default connection path. You can also use{" "}
-                    <code>granola auth login --api-key &lt;token&gt;</code>.
+                    <Show
+                      when={auth().apiKeyAvailable}
+                      fallback={
+                        <>
+                          Save a Personal API key here for the default connection path. You can also
+                          use <code>granola auth login --api-key &lt;token&gt;</code>.
+                        </>
+                      }
+                    >
+                      <>
+                        A Personal API key is already saved. Paste a new one to rotate it, switch to
+                        it when needed, or remove it without touching desktop-session fallbacks.
+                      </>
+                    </Show>
                   </p>
+                </div>
+                <div class="auth-card__meta">
+                  <strong>{savedApiKeyStatus().title}.</strong> {savedApiKeyStatus().detail}
                 </div>
                 <div class="auth-inline">
                   <input
@@ -803,7 +840,11 @@ export function AuthPanel(props: AuthPanelProps): JSX.Element {
                     onInput={(event) => {
                       props.onApiKeyDraftChange(event.currentTarget.value);
                     }}
-                    placeholder="grn_..."
+                    placeholder={
+                      auth().apiKeyAvailable
+                        ? "Paste a new grn_... to replace the saved key"
+                        : "grn_..."
+                    }
                     type="password"
                     value={props.apiKeyDraft}
                   />
@@ -812,7 +853,7 @@ export function AuthPanel(props: AuthPanelProps): JSX.Element {
                     onClick={props.onSaveApiKey}
                     type="button"
                   >
-                    Save API key
+                    {auth().apiKeyAvailable ? "Save new key" : "Save API key"}
                   </button>
                 </div>
                 <div class="auth-card__actions">
@@ -824,7 +865,17 @@ export function AuthPanel(props: AuthPanelProps): JSX.Element {
                     }}
                     type="button"
                   >
-                    Use API key
+                    {auth().apiKeyAvailable && auth().mode === "api-key"
+                      ? "Using saved key"
+                      : "Use saved key"}
+                  </button>
+                  <button
+                    class="button button--secondary"
+                    disabled={!auth().apiKeyAvailable}
+                    onClick={props.onClearApiKey}
+                    type="button"
+                  >
+                    Remove saved key
                   </button>
                 </div>
               </div>

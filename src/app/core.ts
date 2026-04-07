@@ -1016,6 +1016,10 @@ export class GranolaApp implements GranolaAppApi {
     return await this.#auth.loginAuth(options);
   }
 
+  async clearApiKeyAuth(): Promise<GranolaAppAuthState> {
+    return await this.#auth.clearApiKeyAuth();
+  }
+
   async logoutAuth(): Promise<GranolaAppAuthState> {
     return await this.#auth.logoutAuth();
   }

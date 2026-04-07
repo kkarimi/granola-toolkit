@@ -665,6 +665,7 @@ function createWorkspaceHarness(
     getFolder: vi.fn(),
     getMeeting,
     getState: () => state,
+    clearApiKeyAuth: vi.fn(async () => state.auth),
     inspectAuth: vi.fn(async () => state.auth),
     inspectSync: vi.fn(async () => state.sync),
     listAgentHarnesses: vi.fn(async () => ({ harnesses: [] })),

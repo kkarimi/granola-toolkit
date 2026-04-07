@@ -18,6 +18,7 @@ import {
 export type DefaultGranolaAuthInfo = GranolaSessionMetadata;
 
 export interface DefaultGranolaAuthController {
+  clearApiKey(): Promise<DefaultGranolaAuthInfo>;
   inspect(): Promise<DefaultGranolaAuthInfo>;
   login(options?: { apiKey?: string; supabasePath?: string }): Promise<DefaultGranolaAuthInfo>;
   logout(): Promise<DefaultGranolaAuthInfo>;
@@ -207,6 +208,15 @@ class DefaultAuthController implements DefaultGranolaAuthController {
     await this.sessionStore().writeSession(session);
     this.#lastError = undefined;
     this.#preferredMode = "stored-session";
+    return await this.inspect();
+  }
+
+  async clearApiKey(): Promise<DefaultGranolaAuthInfo> {
+    await this.apiKeyStore().clearApiKey();
+    this.#lastError = undefined;
+    if (this.#preferredMode === "api-key") {
+      this.#preferredMode = undefined;
+    }
     return await this.inspect();
   }
 

@@ -455,6 +455,7 @@ export function describeSyncStatus(sync: {
 }
 
 export function describeAuthStatus(auth?: {
+  apiKeyAvailable?: boolean;
   lastError?: string;
   mode?: "api-key" | "stored-session" | "supabase-file";
 }): string {
@@ -464,6 +465,10 @@ export function describeAuthStatus(auth?: {
 
   if (auth.lastError) {
     return "Connection needs attention";
+  }
+
+  if (auth.mode === "api-key" && auth.apiKeyAvailable === false) {
+    return "No saved Personal API key";
   }
 
   switch (auth.mode) {

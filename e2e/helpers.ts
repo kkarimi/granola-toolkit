@@ -191,6 +191,19 @@ function createInMemoryAuthController(initialState: GranolaAppAuthState) {
   let authState = structuredClone(initialState);
 
   return {
+    async clearApiKey() {
+      authState = {
+        ...authState,
+        apiKeyAvailable: false,
+        lastError: undefined,
+        mode: authState.storedSessionAvailable
+          ? "stored-session"
+          : authState.supabaseAvailable
+            ? "supabase-file"
+            : "api-key",
+      };
+      return structuredClone(authState);
+    },
     async inspect() {
       return structuredClone(authState);
     },

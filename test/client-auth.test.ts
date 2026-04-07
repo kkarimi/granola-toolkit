@@ -260,6 +260,15 @@ describe("CachedTokenProvider", () => {
     );
     await expect(apiKeyStore.readApiKey()).resolves.toBe("grn_test_123");
 
+    const cleared = await controller.clearApiKey();
+    expect(cleared).toEqual(
+      expect.objectContaining({
+        apiKeyAvailable: false,
+        mode: "api-key",
+      }),
+    );
+    await expect(apiKeyStore.readApiKey()).resolves.toBeUndefined();
+
     const loggedOut = await controller.logout();
     expect(loggedOut).toEqual(
       expect.objectContaining({

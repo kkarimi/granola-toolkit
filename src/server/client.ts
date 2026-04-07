@@ -422,6 +422,12 @@ export class GranolaServerClient implements GranolaAppApi {
     });
   }
 
+  async clearApiKeyAuth(): Promise<GranolaAppAuthState> {
+    return await this.requestJson(granolaTransportPaths.authApiKeyClear, {
+      method: "POST",
+    });
+  }
+
   async logoutAuth(): Promise<GranolaAppAuthState> {
     return await this.requestJson(granolaTransportPaths.authLogout, {
       method: "POST",

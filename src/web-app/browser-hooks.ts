@@ -36,6 +36,7 @@ interface WebClientControllerDeps extends WebBrowserHookDeps {
 interface WebClientController {
   attachClient: () => Promise<void>;
   clientAccessor: () => GranolaServerClient | null;
+  clearApiKey: (refreshAll: () => Promise<void>) => Promise<void>;
   detachClient: () => Promise<void>;
   importDesktopSession: () => Promise<void>;
   lockServer: () => Promise<void>;
@@ -173,6 +174,24 @@ export function useWebClientController({
       await mergeAuthState();
       setState("detailError", error instanceof Error ? error.message : String(error));
       setStatus("API key save failed", "error");
+    }
+  };
+
+  const clearApiKey = async (refreshAll: () => Promise<void>) => {
+    setStatus("Removing saved API key…", "busy");
+    try {
+      const auth = await requestJson<GranolaAppAuthState>(granolaTransportPaths.authApiKeyClear, {
+        method: "POST",
+      });
+      setState("apiKeyDraft", "");
+      setState("detailError", "");
+      await mergeAuthState(auth);
+      await refreshAll();
+      setStatus("Saved API key removed", "ok");
+    } catch (error) {
+      await mergeAuthState();
+      setState("detailError", error instanceof Error ? error.message : String(error));
+      setStatus("API key removal failed", "error");
     }
   };
 
@@ -326,6 +345,7 @@ export function useWebClientController({
   return {
     attachClient,
     clientAccessor,
+    clearApiKey,
     detachClient,
     importDesktopSession,
     lockServer,

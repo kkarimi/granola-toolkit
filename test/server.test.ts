@@ -562,6 +562,7 @@ describe("startGranolaServer", () => {
 
   test("serves auth status and auth actions over HTTP", async () => {
     let authState: GranolaAppAuthState = {
+      apiKeyAvailable: true,
       mode: "supabase-file",
       refreshAvailable: false,
       storedSessionAvailable: false,
@@ -585,10 +586,19 @@ describe("startGranolaServer", () => {
       {
         auth: authState,
         authController: {
+          clearApiKey: async () => {
+            authState = {
+              ...authState,
+              apiKeyAvailable: false,
+              mode: "supabase-file",
+            };
+            return authState;
+          },
           inspect: async () => authState,
           login: async () => {
             authState = {
               ...authState,
+              apiKeyAvailable: true,
               mode: "stored-session",
               refreshAvailable: true,
               storedSessionAvailable: true,
@@ -638,8 +648,20 @@ describe("startGranolaServer", () => {
     expect(initial.ok).toBe(true);
     expect(await initial.json()).toEqual(
       expect.objectContaining({
+        apiKeyAvailable: true,
         mode: "supabase-file",
         storedSessionAvailable: false,
+      }),
+    );
+
+    const clearApiKey = await fetch(new URL("/auth/api-key/clear", server.url), {
+      method: "POST",
+    });
+    expect(clearApiKey.ok).toBe(true);
+    expect(await clearApiKey.json()).toEqual(
+      expect.objectContaining({
+        apiKeyAvailable: false,
+        mode: "supabase-file",
       }),
     );
 

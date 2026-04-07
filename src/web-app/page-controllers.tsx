@@ -388,6 +388,7 @@ export function SettingsPageController(props: {
   onApiKeyDraftChange: (value: string) => void;
   onApproveRun: (runId: string) => void;
   onChangeHarness: (harness: GranolaAgentHarness) => void;
+  onClearApiKey: () => void;
   onDuplicateHarness: () => void;
   onExportNotes: () => void;
   onExportTranscripts: () => void;
@@ -467,6 +468,7 @@ export function SettingsPageController(props: {
                 apiKeyDraft={props.apiKeyDraft}
                 auth={props.auth}
                 onApiKeyDraftChange={(value) => props.onApiKeyDraftChange(value)}
+                onClearApiKey={() => props.onClearApiKey()}
                 onImportDesktopSession={() => props.onImportDesktopSession()}
                 onLogout={() => props.onLogout()}
                 onRefresh={() => props.onRefreshAuth()}

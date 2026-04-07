@@ -16,7 +16,7 @@ export function granolaAuthRecommendation(auth: GranolaAppAuthState): {
   nextAction?: string;
   status: string;
 } {
-  if (auth.mode === "api-key") {
+  if (auth.mode === "api-key" && auth.apiKeyAvailable) {
     return {
       detail:
         "This is the recommended default for long-running sync, web, and automation workflows.",

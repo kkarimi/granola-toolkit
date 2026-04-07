@@ -43,6 +43,11 @@ export async function handleAuthRoute(context: GranolaServerRouteContext): Promi
     return true;
   }
 
+  if (method === "POST" && path === granolaTransportPaths.authApiKeyClear) {
+    sendJson(response, await app.clearApiKeyAuth(), { headers: originHeaders });
+    return true;
+  }
+
   if (method === "POST" && path === granolaTransportPaths.authLogout) {
     sendJson(response, await app.logoutAuth(), { headers: originHeaders });
     return true;

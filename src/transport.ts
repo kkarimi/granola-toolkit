@@ -93,6 +93,7 @@ export interface GranolaServerInfo {
 }
 
 export const granolaTransportPaths = {
+  authApiKeyClear: "/auth/api-key/clear",
   authLock: "/auth/lock",
   authLogin: "/auth/login",
   authLogout: "/auth/logout",

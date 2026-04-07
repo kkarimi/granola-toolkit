@@ -2496,6 +2496,14 @@ describe("GranolaApp", () => {
       {
         auth: authState,
         authController: {
+          clearApiKey: async () => {
+            authState = {
+              ...authState,
+              apiKeyAvailable: false,
+              mode: "stored-session",
+            };
+            return authState;
+          },
           inspect: async () => authState,
           login: async () => authState,
           logout: async () => {
@@ -2536,6 +2544,12 @@ describe("GranolaApp", () => {
         now: () => new Date("2024-03-01T12:00:00Z"),
       },
     );
+
+    await app.listDocuments();
+    const cleared = await app.clearApiKeyAuth();
+    expect(cleared.apiKeyAvailable).toBe(false);
+    expect(cleared.mode).toBe("stored-session");
+    expect(app.getState().documents.loaded).toBe(false);
 
     await app.listDocuments();
     const switched = await app.switchAuthMode("supabase-file");

@@ -38,6 +38,13 @@ export class GranolaAuthService {
     }
   }
 
+  async clearApiKeyAuth(): Promise<GranolaAppAuthState> {
+    const auth = await this.requireAuthController().clearApiKey();
+    return this.applyAuthState(auth, {
+      resetDocuments: true,
+    });
+  }
+
   async logoutAuth(): Promise<GranolaAppAuthState> {
     const auth = await this.requireAuthController().logout();
     return this.applyAuthState(auth, {

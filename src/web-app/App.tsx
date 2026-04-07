@@ -765,6 +765,9 @@ export function App() {
                       void resolveAutomationRun(runId, "approve");
                     }}
                     onChangeHarness={harnessController.updateHarness}
+                    onClearApiKey={() => {
+                      void clientController.clearApiKey(refreshAll);
+                    }}
                     onDuplicateHarness={harnessController.duplicateHarness}
                     onExportNotes={() => {
                       void exportNotes();
@@ -928,6 +931,9 @@ export function App() {
                   void resolveAutomationRun(runId, "approve");
                 }}
                 onChangeHarness={harnessController.updateHarness}
+                onClearApiKey={() => {
+                  void clientController.clearApiKey(refreshAll);
+                }}
                 onDuplicateHarness={harnessController.duplicateHarness}
                 onExportNotes={() => {
                   void exportNotes();
