@@ -37,12 +37,13 @@ granola notes --format json --output ./notes-json
 
 ## Transcripts
 
-`granola transcripts` exports locally cached transcript segments.
+`granola transcripts` exports transcript data from Granola's desktop transcript file when it is
+available locally.
 
 The flow is:
 
-1. Read Granola's cache JSON from disk.
-2. Parse the cache payload.
+1. Read Granola's local desktop transcript file from disk.
+2. Parse the transcript data payload.
 3. Normalise transcript data into a structured export per document.
 4. Match segments to documents by document id.
 5. Render text, JSON, YAML, or raw JSON.

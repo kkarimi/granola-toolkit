@@ -31,7 +31,7 @@ Subcommands:
   open <id>           Start the web workspace focused on one meeting
 
 Options:
-  --cache <path>      Path to Granola cache JSON for transcript data
+  --cache <path>      Path to Granola desktop transcript file for transcript data
   --folder <query>    Filter list to one folder id or name
   --format <value>    list/view: text, json, yaml; export: json, yaml; notes: markdown, json, yaml, raw; transcript: text, json, yaml, raw
   --network <mode>    open: local or lan (default: local)

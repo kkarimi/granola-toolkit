@@ -411,11 +411,11 @@ export function DiagnosticsPanel(props: {
   };
   const transcriptStateDetail = () =>
     props.appState?.cache.loaded && props.appState.cache.transcriptCount > 0
-      ? `Loaded ${formatDateTimeLabel(props.appState.cache.loadedAt)}`
+      ? `Read ${formatDateTimeLabel(props.appState.cache.loadedAt)} · ${props.appState.cache.transcriptCount} transcript sets available locally.`
       : props.appState?.cache.loaded
-        ? "Cache file loaded, but it does not currently contain transcript entries."
+        ? "Desktop transcript file was read, but it does not currently contain transcript entries."
         : props.appState?.cache.filePath || props.serverInfo?.config.transcriptCacheFile
-          ? "Toolkit can warm transcripts from the configured Granola cache file."
+          ? "Toolkit can read transcript data from the configured desktop transcript file when needed."
           : "Meeting transcripts are fetched from Granola when you open them.";
   const fallbackSummary = () => {
     const available = [
@@ -471,10 +471,8 @@ export function DiagnosticsPanel(props: {
         fallbackPath:
           props.appState?.cache.filePath || props.serverInfo?.config.transcriptCacheFile,
         file: props.serverInfo?.files?.transcriptCache,
-        label: "Transcript cache",
-        title: props.appState?.cache.filePath
-          ? "Desktop transcript cache"
-          : "Transcripts on demand",
+        label: "Desktop transcript data",
+        title: props.appState?.cache.filePath ? "Desktop transcript file" : "Transcripts on demand",
       },
       {
         detail: props.appState?.sync.eventsFile

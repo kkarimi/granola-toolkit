@@ -33,7 +33,7 @@ Options:
   --sync-interval <value> Background sync interval, e.g. 15m or 1h (default: 15m)
   --no-sync               Disable the background sync loop
   --trusted-origins <v>   Comma-separated extra browser origins to trust
-  --cache <path>          Path to Granola cache JSON
+  --cache <path>          Path to Granola desktop transcript file
   --timeout <value>       Request timeout, e.g. 2m, 30s, 120000 (default: 2m)
   --supabase <path>       Path to supabase.json
   --open[=true|false]     Open the browser automatically (default: true)

@@ -26,7 +26,7 @@ It has three user-facing surfaces on one shared TypeScript core:
 
 ## What It Is Good At
 
-- keeping a local cache and sync loop around your Granola archive
+- keeping a local index, local snapshot, and sync loop around your Granola archive
 - opening the same meetings from scripts, the browser, and the terminal
 - exporting notes and transcripts into durable local files
 - running BYOA prompts and reviewable note pipelines
@@ -52,7 +52,8 @@ It has three user-facing surfaces on one shared TypeScript core:
 ### Local-first sync and ownership
 
 Granola Toolkit is built around the idea that your meeting archive should be usable from a local
-runtime you control, with explicit sync, caching, search, exports, and background work.
+runtime you control, with an explicit sync loop, a local index, local snapshots, search, exports,
+and background work.
 
 ### Bring your own agents
 

@@ -494,15 +494,15 @@ export function folderFreshnessNote(appState?: GranolaAppState | null): string |
   const reference = localReferenceLabel(appState, appState?.folders.loadedAt);
   switch (appState?.folders.source) {
     case "documents":
-      return "Folders are inferred from locally synced meeting metadata.";
+      return "Folder membership comes from locally synced meeting metadata.";
     case "index":
       return reference
         ? `Folder counts are reconstructed from the local meeting index last synced ${formatDateTimeLabel(reference)}.`
         : "Folder counts are reconstructed from the local meeting index.";
     case "snapshot":
       return reference
-        ? `Showing folders from the last local snapshot synced ${formatDateTimeLabel(reference)}.`
-        : "Showing folders from the last local snapshot.";
+        ? `Showing folders from the last locally synced snapshot from ${formatDateTimeLabel(reference)}.`
+        : "Showing folders from the last locally synced snapshot.";
     default:
       return undefined;
   }
@@ -525,13 +525,13 @@ export function meetingListFreshnessNote(options: {
   } else if (options.meetingSource === "snapshot") {
     parts.push(
       reference
-        ? `Showing meetings from the last local snapshot synced ${formatDateTimeLabel(reference)}.`
-        : "Showing meetings from the last local snapshot.",
+        ? `Showing meetings from the last locally synced snapshot from ${formatDateTimeLabel(reference)}.`
+        : "Showing meetings from the last locally synced snapshot.",
     );
   }
 
   if (options.selectedFolderLabel?.trim() && options.appState?.folders.source === "documents") {
-    parts.push("Folder membership is inferred from locally synced meeting metadata.");
+    parts.push("Folder membership comes from locally synced meeting metadata.");
   }
 
   return parts.length > 0 ? parts.join(" ") : undefined;
@@ -550,11 +550,11 @@ export function meetingFreshnessNote(options: {
   if (options.appState?.documents.source === "snapshot") {
     parts.push(
       reference
-        ? `This meeting is coming from the last local snapshot synced ${formatDateTimeLabel(reference)}.`
-        : "This meeting is coming from the last local snapshot.",
+        ? `Showing the last locally synced meeting snapshot from ${formatDateTimeLabel(reference)}.`
+        : "Showing the last locally synced meeting snapshot.",
     );
   } else if (options.meetingSource === "index") {
-    parts.push("This meeting was opened from the local index.");
+    parts.push("Opened from the local meeting index.");
   }
 
   const rawFolderNames = bundleFolderNames(options.bundle);
@@ -563,11 +563,11 @@ export function meetingFreshnessNote(options: {
     options.meeting.meeting.folders.length === 0 &&
     (rawFolderNames.length > 0 || options.selectedFolderLabel?.trim())
   ) {
-    parts.push("Folder labels are being recovered from synced metadata.");
+    parts.push("Folder labels come from locally synced metadata.");
   }
 
   if (options.meeting && !options.meeting.meeting.transcriptLoaded) {
-    parts.push("Transcript loads on demand when you open it.");
+    parts.push("Transcript will load from Granola when you open it.");
   }
 
   return parts.length > 0 ? parts.join(" ") : undefined;

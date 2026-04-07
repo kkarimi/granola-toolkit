@@ -19,7 +19,7 @@ Subcommands:
   rerun <job-id>      Rerun a previous notes or transcripts export job
 
 Options:
-  --cache <path>      Path to Granola cache JSON
+  --cache <path>      Path to Granola desktop transcript file
   --format <value>    list output format: text, json, yaml (default: text)
   --limit <n>         Number of jobs to show for list (default: 20)
   --timeout <value>   Request timeout, e.g. 2m, 30s, 120000 (default: 2m)

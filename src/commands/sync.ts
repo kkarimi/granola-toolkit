@@ -21,7 +21,7 @@ Options:
   --watch             Keep syncing in the background until interrupted
   --interval <value>  Poll interval for --watch, e.g. 60s or 5m (default: 60s)
   --limit <value>     Event count for sync events output (default: 20)
-  --cache <path>      Path to Granola cache JSON
+  --cache <path>      Path to Granola desktop transcript file
   --timeout <value>   Request timeout, e.g. 2m, 30s, 120000 (default: 2m)
   --supabase <path>   Path to supabase.json
   --debug             Enable debug logging

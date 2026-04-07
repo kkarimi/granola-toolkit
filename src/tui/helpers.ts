@@ -213,7 +213,7 @@ export function renderGranolaTuiMeetingTab(
         return transcript;
       }
 
-      return cacheData ? "(Transcript unavailable)" : "(Granola cache not loaded)";
+      return cacheData ? "(Transcript unavailable)" : "(Transcript loads on demand)";
     }
     case "notes":
     default:
@@ -238,9 +238,9 @@ export function buildGranolaTuiSummary(
       : "local state warming";
   const folders = state.folders.loaded ? `${state.folders.count} folders` : "folders pending";
   const transcripts = state.cache.loaded
-    ? `${state.cache.transcriptCount} transcript sets cached`
+    ? `${state.cache.transcriptCount} transcript sets available locally`
     : state.cache.configured
-      ? "transcript cache warming"
+      ? "desktop transcript data loading"
       : "transcripts on demand";
   const sync = state.sync.running
     ? "sync running"

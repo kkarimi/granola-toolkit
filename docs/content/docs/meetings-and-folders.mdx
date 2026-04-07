@@ -28,8 +28,9 @@ granola meeting list --folder Team
 
 ## Meeting Views
 
-`meeting` combines API-backed notes with the local transcript cache so you can inspect one meeting
-at a time.
+`meeting` combines API-backed notes with locally available transcript data, and falls back to
+on-demand transcript loading when the desktop transcript file does not already have what you need,
+so you can inspect one meeting at a time.
 
 Once you have run `granola sync`, the toolkit also keeps a local full-text search dataset for
 titles, notes, transcripts, folders, tags, and generated artefacts.

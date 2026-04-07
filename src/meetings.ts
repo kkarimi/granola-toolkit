@@ -471,7 +471,7 @@ export function renderMeetingView(
           .join(", ")
       : "(none)";
   const transcriptStatus = !record.meeting.transcriptLoaded
-    ? "cache not loaded"
+    ? "on demand"
     : record.meeting.transcriptSegmentCount === 0
       ? "no transcript segments"
       : `${record.meeting.transcriptSegmentCount} segment(s)`;
@@ -504,7 +504,9 @@ export function renderMeetingView(
     "## Transcript",
     "",
     formatTranscriptLines(record.transcript) ||
-      (record.meeting.transcriptLoaded ? "(no transcript segments)" : "(Granola cache not loaded)"),
+      (record.meeting.transcriptLoaded
+        ? "(no transcript segments)"
+        : "(Transcript loads on demand)"),
     "",
   ];
 

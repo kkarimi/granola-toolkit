@@ -11,7 +11,7 @@ Usage:
   granola transcripts [options]
 
 Options:
-  --cache <path>      Path to Granola cache JSON
+  --cache <path>      Path to Granola desktop transcript file
   --folder <query>    Export only meetings inside one folder id or name
   --format <value>    Output format: text, json, yaml, raw (default: text)
   --output <path>     Output directory for transcript files (default: ./transcripts)

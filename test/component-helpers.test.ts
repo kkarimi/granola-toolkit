@@ -231,7 +231,7 @@ describe("web meeting helpers", () => {
     } as unknown as GranolaAppState;
 
     expect(folderFreshnessNote(appState)).toBe(
-      "Folders are inferred from locally synced meeting metadata.",
+      "Folder membership comes from locally synced meeting metadata.",
     );
     expect(
       meetingListFreshnessNote({
@@ -240,7 +240,7 @@ describe("web meeting helpers", () => {
         selectedFolderLabel: "Super",
       }),
     ).toBe(
-      "Showing meetings from the last local snapshot synced 2026-04-07 12:42:00. Folder membership is inferred from locally synced meeting metadata.",
+      "Showing meetings from the last locally synced snapshot from 2026-04-07 12:42:00. Folder membership comes from locally synced meeting metadata.",
     );
     expect(
       meetingFreshnessNote({
@@ -257,7 +257,7 @@ describe("web meeting helpers", () => {
         selectedFolderLabel: "Super",
       }),
     ).toBe(
-      "This meeting is coming from the last local snapshot synced 2026-04-07 12:42:00. Folder labels are being recovered from synced metadata. Transcript loads on demand when you open it.",
+      "Showing the last locally synced meeting snapshot from 2026-04-07 12:42:00. Folder labels come from locally synced metadata. Transcript will load from Granola when you open it.",
     );
   });
 

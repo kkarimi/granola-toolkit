@@ -247,8 +247,8 @@ describe("meeting rendering", () => {
     const viewText = renderMeetingView(buildMeetingRecord(documents[1]!), "text");
     const transcriptOutput = renderMeetingTranscript(documents[1]!, undefined, "text");
 
-    expect(viewText).toContain("Transcript: cache not loaded");
-    expect(viewText).toContain("(Granola cache not loaded)");
+    expect(viewText).toContain("Transcript: on demand");
+    expect(viewText).toContain("(Transcript loads on demand)");
     expect(transcriptOutput).toBe("");
   });
 });

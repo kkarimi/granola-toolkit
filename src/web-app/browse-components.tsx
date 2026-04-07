@@ -367,19 +367,19 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
       : "Using toolkit defaults. Change values from Auth, Plugins, and Exports, or add a .granola.toml later.";
   const transcriptLabel = () =>
     props.appState?.cache.loaded && props.appState.cache.transcriptCount > 0
-      ? `${props.appState.cache.transcriptCount} transcript sets in desktop cache`
+      ? `${props.appState.cache.transcriptCount} transcript sets available locally`
       : props.appState?.cache.loaded
-        ? "Desktop transcript cache available"
+        ? "Desktop transcript file available"
         : props.appState?.cache.configured
-          ? "Desktop transcript cache configured"
+          ? "Desktop transcript file configured"
           : "Transcripts on demand";
   const transcriptDetail = () =>
     props.appState?.cache.loaded && props.appState.cache.transcriptCount > 0
       ? `${pathLeafLabel(props.appState.cache.filePath)} · loaded ${relativeTimeLabel(props.appState.cache.loadedAt)}`
       : props.appState?.cache.loaded
-        ? `${pathLeafLabel(props.appState.cache.filePath)} · no transcript entries found in this cache file`
+        ? `${pathLeafLabel(props.appState.cache.filePath)} · desktop transcript file read, but no transcript entries were found`
         : props.appState?.cache.filePath
-          ? `${compactPathLabel(props.appState.cache.filePath)} · toolkit can warm transcripts from this cache`
+          ? `${compactPathLabel(props.appState.cache.filePath)} · toolkit can read desktop transcript data from this file when needed`
           : "Meeting transcripts are fetched from Granola when you open them.";
   const localIndexLabel = () =>
     props.appState?.index.loaded
