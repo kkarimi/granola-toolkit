@@ -86,6 +86,19 @@ describe("runCli", () => {
     expect(error).not.toHaveBeenCalled();
   });
 
+  test("shows export help from the command module", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const exitCode = await runCli(["export", "--help"]);
+
+    expect(exitCode).toBe(0);
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining("By default this exports notes and transcripts together."),
+    );
+    expect(error).not.toHaveBeenCalled();
+  });
+
   test("shows folder help from the command module", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const error = vi.spyOn(console, "error").mockImplementation(() => {});

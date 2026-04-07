@@ -46,6 +46,7 @@ Global options:
 
 Examples:
   granola attach http://127.0.0.1:4123
+  granola export --folder Team
   granola folder list
   granola init --provider openrouter
   granola service start

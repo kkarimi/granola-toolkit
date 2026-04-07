@@ -6,6 +6,7 @@ import { attachCommand } from "../src/commands/attach.ts";
 import { automationCommand } from "../src/commands/automation.ts";
 import type { CommandContext } from "../src/commands/types.ts";
 import { authCommand } from "../src/commands/auth.ts";
+import { exportCommand } from "../src/commands/export.ts";
 import { exportsCommand } from "../src/commands/exports.ts";
 import { meetingCommand } from "../src/commands/meeting.ts";
 import { notesCommand } from "../src/commands/notes.ts";
@@ -272,6 +273,112 @@ describe("command execution", () => {
     });
     expect(log).toHaveBeenCalledWith(
       "✓ Exported 1 transcripts from folder Team to /tmp/custom-transcripts (job transcripts-job-1)",
+    );
+  });
+
+  test("export command exports notes and transcripts together into a shared output root", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const app = {
+      exportNotes: vi.fn(async () => ({
+        documentCount: 2,
+        documents: [],
+        format: "markdown",
+        job: {
+          completedCount: 2,
+          format: "markdown",
+          id: "notes-job-1",
+          itemCount: 2,
+          kind: "notes",
+          outputDir: "/tmp/archive/notes",
+          scope: {
+            folderId: "folder-team-1111",
+            folderName: "Team",
+            mode: "folder",
+          },
+          startedAt: "2024-03-01T12:00:00Z",
+          status: "completed",
+          written: 2,
+        },
+        outputDir: "/tmp/archive/notes",
+        scope: {
+          folderId: "folder-team-1111",
+          folderName: "Team",
+          mode: "folder",
+        },
+        written: 2,
+      })),
+      exportTranscripts: vi.fn(async () => ({
+        cacheData: {
+          documents: {},
+          transcripts: {},
+        },
+        format: "text",
+        job: {
+          completedCount: 2,
+          format: "text",
+          id: "transcripts-job-1",
+          itemCount: 2,
+          kind: "transcripts",
+          outputDir: "/tmp/archive/transcripts",
+          scope: {
+            folderId: "folder-team-1111",
+            folderName: "Team",
+            mode: "folder",
+          },
+          startedAt: "2024-03-01T12:00:00Z",
+          status: "completed",
+          written: 2,
+        },
+        outputDir: "/tmp/archive/transcripts",
+        scope: {
+          folderId: "folder-team-1111",
+          folderName: "Team",
+          mode: "folder",
+        },
+        transcriptCount: 2,
+        written: 2,
+      })),
+      findFolder: vi.fn(async () => ({
+        id: "folder-team-1111",
+        name: "Team",
+      })),
+      getState: () => ({
+        auth: {
+          mode: "stored-session",
+        },
+      }),
+    };
+
+    vi.spyOn(configModule, "loadConfig").mockResolvedValue(makeConfig());
+    vi.spyOn(appModule, "createGranolaApp").mockResolvedValue(app as never);
+
+    const exitCode = await exportCommand.run(
+      makeContext({
+        commandFlags: {
+          folder: "Team",
+          output: "/tmp/archive",
+        },
+      }),
+    );
+
+    expect(exitCode).toBe(0);
+    expect(app.findFolder).toHaveBeenCalledWith("Team");
+    expect(app.exportNotes).toHaveBeenCalledWith("markdown", {
+      folderId: "folder-team-1111",
+      outputDir: "/tmp/archive/notes",
+      scopedOutput: false,
+    });
+    expect(app.exportTranscripts).toHaveBeenCalledWith("text", {
+      folderId: "folder-team-1111",
+      outputDir: "/tmp/archive/transcripts",
+      scopedOutput: false,
+    });
+    expect(log).toHaveBeenCalledWith(
+      [
+        "✓ Exported notes and transcripts from folder Team",
+        "  notes: 2 -> /tmp/archive/notes (job notes-job-1)",
+        "  transcripts: 2 -> /tmp/archive/transcripts (job transcripts-job-1)",
+      ].join("\n"),
     );
   });
 
