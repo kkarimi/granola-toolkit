@@ -231,16 +231,17 @@ export function buildGranolaTuiSummary(
       : state.auth.mode === "stored-session"
         ? "stored session"
         : "supabase.json";
-  const documents = state.documents.loaded
-    ? `${state.documents.count} documents`
-    : "documents pending";
+  const localState = state.index.loaded
+    ? `${state.index.meetingCount} indexed locally`
+    : state.documents.loaded
+      ? `${state.documents.count} docs loaded`
+      : "local state warming";
   const folders = state.folders.loaded ? `${state.folders.count} folders` : "folders pending";
-  const cache = state.cache.loaded
-    ? `${state.cache.transcriptCount} transcript sets`
+  const transcripts = state.cache.loaded
+    ? `${state.cache.transcriptCount} transcript sets cached`
     : state.cache.configured
-      ? "cache configured"
-      : "cache missing";
-  const index = state.index.loaded ? `${state.index.meetingCount} indexed` : "index pending";
+      ? "transcript cache warming"
+      : "transcripts on demand";
   const sync = state.sync.running
     ? "sync running"
     : state.sync.lastError
@@ -256,5 +257,5 @@ export function buildGranolaTuiSummary(
         ? `${state.automation.runCount} runs`
         : "automation idle";
 
-  return `auth ${authMode} | ${documents} | ${folders} | ${cache} | ${index} | ${sync} | ${automation} | source ${meetingSource}`;
+  return `auth ${authMode} | ${localState} | ${folders} | ${transcripts} | ${sync} | ${automation} | source ${meetingSource}`;
 }

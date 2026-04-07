@@ -334,6 +334,89 @@ describe("buildGranolaTuiSummary", () => {
     expect(summary).toContain("synced 12:00");
     expect(summary).toContain("source live");
   });
+
+  test("describes transcript loading without implying local state is missing", () => {
+    const summary = buildGranolaTuiSummary(
+      {
+        auth: storedAuthState,
+        automation: {
+          artefactCount: 0,
+          loaded: true,
+          matchCount: 0,
+          matchesFile: "/tmp/automation-matches.jsonl",
+          pendingArtefactCount: 0,
+          pendingRunCount: 0,
+          ruleCount: 0,
+          rulesFile: "/tmp/automation-rules.json",
+          runCount: 0,
+          runsFile: "/tmp/automation-runs.jsonl",
+        },
+        cache: {
+          configured: false,
+          documentCount: 0,
+          loaded: false,
+          transcriptCount: 0,
+        },
+        config: {
+          debug: false,
+          notes: {
+            output: "/tmp/notes",
+            timeoutMs: 120_000,
+          },
+          supabase: "/tmp/supabase.json",
+          transcripts: {
+            cacheFile: "",
+            output: "/tmp/transcripts",
+          },
+        },
+        documents: {
+          count: 0,
+          loaded: false,
+        },
+        exports: {
+          jobs: [],
+        },
+        folders: {
+          count: 2,
+          loaded: true,
+        },
+        index: {
+          available: true,
+          filePath: "/tmp/index.json",
+          loaded: true,
+          loadedAt: "2024-03-01T12:00:00Z",
+          meetingCount: 42,
+        },
+        plugins: {
+          items: [],
+          loaded: true,
+        },
+        sync: {
+          eventCount: 0,
+          eventsFile: "/tmp/sync-events.jsonl",
+          filePath: "/tmp/sync-state.json",
+          lastChanges: [],
+          running: false,
+          summary: {
+            changedCount: 0,
+            createdCount: 0,
+            folderCount: 2,
+            meetingCount: 42,
+            removedCount: 0,
+            transcriptReadyCount: 0,
+          },
+        },
+        ui: {
+          surface: "tui",
+        },
+      },
+      "index",
+    );
+
+    expect(summary).toContain("42 indexed locally");
+    expect(summary).toContain("transcripts on demand");
+    expect(summary).not.toContain("cache missing");
+  });
 });
 
 describe("buildGranolaTuiAuthActions", () => {
