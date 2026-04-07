@@ -7,11 +7,7 @@ import { parseWorkspaceTab, type WorkspaceTab } from "../web/client-state.ts";
 
 import {
   formatDateLabel,
-  formatFolderNames,
-  meetingContextSummary,
-  noteSourceLabel,
-  ownerSummary,
-  speakerSummary,
+  meetingFolderSummary,
   tagSummary,
   workspaceBody,
 } from "./component-helpers.ts";
@@ -20,6 +16,7 @@ import { MarkdownDocument } from "./markdown-viewer.tsx";
 interface WorkspaceProps {
   bundle: GranolaMeetingBundle | null;
   detailError?: string;
+  fallbackFolderLabel?: string | null;
   markdownViewerEnabled: boolean;
   onSelectTab: (tab: WorkspaceTab) => void;
   selectedMeeting: MeetingRecord | null;
@@ -49,38 +46,18 @@ export function Workspace(props: WorkspaceProps): JSX.Element {
       {(meeting) => (
         <>
           <section class="meeting-context">
-            <div class="meeting-context__head">
-              <div>
-                <p class="meeting-context__eyebrow">Selected meeting</p>
-                <h2>{meeting().meeting.title || meeting().meeting.id}</h2>
-                <p class="meeting-context__summary">{meetingContextSummary(meeting())}</p>
-              </div>
-              <div class="meeting-context__stats">
-                <div class="meeting-context__stat">
-                  <span class="dashboard-stat__label">Notes source</span>
-                  <strong>{noteSourceLabel(meeting().meeting.noteContentSource)}</strong>
-                  <span>Best available note content for this meeting.</span>
-                </div>
-                <div class="meeting-context__stat">
-                  <span class="dashboard-stat__label">Owner signals</span>
-                  <strong>{ownerSummary(meeting())}</strong>
-                  <span>Derived from participants and transcript cues.</span>
-                </div>
-                <div class="meeting-context__stat">
-                  <span class="dashboard-stat__label">Speakers</span>
-                  <strong>{speakerSummary(meeting())}</strong>
-                  <span>Speaker labels currently visible in the local record.</span>
-                </div>
-              </div>
-            </div>
             <div class="detail-meta">
-              <div class="detail-chip">{`Updated ${formatDateLabel(meeting().meeting.updatedAt)}`}</div>
-              <div class="detail-chip">{`Folders: ${formatFolderNames(meeting().meeting.folders)}`}</div>
-              <div class="detail-chip">{`Tags: ${tagSummary(meeting().meeting.tags)}`}</div>
+              <div class="detail-chip">{formatDateLabel(meeting().meeting.createdAt)}</div>
+              <div class="detail-chip">
+                {`Folders: ${meetingFolderSummary(meeting(), props.bundle, props.fallbackFolderLabel)}`}
+              </div>
+              <Show when={meeting().meeting.tags.length > 0}>
+                <div class="detail-chip">{`Tags: ${tagSummary(meeting().meeting.tags)}`}</div>
+              </Show>
               <div class="detail-chip">
                 {meeting().meeting.transcriptLoaded
-                  ? `${meeting().meeting.transcriptSegmentCount} transcript segments ready`
-                  : "Transcript not loaded yet"}
+                  ? `${meeting().meeting.transcriptSegmentCount} transcript segments`
+                  : "Transcript on demand"}
               </div>
             </div>
           </section>
@@ -105,20 +82,25 @@ export function Workspace(props: WorkspaceProps): JSX.Element {
                 </button>
               )}
             </For>
-            <span class="workspace-hint">1-4 switch tabs, [ and ] cycle</span>
           </nav>
           <Show when={!props.detailError} fallback={<div class="empty">{props.detailError}</div>}>
             <section class="workspace-frame">
-              <div class="workspace-frame__head">
-                <h2>{details()?.title}</h2>
-                <p>{details()?.description}</p>
-              </div>
+              <Show when={parsedTab() === "metadata" || parsedTab() === "raw"}>
+                <div class="workspace-frame__head">
+                  <h2>{details()?.title}</h2>
+                  <p>{details()?.description}</p>
+                </div>
+              </Show>
               <div class="detail-body workspace-frame__body">
                 <Show
-                  when={parsedTab() === "notes" && props.markdownViewerEnabled}
+                  when={
+                    parsedTab() === "notes" &&
+                    props.markdownViewerEnabled &&
+                    Boolean(meeting().note.content.trim())
+                  }
                   fallback={<pre class="detail-pre">{details()?.body}</pre>}
                 >
-                  <MarkdownDocument markdown={meeting().noteMarkdown} />
+                  <MarkdownDocument markdown={meeting().note.content} />
                 </Show>
               </div>
             </section>

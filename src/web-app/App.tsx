@@ -33,6 +33,7 @@ import {
   useReviewController,
   useWebClientController,
 } from "./browser-hooks.ts";
+import { meetingContextSummary } from "./component-helpers.ts";
 import {
   clearAutomationCapabilityState,
   loadAutomationCapabilityState,
@@ -449,14 +450,14 @@ export function App() {
       return "Choose a meeting from folders, search, review, or recent activity.";
     }
 
-    const meeting = state.selectedMeeting.meeting;
-    const folderLabel = meeting.folders.length
-      ? meeting.folders.map((folder) => folder.name || folder.id).join(", ")
-      : "No folder";
-    const transcriptLabel = meeting.transcriptLoaded
-      ? `${meeting.transcriptSegmentCount} transcript segments`
-      : "Transcript not loaded yet";
-    return `${meeting.updatedAt.slice(0, 10)} • ${folderLabel} • ${transcriptLabel}`;
+    const selectedFolderLabel =
+      state.folders.find((folder) => folder.id === state.selectedFolderId)?.name ||
+      state.selectedFolderId;
+    return meetingContextSummary(
+      state.selectedMeeting,
+      state.selectedMeetingBundle,
+      selectedFolderLabel,
+    );
   };
 
   const togglePlugin = async (id: string, enabled: boolean) => {
@@ -984,6 +985,10 @@ export function App() {
                 onSelectTab={(tab) => {
                   setState("workspaceTab", tab);
                 }}
+                selectedFolderLabel={
+                  state.folders.find((folder) => folder.id === state.selectedFolderId)?.name ||
+                  state.selectedFolderId
+                }
                 selectedBundle={state.selectedMeetingBundle}
                 selectedMeeting={state.selectedMeeting}
                 selectedMeetingId={state.selectedMeetingId}

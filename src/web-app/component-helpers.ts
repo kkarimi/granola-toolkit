@@ -12,18 +12,18 @@ import type { GranolaServerInfo } from "../transport.ts";
 import type { GranolaAgentProviderKind } from "../types.ts";
 import { exportScopeLabel, parseWorkspaceTab, type WorkspaceTab } from "../web/client-state.ts";
 
-export function metadataLines(record: MeetingRecord): string {
+export function metadataLines(record: MeetingRecord, bundle?: GranolaMeetingBundle | null): string {
+  const transcriptStatus = record.meeting.transcriptLoaded
+    ? `${record.meeting.transcriptSegmentCount} segments`
+    : "not loaded yet";
   return [
     `Title: ${record.meeting.title || record.meeting.id}`,
-    `Created: ${record.meeting.createdAt}`,
-    `Updated: ${record.meeting.updatedAt}`,
-    `Folders: ${
-      record.meeting.folders.length
-        ? record.meeting.folders.map((folder) => folder.name).join(", ")
-        : "none"
-    }`,
+    `Meeting date: ${formatDateLabel(record.meeting.createdAt)}`,
+    `Last updated: ${record.meeting.updatedAt}`,
+    `Folders: ${meetingFolderSummary(record, bundle)}`,
     `Tags: ${record.meeting.tags.length ? record.meeting.tags.join(", ") : "none"}`,
-    `Transcript loaded: ${record.meeting.transcriptLoaded ? "yes" : "no"}`,
+    `Note source: ${noteSourceLabel(record.meeting.noteContentSource)}`,
+    `Transcript: ${transcriptStatus}`,
     `Owner candidates: ${
       record.roleHelpers.ownerCandidates.length
         ? record.roleHelpers.ownerCandidates.map((candidate) => candidate.label).join(", ")
@@ -55,9 +55,9 @@ export function workspaceBody(
       };
     case "metadata":
       return {
-        body: metadataLines(record),
+        body: metadataLines(record, bundle),
         description:
-          "Metadata keeps the raw meeting facts, ownership hints, and speaker breakdowns together.",
+          "Metadata keeps meeting facts, note provenance, and local inference hints together.",
         title: "Metadata",
       };
     case "raw":
@@ -69,9 +69,8 @@ export function workspaceBody(
       };
     default:
       return {
-        body: record.noteMarkdown || "(No notes available)",
-        description:
-          "Notes view shows the current readable meeting note using the best content Granola Toolkit could resolve.",
+        body: record.note.content || "(No notes available)",
+        description: "Notes view shows the readable meeting note without export front matter.",
         title: "Notes",
       };
   }
@@ -91,10 +90,41 @@ export function formatDateLabel(value?: string): string {
 
 export function formatFolderNames(folders: FolderSummaryRecord[]): string {
   if (folders.length === 0) {
-    return "No folder";
+    return "Folder unknown";
   }
 
   return folders.map((folder) => folder.name || folder.id).join(", ");
+}
+
+function bundleFolderNames(bundle?: GranolaMeetingBundle | null): string[] {
+  const names = (bundle?.source.document.folderMemberships ?? [])
+    .map((folder) => folder.name || folder.id)
+    .filter(Boolean);
+  return [...new Set(names)];
+}
+
+export function meetingFolderSummary(
+  record: MeetingRecord,
+  bundle?: GranolaMeetingBundle | null,
+  fallbackFolderLabel?: string | null,
+): string {
+  const projected = record.meeting.folders
+    .map((folder) => folder.name || folder.id)
+    .filter(Boolean);
+  if (projected.length > 0) {
+    return [...new Set(projected)].join(", ");
+  }
+
+  const fallbackNames = bundleFolderNames(bundle);
+  if (fallbackNames.length > 0) {
+    return fallbackNames.join(", ");
+  }
+
+  if (fallbackFolderLabel?.trim()) {
+    return fallbackFolderLabel.trim();
+  }
+
+  return "Folder unknown";
 }
 
 export function noteSourceLabel(source: MeetingRecord["meeting"]["noteContentSource"]): string {
@@ -141,11 +171,15 @@ export function speakerSummary(record: MeetingRecord): string {
     .join(", ");
 }
 
-export function meetingContextSummary(record: MeetingRecord): string {
+export function meetingContextSummary(
+  record: MeetingRecord,
+  bundle?: GranolaMeetingBundle | null,
+  fallbackFolderLabel?: string | null,
+): string {
   const transcriptLabel = record.meeting.transcriptLoaded
-    ? `${record.meeting.transcriptSegmentCount} transcript segments ready`
-    : "Transcript still loading";
-  return `${formatDateLabel(record.meeting.updatedAt)} • ${formatFolderNames(record.meeting.folders)} • ${transcriptLabel}`;
+    ? `${record.meeting.transcriptSegmentCount} transcript segments`
+    : "Transcript on demand";
+  return `${formatDateLabel(record.meeting.createdAt)} • ${meetingFolderSummary(record, bundle, fallbackFolderLabel)} • ${transcriptLabel}`;
 }
 
 export function parseTimestamp(value?: string): number | null {
@@ -250,7 +284,7 @@ export function meetingsPerDay(
 
 export function latestFolderNames(meeting: MeetingSummaryRecord): string {
   if (meeting.folders.length === 0) {
-    return "No folder";
+    return "Folder unknown";
   }
 
   return meeting.folders.map((folder) => folder.name || folder.id).join(", ");

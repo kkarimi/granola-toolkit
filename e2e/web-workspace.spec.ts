@@ -39,8 +39,9 @@ test.describe("toolkit web workspace", () => {
     ).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.locator(".markdown-document h1")).toContainText("Alpha Sync");
     await expect(page.locator(".markdown-document")).toContainText("Alpha notes");
+    await expect(page.locator(".markdown-document")).not.toContainText('id: "');
+    await expect(page.getByText("Folders: Team", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Back to home" }).click();
     await expect(page.getByRole("heading", { name: "Latest meetings" })).toBeVisible();
 
@@ -72,8 +73,8 @@ test.describe("toolkit web workspace", () => {
     ).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByText("Selected meeting")).toBeVisible();
-    await expect(page.getByText("Notes source")).toBeVisible();
+    await expect(page.getByText("Folders: Team", { exact: true })).toBeVisible();
+    await expect(page.locator(".markdown-document")).toContainText("Alpha notes");
     await expect(page.getByRole("button", { name: "Back to folders" })).toBeVisible();
 
     await page
