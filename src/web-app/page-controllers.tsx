@@ -69,35 +69,9 @@ export function HomePageController(props: {
   return (
     <>
       <PageHeader
-        actions={
-          <>
-            <button
-              class="button button--secondary"
-              onClick={() => props.onOpenFoldersPage()}
-              type="button"
-            >
-              Open folders
-            </button>
-            <button
-              class="button button--secondary"
-              onClick={() => props.onOpenSearchPage()}
-              type="button"
-            >
-              Search meetings
-            </button>
-            <button
-              class="button button--secondary"
-              disabled={!props.automationEnabled}
-              onClick={() => props.onOpenReviewPage()}
-              type="button"
-            >
-              Open review
-            </button>
-          </>
-        }
-        description="Start from one calm home view, then choose folders, search, review, or settings as separate tasks."
+        description="Latest meetings, sync health, and what needs attention."
         eyebrow="Home"
-        title="A quieter way to work through meetings"
+        title="Home"
       />
       <HomeDashboardPanel
         appState={props.appState}
@@ -159,38 +133,15 @@ export function FoldersPageController(props: {
                 All folders
               </button>
             </Show>
-            <button
-              class="button button--secondary"
-              onClick={() => props.onRefreshFolders()}
-              type="button"
-            >
-              {props.selectedFolderId ? "Refresh folder" : "Refresh folders"}
-            </button>
-            <Show when={props.selectedFolderId}>
-              <button
-                class="button button--secondary"
-                onClick={() => props.onExportNotes()}
-                type="button"
-              >
-                Export folder notes
-              </button>
-              <button
-                class="button button--secondary"
-                onClick={() => props.onExportTranscripts()}
-                type="button"
-              >
-                Export folder transcripts
-              </button>
-            </Show>
           </>
         }
         description={
           props.selectedFolder
-            ? `Open one meeting at a time from ${props.selectedFolder.name || props.selectedFolder.id}. Search and review stay on their own pages.`
-            : "Choose one folder first. The folders page should feel like a directory, not another split-screen browser."
+            ? `${props.selectedFolder.documentCount ?? 0} meetings in ${props.selectedFolder.name || props.selectedFolder.id}.`
+            : "Choose one folder to open its meetings."
         }
         eyebrow="Folders"
-        title={props.selectedFolder?.name || "Browse by folder"}
+        title={props.selectedFolder?.name || "Folders"}
       />
       <Show
         when={props.selectedFolderId}
@@ -208,43 +159,16 @@ export function FoldersPageController(props: {
           />
         }
       >
-        <section class="folder-focus">
-          <div class="folder-focus__hero">
-            <div>
-              <p class="folder-focus__eyebrow">Selected folder</p>
-              <h3>{props.selectedFolder?.name || props.selectedFolder?.id || "Folder"}</h3>
-              <p>
-                {props.selectedFolder?.isFavourite
-                  ? "Marked as a favourite in Granola."
-                  : "Use this focused list to choose one meeting without browsing the entire workspace."}
-              </p>
-            </div>
-            <div class="folder-focus__stats">
-              <div class="folder-focus__stat">
-                <span class="dashboard-stat__label">Meetings</span>
-                <strong>{String(props.selectedFolder?.documentCount ?? 0)}</strong>
-              </div>
-              <div class="folder-focus__stat">
-                <span class="dashboard-stat__label">Updated</span>
-                <strong>
-                  {props.selectedFolder?.updatedAt
-                    ? props.selectedFolder.updatedAt.slice(0, 10)
-                    : "Unknown"}
-                </strong>
-              </div>
-            </div>
-          </div>
-        </section>
         <MeetingList
           description={
             props.selectedFolder
-              ? `${props.selectedFolder.documentCount ?? 0} meetings in ${props.selectedFolder.name || props.selectedFolder.id}.`
+              ? `${props.selectedFolder.documentCount ?? 0} meetings.`
               : "Choose a folder to load its meetings."
           }
           error={props.listError}
           emptyHint={props.meetingEmptyHint}
           folders={props.folders}
-          heading={`Meetings in ${props.selectedFolder?.name || "this folder"}`}
+          heading="Meetings"
           loading={props.meetingsLoading}
           meetings={props.meetings}
           onSelect={(meetingId) => {
@@ -289,9 +213,9 @@ export function SearchPageController(props: {
   return (
     <>
       <PageHeader
-        description="Search is its own page now, so folder browsing and meeting reading do not compete with a wall of search controls."
+        description="Find a meeting by title, notes, transcript, folder, or tag."
         eyebrow="Search"
-        title="Search meetings on purpose"
+        title="Search"
       />
       <SearchWorkspacePanel
         advancedQuery={props.advancedQuery}

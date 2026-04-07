@@ -212,16 +212,6 @@ export function ToolbarFilters(props: ToolbarFiltersProps): JSX.Element {
 export function SearchWorkspacePanel(props: SearchWorkspacePanelProps): JSX.Element {
   return (
     <section class="search-panel">
-      <div class="search-panel__hero">
-        <div>
-          <p class="page-header__eyebrow">Search</p>
-          <h2>Find the meeting you actually want.</h2>
-          <p>
-            Search is a dedicated page so the rest of the app can stay calm. Use text search for
-            normal browsing and exact open only when you already know the meeting title or id.
-          </p>
-        </div>
-      </div>
       <div class="search-panel__form">
         <input
           class="search"
@@ -289,7 +279,7 @@ export function SearchWorkspacePanel(props: SearchWorkspacePanelProps): JSX.Elem
         <div class="advanced-search-panel__head">
           <div>
             <h3>Exact open</h3>
-            <p>For the rare case where you already know the exact meeting title or Granola id.</p>
+            <p>Use this only when you already know the exact title or Granola id.</p>
           </div>
         </div>
         <div class="advanced-search-panel__body">
@@ -324,7 +314,6 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
   const latestMeetings = () => props.latestMeetings.slice(0, 4);
   const todayMeetings = () => meetingsWithinDays(props.latestMeetings, 1);
   const weekMeetings = () => meetingsWithinDays(props.latestMeetings, 7);
-  const monthMeetings = () => meetingsWithinDays(props.latestMeetings, 30);
   const weekActivity = () => meetingsPerDay(props.latestMeetings, 7);
   const activeFolderCount = () =>
     new Set(
@@ -348,21 +337,6 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
 
   return (
     <section class="home-dashboard">
-      <div class="home-dashboard__hero">
-        <div>
-          <p class="home-dashboard__eyebrow">Home</p>
-          <h2>Start from a folder, recent meeting, or review queue.</h2>
-          <p>
-            Granola Toolkit works best when it feels like a calm inbox for today’s work, not a raw
-            dump of every meeting you have ever had.
-          </p>
-        </div>
-        <div class="home-dashboard__summary">
-          <div class="home-dashboard__summary-label">Local runtime</div>
-          <strong>{runtimeLabel(props.serverInfo)}</strong>
-          <span>{syncStatus()}</span>
-        </div>
-      </div>
       <div class="home-dashboard__stats">
         <article class="dashboard-stat">
           <span class="dashboard-stat__label">Today</span>
@@ -379,8 +353,8 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
           <span>{`${activeFolderCount()} folders touched, ${transcriptReadyCount()} transcript-ready.`}</span>
         </article>
         <article class="dashboard-stat">
-          <span class="dashboard-stat__label">Last 30 days</span>
-          <strong>{String(monthMeetings().length)} meetings</strong>
+          <span class="dashboard-stat__label">Local runtime</span>
+          <strong>{runtimeLabel(props.serverInfo)}</strong>
           <span>
             {indexedMeetings() > 0
               ? `${String(indexedMeetings())} indexed locally overall.`

@@ -22,12 +22,9 @@ test.describe("toolkit web workspace", () => {
     await expect(page.locator(".primary-nav").getByText("Workspace")).toBeVisible({
       timeout: 20_000,
     });
-    await expect(
-      page.getByRole("heading", { name: "A quieter way to work through meetings" }),
-    ).toBeVisible({
+    await expect(page.locator(".page-header").getByRole("heading", { name: "Home" })).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByText("Start from one calm home view")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("heading", { name: "Latest meetings" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Usage snapshot" })).toBeVisible();
     await expect(page.getByLabel("Meetings in the last 7 days")).toBeVisible();
@@ -52,7 +49,9 @@ test.describe("toolkit web workspace", () => {
       .locator(".primary-nav")
       .getByRole("button", { name: /Folders/i })
       .click();
-    await expect(page.getByRole("heading", { name: "Browse by folder" })).toBeVisible({
+    await expect(
+      page.locator(".page-header").getByRole("heading", { name: "Folders" }),
+    ).toBeVisible({
       timeout: 20_000,
     });
     await expect(page.getByRole("heading", { name: "Folder directory" })).toBeVisible({
@@ -66,7 +65,6 @@ test.describe("toolkit web workspace", () => {
     await expect(page.locator(".page-header").getByRole("heading", { name: "Team" })).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByText("Selected folder")).toBeVisible();
     await page
       .locator(".meeting-list")
       .getByRole("button", { name: /Alpha Sync/i })
@@ -84,7 +82,9 @@ test.describe("toolkit web workspace", () => {
       .locator(".primary-nav")
       .getByRole("button", { name: /Search/i })
       .click();
-    await expect(page.getByRole("heading", { name: "Search meetings on purpose" })).toBeVisible();
+    await expect(
+      page.locator(".page-header").getByRole("heading", { name: "Search" }),
+    ).toBeVisible();
     await page
       .getByPlaceholder("Search titles, notes, folders, tags, and transcript text")
       .fill("Beta");
@@ -130,9 +130,7 @@ test.describe("toolkit web workspace", () => {
   }) => {
     await page.goto(server.url);
 
-    await expect(
-      page.getByRole("heading", { name: "A quieter way to work through meetings" }),
-    ).toBeVisible({
+    await expect(page.locator(".page-header").getByRole("heading", { name: "Home" })).toBeVisible({
       timeout: 20_000,
     });
     await page
@@ -205,11 +203,11 @@ test.describe("toolkit web workspace", () => {
       await expect(page.locator(".primary-nav").getByText("Granola Toolkit")).toBeVisible({
         timeout: 20_000,
       });
-      await expect(
-        page.getByRole("heading", { name: "A quieter way to work through meetings" }),
-      ).toBeVisible({
-        timeout: 20_000,
-      });
+      await expect(page.locator(".page-header").getByRole("heading", { name: "Home" })).toBeVisible(
+        {
+          timeout: 20_000,
+        },
+      );
       await expect(
         page.locator(".primary-nav").getByRole("button", { name: /Review/i }),
       ).toHaveCount(0);
