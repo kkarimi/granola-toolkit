@@ -26,6 +26,7 @@ test.describe("toolkit web workspace", () => {
       timeout: 20_000,
     });
     await expect(page.getByRole("heading", { name: "Latest meetings" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sync and local state" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Usage snapshot" })).toBeVisible();
     await expect(page.getByLabel("Meetings in the last 7 days")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Sync health" })).toBeVisible();
@@ -117,6 +118,7 @@ test.describe("toolkit web workspace", () => {
     await expect(page.getByRole("button", { name: "Disable markdown viewer" })).toBeVisible();
     await page.locator(".settings-shell").getByRole("button", { name: "Diagnostics" }).click();
     await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
+    await expect(page.getByText("Local diagnostics")).toBeVisible();
     await expect(page.getByText("Transcript cache")).toBeVisible();
     await page
       .locator(".primary-nav")

@@ -68,6 +68,7 @@ export async function startGranolaServer(
   app: GranolaApp,
   options: GranolaServerOptions = {},
 ): Promise<GranolaServer> {
+  const persistenceLayout = defaultGranolaToolkitPersistenceLayout();
   const enableWebClient = options.enableWebClient ?? false;
   const hostname = options.hostname ?? "127.0.0.1";
   const port = options.port ?? 0;
@@ -86,6 +87,15 @@ export async function startGranolaServer(
   };
   const serverInfo: GranolaServerInfo = {
     build: resolveGranolaBuildInfo(),
+    config: {
+      automationRulesFile: app.config.automation?.rulesFile || undefined,
+      configFile: app.config.configFileUsed || undefined,
+      notesOutputDir: app.config.notes.output || undefined,
+      pluginsFile: app.config.plugins?.settingsFile || undefined,
+      supabaseFile: app.config.supabase || undefined,
+      transcriptCacheFile: app.config.transcripts.cacheFile || undefined,
+      transcriptsOutputDir: app.config.transcripts.output || undefined,
+    },
     capabilities: {
       attach: true,
       auth: true,
@@ -100,11 +110,21 @@ export async function startGranolaServer(
       webClient: enableWebClient,
     },
     persistence: {
+      catalogSnapshotFile: persistenceLayout.catalogSnapshotFile,
+      dataDirectory: persistenceLayout.dataDirectory,
       exportJobs: true,
+      exportJobsFile: persistenceLayout.exportJobsFile,
       meetingIndex: true,
-      sessionStore: defaultGranolaToolkitPersistenceLayout().sessionStoreKind,
+      meetingIndexFile: persistenceLayout.meetingIndexFile,
+      searchIndexFile: persistenceLayout.searchIndexFile,
+      sessionStore: persistenceLayout.sessionStoreKind,
+      sessionFile: persistenceLayout.sessionFile,
+      serviceLogFile: persistenceLayout.serviceLogFile,
+      serviceStateFile: persistenceLayout.serviceStateFile,
       syncEvents: true,
+      syncEventsFile: persistenceLayout.syncEventsFile,
       syncState: true,
+      syncStateFile: persistenceLayout.syncStateFile,
     },
     product: "granola-toolkit",
     protocolVersion: GRANOLA_TRANSPORT_PROTOCOL_VERSION,

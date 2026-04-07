@@ -21,6 +21,15 @@ export interface GranolaServerInfo {
     repositoryUrl?: string;
     version: string;
   };
+  config: {
+    automationRulesFile?: string;
+    configFile?: string;
+    notesOutputDir?: string;
+    pluginsFile?: string;
+    supabaseFile?: string;
+    transcriptCacheFile?: string;
+    transcriptsOutputDir?: string;
+  };
   capabilities: {
     attach: boolean;
     auth: boolean;
@@ -35,11 +44,21 @@ export interface GranolaServerInfo {
     webClient: boolean;
   };
   persistence: {
+    catalogSnapshotFile?: string;
+    dataDirectory?: string;
     exportJobs: boolean;
+    exportJobsFile?: string;
     meetingIndex: boolean;
+    meetingIndexFile?: string;
+    searchIndexFile?: string;
     sessionStore: GranolaToolkitSessionStoreKind;
+    sessionFile?: string;
+    serviceLogFile?: string;
+    serviceStateFile?: string;
     syncEvents: boolean;
+    syncEventsFile?: string;
     syncState: boolean;
+    syncStateFile?: string;
   };
   product: "granola-toolkit";
   protocolVersion: number;

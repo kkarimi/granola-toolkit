@@ -383,6 +383,47 @@ export function buildStartedAtLabel(serverInfo?: GranolaServerInfo | null): stri
   return startedAt.replace("T", " ").slice(0, 19);
 }
 
+export function formatDateTimeLabel(value?: string): string {
+  if (!value?.trim()) {
+    return "Not recorded";
+  }
+
+  return value.replace("T", " ").slice(0, 19);
+}
+
+export function compactPathLabel(value?: string | null): string {
+  if (!value?.trim()) {
+    return "Not configured";
+  }
+
+  const normalised = value.replaceAll("\\", "/");
+  const parts = normalised.split("/").filter(Boolean);
+  if (parts.length <= 3) {
+    return normalised;
+  }
+
+  return `.../${parts.slice(-3).join("/")}`;
+}
+
+export function syncCadenceLabel(serverInfo?: GranolaServerInfo | null): string {
+  if (!serverInfo?.runtime.syncEnabled) {
+    return "Manual sync only";
+  }
+
+  const intervalMs = serverInfo.runtime.syncIntervalMs;
+  if (!intervalMs || intervalMs <= 0) {
+    return "Background sync enabled";
+  }
+
+  const totalMinutes = Math.max(1, Math.round(intervalMs / 60_000));
+  if (totalMinutes % 60 === 0) {
+    const hours = totalMinutes / 60;
+    return `Background sync every ${hours} hour${hours === 1 ? "" : "s"}`;
+  }
+
+  return `Background sync every ${totalMinutes} min`;
+}
+
 export function providerSetupHint(provider: GranolaAgentProviderKind): string {
   switch (provider) {
     case "codex":

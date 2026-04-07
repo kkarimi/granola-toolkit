@@ -21,6 +21,8 @@ import {
 } from "../web/client-state.ts";
 
 import {
+  compactPathLabel,
+  formatDateTimeLabel,
   formatDateLabel,
   latestFolderNames,
   meetingsPerDay,
@@ -29,6 +31,7 @@ import {
   resolveAsyncViewState,
   reviewSummaryLabel,
   runtimeLabel,
+  syncCadenceLabel,
   syncHealthSummary,
 } from "./component-helpers.ts";
 
@@ -334,6 +337,52 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
       : props.appState?.documents.loaded
         ? props.appState.documents.count
         : 0;
+  const configLabel = () =>
+    props.appState?.config.configFileUsed
+      ? compactPathLabel(props.appState.config.configFileUsed)
+      : "No .granola.toml loaded";
+  const configDetail = () =>
+    props.appState?.config.configFileUsed
+      ? props.appState.config.configFileUsed
+      : props.serverInfo?.persistence.dataDirectory
+        ? `Defaults from ${compactPathLabel(props.serverInfo.persistence.dataDirectory)}`
+        : "Using toolkit defaults plus CLI and environment overrides.";
+  const transcriptLabel = () =>
+    props.appState?.cache.loaded
+      ? `${props.appState.cache.transcriptCount} transcript sets cached`
+      : props.appState?.cache.configured
+        ? "Transcript cache configured"
+        : "Transcripts on demand";
+  const transcriptDetail = () =>
+    props.appState?.cache.loaded
+      ? `Loaded ${formatDateTimeLabel(props.appState.cache.loadedAt)} from ${compactPathLabel(props.appState.cache.filePath)}`
+      : props.appState?.cache.filePath
+        ? `${compactPathLabel(props.appState.cache.filePath)} · toolkit can warm transcripts from this cache`
+        : "Meeting transcripts are fetched from Granola when you open them.";
+  const localIndexLabel = () =>
+    props.appState?.index.loaded
+      ? `${props.appState.index.meetingCount} meetings indexed locally`
+      : props.appState?.documents.loaded
+        ? `${props.appState.documents.count} meetings loaded`
+        : "Local index not warmed yet";
+  const localIndexDetail = () =>
+    props.appState?.index.filePath
+      ? `${compactPathLabel(props.appState.index.filePath)} · ${
+          props.appState.index.loadedAt
+            ? `updated ${formatDateTimeLabel(props.appState.index.loadedAt)}`
+            : "index available locally"
+        }`
+      : "Toolkit will write a local meeting index after the first successful sync.";
+  const authDetail = () => {
+    const sources = [
+      props.appState?.auth.apiKeyAvailable ? "API key" : null,
+      props.appState?.auth.storedSessionAvailable ? "desktop session" : null,
+      props.appState?.auth.supabaseAvailable ? "supabase.json" : null,
+    ].filter(Boolean);
+    return sources.length > 0
+      ? `Available sources: ${sources.join(" · ")}`
+      : "No fallback auth sources detected yet.";
+  };
 
   return (
     <section class="home-dashboard">
@@ -377,6 +426,45 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
           </span>
         </article>
       </div>
+      <section class="detail-section">
+        <div class="section-head">
+          <div>
+            <h2>Sync and local state</h2>
+            <p>What the toolkit is showing locally, and where that state comes from.</p>
+          </div>
+        </div>
+        <div class="usage-snapshot-grid">
+          <article class="snapshot-card">
+            <span class="dashboard-stat__label">Sync</span>
+            <strong>{describeSyncStatus(props.appState?.sync ?? {})}</strong>
+            <span>
+              {props.appState?.sync.lastCompletedAt
+                ? `${formatDateTimeLabel(props.appState.sync.lastCompletedAt)} · ${syncCadenceLabel(props.serverInfo)}`
+                : syncCadenceLabel(props.serverInfo)}
+            </span>
+          </article>
+          <article class="snapshot-card">
+            <span class="dashboard-stat__label">Auth</span>
+            <strong>{authStatus()}</strong>
+            <span>{authDetail()}</span>
+          </article>
+          <article class="snapshot-card">
+            <span class="dashboard-stat__label">Local index</span>
+            <strong>{localIndexLabel()}</strong>
+            <span>{localIndexDetail()}</span>
+          </article>
+          <article class="snapshot-card">
+            <span class="dashboard-stat__label">Transcripts</span>
+            <strong>{transcriptLabel()}</strong>
+            <span>{transcriptDetail()}</span>
+          </article>
+          <article class="snapshot-card">
+            <span class="dashboard-stat__label">Config</span>
+            <strong>{configLabel()}</strong>
+            <span>{configDetail()}</span>
+          </article>
+        </div>
+      </section>
       <section class="detail-section">
         <div class="section-head">
           <div>

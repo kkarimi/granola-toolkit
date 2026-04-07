@@ -1054,6 +1054,15 @@ select {
   overflow-wrap: anywhere;
 }
 
+.status-detail {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .detail-meta {
   display: flex;
   flex-wrap: wrap;

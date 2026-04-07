@@ -1,18 +1,20 @@
-# Plugin Simplification TODO
+# Sync Transparency TODO
 
-North star: keep the shipped plugin layer generic enough that new plugins can be added from the registry without reopening core bootstrap code or web settings wiring.
+North star: users should always understand whether they are looking at live Granola data or local toolkit state, when sync last ran, what auth path is active, and where the relevant local files live.
 
-## Refactor Guardrails
+## Guardrails
 
-- Keep built-in plugins working while moving concrete ids and legacy keys deeper into the registry and compatibility layer.
-- Prefer registry metadata and capability helpers over web-app maps or app-core conditionals.
-- Keep plugin toggling safe for users: feature cleanup and reload paths must stay explicit even if the registry becomes more generic.
-- Keep `main` shippable after every slice: full QA, commit, and push, but no release cut yet.
+- Prefer user language like `local index`, `local snapshot`, `last synced`, and `transcripts on demand` over vague `cache` wording.
+- Keep the main workspace calm: lightweight trust signals on Home and contextual freshness labels in browse/meeting views, with deeper details in Settings.
+- Reuse the same source of truth everywhere. Home, Diagnostics, and any future sync activity page should derive from one shared sync/runtime state model.
+- Keep `main` shippable after each slice: full QA, commit, and push, but no release cut yet.
 
-| Priority | Status | Size | Published In | Area                             | Task                                                                                                                            | Why                                                                                    |
-| -------- | ------ | ---- | ------------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| P1       | Done   | M    |              | Plugins / Registry Metadata      | Move plugin status copy and compatibility metadata into the registry so the web settings UI can render from plugin state alone. | `App.tsx` should not own a hardcoded detail map for each shipped plugin.               |
-| P1       | Done   | M    |              | Plugins / Compatibility Defaults | Resolve env/config/persisted/runtime plugin enablement from registry definitions instead of hardcoding automation defaults.     | `config.ts`, `plugins.ts`, and `core.ts` should not need direct knowledge of ids.      |
-| P2       | Done   | M    |              | Plugins / Web Lifecycle Hooks    | Move plugin enable/disable side effects out of `App.tsx` into capability-aware helpers.                                         | The browser still owns too much plugin-specific cleanup and reload behaviour.          |
-| P2       | Done   | L    |              | Plugins / Settings Contributions | Let plugins describe follow-up settings surfaces or sections instead of hardcoding automation panels after the plugins list.    | Settings should become extensible without teaching page controllers about each plugin. |
-| P3       | Done   | S    |              | Docs / Registry Notes            | Update the architecture notes so registry metadata, compatibility keys, and runtime defaults are documented together.           | The next slice should build on one stated boundary instead of rediscovering it again.  |
+| Priority | Status  | Size | Published In | Area                      | Task                                                                                                                | Why                                                                                 |
+| -------- | ------- | ---- | ------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| P1       | Done    | M    |              | Sync / Trust Layer        | Add a compact Home summary for sync, auth path, local index, transcript source, and active local config.            | Users need to know what they are looking at without digging through diagnostics.    |
+| P1       | Done    | M    |              | Diagnostics / Local Paths | Expose real local file locations and sync details in Settings, including config, index, snapshot, sync, and cache.  | Transparency should include the actual files on disk, not just booleans and badges. |
+| P1       | Pending | M    |              | Browse / Freshness Labels | Show contextual labels when folders or meetings are coming from local snapshot/index fallback instead of live load. | The current UI still hides when data is inferred, stale, or locally reconstructed.  |
+| P2       | Pending | M    |              | Sync / Activity History   | Add a sync activity surface with recent runs, change counts, failures, and last fallback/rate-limit events.         | Users need a place to answer “what changed?” and “what went wrong?” after a sync.   |
+| P2       | Pending | S    |              | Vocabulary / Copy Cleanup | Replace remaining user-facing `cache` language with clearer `local index`, `local files`, or `transcripts` terms.   | The wrong vocabulary still makes the product feel unreliable and internal.          |
+| P2       | Pending | S    |              | Context / Meeting Loading | Show per-meeting freshness hints like `transcript on demand` or `showing last synced folder membership`.            | Meeting pages still hide important data provenance once the page is loaded.         |
+| P3       | Pending | S    |              | Docs / Local-first Model  | Document how sync, local files, auth fallbacks, and on-demand transcript loading actually work together.            | The docs should reinforce the same mental model as the product surfaces.            |

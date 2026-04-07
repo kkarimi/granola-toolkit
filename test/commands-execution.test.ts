@@ -76,6 +76,15 @@ function makeServerInfo(overrides: Partial<GranolaServerInfo> = {}): GranolaServ
   };
   const base: GranolaServerInfo = {
     build,
+    config: {
+      automationRulesFile: "/tmp/automation-rules.json",
+      configFile: "/tmp/.granola.toml",
+      notesOutputDir: "/tmp/notes",
+      pluginsFile: "/tmp/plugins.json",
+      supabaseFile: "/tmp/supabase.json",
+      transcriptCacheFile: "/tmp/cache.json",
+      transcriptsOutputDir: "/tmp/transcripts",
+    },
     capabilities: {
       attach: true,
       auth: true,
@@ -90,11 +99,21 @@ function makeServerInfo(overrides: Partial<GranolaServerInfo> = {}): GranolaServ
       webClient: true,
     },
     persistence: {
+      catalogSnapshotFile: "/tmp/catalog-snapshot.json",
+      dataDirectory: "/tmp/granola-toolkit",
       exportJobs: true,
+      exportJobsFile: "/tmp/export-jobs.json",
       meetingIndex: true,
+      meetingIndexFile: "/tmp/meeting-index.json",
+      searchIndexFile: "/tmp/search-index.json",
       sessionStore: "file",
+      sessionFile: "/tmp/session.json",
+      serviceLogFile: "/tmp/service.log",
+      serviceStateFile: "/tmp/service.json",
       syncEvents: true,
+      syncEventsFile: "/tmp/sync-events.jsonl",
       syncState: true,
+      syncStateFile: "/tmp/sync-state.json",
     },
     product: "granola-toolkit",
     protocolVersion: GRANOLA_TRANSPORT_PROTOCOL_VERSION,

@@ -2,10 +2,13 @@ import { describe, expect, test } from "vite-plus/test";
 
 import type { GranolaMeetingBundle, MeetingRecord } from "../src/app/index.ts";
 import {
+  compactPathLabel,
+  formatDateTimeLabel,
   meetingContextSummary,
   metadataLines,
   resolveAsyncViewState,
   resolveMeetingWorkspaceState,
+  syncCadenceLabel,
   workspaceBody,
 } from "../src/web-app/component-helpers.ts";
 
@@ -101,5 +104,94 @@ describe("web meeting helpers", () => {
     );
     expect(resolveMeetingWorkspaceState({ hasMeeting: true })).toBe("content");
     expect(resolveMeetingWorkspaceState({ hasMeeting: false })).toBe("empty");
+  });
+
+  test("formats sync timestamps and path labels for diagnostics surfaces", () => {
+    expect(formatDateTimeLabel("2026-04-07T12:34:56.000Z")).toBe("2026-04-07 12:34:56");
+    expect(formatDateTimeLabel()).toBe("Not recorded");
+    expect(
+      compactPathLabel(
+        "/Users/nima/Library/Application Support/granola-toolkit/meeting-index.json",
+      ),
+    ).toBe(".../Application Support/granola-toolkit/meeting-index.json");
+    expect(compactPathLabel()).toBe("Not configured");
+  });
+
+  test("describes sync cadence in user language", () => {
+    expect(
+      syncCadenceLabel({
+        build: {
+          packageName: "granola-toolkit",
+          version: "0.66.0",
+        },
+        config: {},
+        capabilities: {
+          attach: true,
+          auth: true,
+          automation: true,
+          events: true,
+          exports: true,
+          folders: true,
+          meetingOpen: true,
+          plugins: true,
+          processing: true,
+          sync: true,
+          webClient: true,
+        },
+        persistence: {
+          exportJobs: true,
+          meetingIndex: true,
+          sessionStore: "file",
+          syncEvents: true,
+          syncState: true,
+        },
+        product: "granola-toolkit",
+        protocolVersion: 3,
+        runtime: {
+          mode: "background-service",
+          startedAt: "2026-04-07T12:34:56.000Z",
+          syncEnabled: true,
+          syncIntervalMs: 900_000,
+        },
+        transport: "local-http",
+      }),
+    ).toBe("Background sync every 15 min");
+    expect(
+      syncCadenceLabel({
+        build: {
+          packageName: "granola-toolkit",
+          version: "0.66.0",
+        },
+        config: {},
+        capabilities: {
+          attach: true,
+          auth: true,
+          automation: true,
+          events: true,
+          exports: true,
+          folders: true,
+          meetingOpen: true,
+          plugins: true,
+          processing: true,
+          sync: true,
+          webClient: true,
+        },
+        persistence: {
+          exportJobs: true,
+          meetingIndex: true,
+          sessionStore: "file",
+          syncEvents: true,
+          syncState: true,
+        },
+        product: "granola-toolkit",
+        protocolVersion: 3,
+        runtime: {
+          mode: "background-service",
+          startedAt: "2026-04-07T12:34:56.000Z",
+          syncEnabled: false,
+        },
+        transport: "local-http",
+      }),
+    ).toBe("Manual sync only");
   });
 });
