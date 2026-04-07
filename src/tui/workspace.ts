@@ -324,9 +324,11 @@ export class GranolaTuiWorkspace implements Component {
       this.setStatus(
         result.source === "index"
           ? "Loaded meetings from the local index"
-          : this.#selectedFolderId
-            ? "Connected to Granola (folder scope)"
-            : "Connected to Granola",
+          : result.source === "snapshot"
+            ? "Loaded meetings from the local snapshot"
+            : this.#selectedFolderId
+              ? "Connected to Granola (folder scope)"
+              : "Connected to Granola",
       );
     } catch (error) {
       if (token !== this.#listToken) {

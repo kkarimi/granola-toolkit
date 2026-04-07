@@ -102,10 +102,12 @@ export function HomePageController(props: {
 }
 
 export function FoldersPageController(props: {
+  directoryFreshnessNote?: string;
   folderError: string;
   folders: FolderSummaryRecord[];
   foldersLoading: boolean;
   listError: string;
+  meetingFreshnessNote?: string;
   meetingEmptyHint: string;
   meetings: MeetingSummaryRecord[];
   meetingsLoading: boolean;
@@ -149,6 +151,7 @@ export function FoldersPageController(props: {
           <FolderList
             error={props.folderError}
             folders={props.folders}
+            freshnessNote={props.directoryFreshnessNote}
             loading={props.foldersLoading}
             onSelect={(folderId) => {
               if (folderId) {
@@ -168,6 +171,7 @@ export function FoldersPageController(props: {
           error={props.listError}
           emptyHint={props.meetingEmptyHint}
           folders={props.folders}
+          freshnessNote={props.meetingFreshnessNote}
           heading="Meetings"
           loading={props.meetingsLoading}
           meetings={props.meetings}
@@ -188,6 +192,7 @@ export function FoldersPageController(props: {
 export function SearchPageController(props: {
   advancedQuery: string;
   folders: FolderSummaryRecord[];
+  freshnessNote?: string;
   hasRecentMeetings: boolean;
   listError: string;
   meetingEmptyHint: string;
@@ -250,6 +255,7 @@ export function SearchPageController(props: {
           error={props.listError}
           emptyHint={props.meetingEmptyHint}
           folders={props.folders}
+          freshnessNote={props.freshnessNote}
           heading="Search results"
           loading={props.meetingsLoading}
           meetings={props.meetings}
@@ -569,6 +575,7 @@ export function SettingsPageController(props: {
 
 export function MeetingPageController(props: {
   detailError: string;
+  freshnessNote?: string;
   meetingLoading: boolean;
   markdownViewerEnabled: boolean;
   meetingDescription: string;
@@ -592,6 +599,7 @@ export function MeetingPageController(props: {
         eyebrow="Meeting"
         title={props.selectedMeeting?.meeting.title || props.selectedMeetingId || "Meeting"}
       />
+      <Show when={props.freshnessNote}>{(note) => <p class="page-note">{note()}</p>}</Show>
       <Workspace
         bundle={props.selectedBundle}
         detailError={props.detailError}

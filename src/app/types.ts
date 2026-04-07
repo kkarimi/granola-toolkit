@@ -84,16 +84,20 @@ export type GranolaExportScope =
     };
 export interface GranolaAppAuthState extends GranolaSessionMetadata {}
 
+export type GranolaCatalogSource = "documents" | "file" | "index" | "live" | "snapshot";
+
 export interface GranolaAppDocumentsState {
   count: number;
   loaded: boolean;
   loadedAt?: string;
+  source?: Extract<GranolaCatalogSource, "live" | "snapshot">;
 }
 
 export interface GranolaAppFoldersState {
   count: number;
   loaded: boolean;
   loadedAt?: string;
+  source?: Extract<GranolaCatalogSource, "documents" | "index" | "live" | "snapshot">;
 }
 
 export interface GranolaAppCacheState {
@@ -102,6 +106,7 @@ export interface GranolaAppCacheState {
   filePath?: string;
   loaded: boolean;
   loadedAt?: string;
+  source?: Extract<GranolaCatalogSource, "file" | "snapshot">;
   transcriptCount: number;
 }
 

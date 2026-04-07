@@ -2925,9 +2925,12 @@ describe("GranolaApp", () => {
       { surface: "tui" },
     );
 
+    const list = await app.listMeetings({ limit: 10 });
     const folderList = await app.listFolders({ limit: 10 });
     const meeting = await app.getMeeting("doc-alpha-1111");
 
+    expect(list.source).toBe("snapshot");
+    expect(list.meetings[0]?.id).toBe("doc-alpha-1111");
     expect(folderList.folders).toEqual([
       expect.objectContaining({
         id: "folder-team-1111",
@@ -2942,7 +2945,22 @@ describe("GranolaApp", () => {
       expect.objectContaining({
         configured: true,
         loaded: true,
+        source: "snapshot",
         transcriptCount: 1,
+      }),
+    );
+    expect(app.getState().documents).toEqual(
+      expect.objectContaining({
+        count: documents.length,
+        loaded: true,
+        source: "snapshot",
+      }),
+    );
+    expect(app.getState().folders).toEqual(
+      expect.objectContaining({
+        count: folders.length,
+        loaded: true,
+        source: "index",
       }),
     );
   });

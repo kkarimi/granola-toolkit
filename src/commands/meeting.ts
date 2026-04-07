@@ -213,7 +213,9 @@ async function list(
   console.log(
     result.source === "index"
       ? "Loaded meetings from the local index"
-      : "Fetched meetings from Granola API",
+      : result.source === "snapshot"
+        ? "Loaded meetings from the local snapshot"
+        : "Fetched meetings from Granola API",
   );
   if (folder) {
     console.log(`Folder: ${folder.name} (${folder.id})`);

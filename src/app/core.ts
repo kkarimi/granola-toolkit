@@ -461,6 +461,7 @@ function defaultState(
       documentCount: 0,
       filePath: config.transcripts.cacheFile || undefined,
       loaded: false,
+      source: undefined,
       transcriptCount: 0,
     },
     config: {
@@ -474,10 +475,12 @@ function defaultState(
     documents: {
       count: 0,
       loaded: false,
+      source: undefined,
     },
     folders: {
       count: 0,
       loaded: false,
+      source: undefined,
     },
     exports: {
       jobs: [],
@@ -1634,6 +1637,7 @@ export class GranolaApp implements GranolaAppApi {
           count: summaries.length,
           loaded: true,
           loadedAt: this.nowIso(),
+          source: "index",
         };
         this.emitStateUpdate();
         return {
@@ -1751,7 +1755,7 @@ export class GranolaApp implements GranolaAppApi {
 
     return {
       meetings,
-      source: "live",
+      source: this.#state.documents.source === "snapshot" ? "snapshot" : "live",
     };
   }
 

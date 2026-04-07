@@ -82,7 +82,9 @@ export const searchCommand: CommandDefinition = {
     console.log(
       result.source === "index"
         ? "Searched the local index"
-        : "Search index unavailable, fell back to live meeting metadata",
+        : result.source === "snapshot"
+          ? "Search index unavailable, fell back to the local snapshot"
+          : "Search index unavailable, fell back to live meeting metadata",
     );
     console.log(renderMeetingList(result.meetings, format).trimEnd());
     return 0;

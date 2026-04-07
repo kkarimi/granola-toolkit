@@ -1,10 +1,13 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import type { GranolaMeetingBundle, MeetingRecord } from "../src/app/index.ts";
+import type { GranolaAppState, GranolaMeetingBundle, MeetingRecord } from "../src/app/index.ts";
 import {
   compactPathLabel,
+  folderFreshnessNote,
   formatDateTimeLabel,
   meetingContextSummary,
+  meetingFreshnessNote,
+  meetingListFreshnessNote,
   metadataLines,
   resolveAsyncViewState,
   resolveMeetingWorkspaceState,
@@ -193,5 +196,60 @@ describe("web meeting helpers", () => {
         transport: "local-http",
       }),
     ).toBe("Manual sync only");
+  });
+
+  test("describes when folders and meetings are coming from local fallback state", () => {
+    const record = buildMeetingRecord();
+    const bundle = buildMeetingBundle(record);
+    const appState = {
+      documents: {
+        count: 331,
+        loaded: true,
+        loadedAt: "2026-04-07T12:40:00.000Z",
+        source: "snapshot",
+      },
+      folders: {
+        count: 4,
+        loaded: true,
+        loadedAt: "2026-04-07T12:41:00.000Z",
+        source: "documents",
+      },
+      sync: {
+        eventCount: 3,
+        lastChanges: [],
+        lastCompletedAt: "2026-04-07T12:42:00.000Z",
+        running: false,
+      },
+    } as unknown as GranolaAppState;
+
+    expect(folderFreshnessNote(appState)).toBe(
+      "Folders are inferred from locally synced meeting metadata.",
+    );
+    expect(
+      meetingListFreshnessNote({
+        appState,
+        meetingSource: "snapshot",
+        selectedFolderLabel: "Super",
+      }),
+    ).toBe(
+      "Showing meetings from the last local snapshot synced 2026-04-07 12:42:00. Folder membership is inferred from locally synced meeting metadata.",
+    );
+    expect(
+      meetingFreshnessNote({
+        appState,
+        bundle,
+        meeting: {
+          ...record,
+          meeting: {
+            ...record.meeting,
+            transcriptLoaded: false,
+          },
+        },
+        meetingSource: "index",
+        selectedFolderLabel: "Super",
+      }),
+    ).toBe(
+      "This meeting is coming from the last local snapshot synced 2026-04-07 12:42:00. Folder labels are being recovered from synced metadata. Transcript loads on demand when you open it.",
+    );
   });
 });

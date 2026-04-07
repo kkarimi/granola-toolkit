@@ -107,7 +107,7 @@ export interface MeetingSummaryRecord {
   updatedAt: string;
 }
 
-export type MeetingSummarySource = "index" | "live";
+export type MeetingSummarySource = "index" | "live" | "snapshot";
 
 export interface MeetingNoteRecord {
   content: string;

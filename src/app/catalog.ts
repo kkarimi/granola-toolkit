@@ -95,6 +95,7 @@ export class GranolaCatalogService {
     this.deps.onDocumentsState({
       count: 0,
       loaded: false,
+      source: undefined,
     });
   }
 
@@ -103,6 +104,7 @@ export class GranolaCatalogService {
     this.deps.onFoldersState({
       count: 0,
       loaded: false,
+      source: undefined,
     });
   }
 
@@ -114,6 +116,7 @@ export class GranolaCatalogService {
       documentCount: 0,
       filePath: this.config.transcripts.cacheFile || undefined,
       loaded: false,
+      source: undefined,
       transcriptCount: 0,
     });
   }
@@ -129,6 +132,7 @@ export class GranolaCatalogService {
         count: this.#documents.length,
         loaded: true,
         loadedAt: snapshot.updatedAt,
+        source: "snapshot",
       });
     }
 
@@ -138,6 +142,7 @@ export class GranolaCatalogService {
         count: this.#folders.length,
         loaded: true,
         loadedAt: snapshot.updatedAt,
+        source: "snapshot",
       });
     }
 
@@ -150,6 +155,7 @@ export class GranolaCatalogService {
         filePath: this.config.transcripts.cacheFile || undefined,
         loaded: true,
         loadedAt: snapshot.updatedAt,
+        source: "snapshot",
         transcriptCount: transcriptCount(this.#cacheData),
       });
     }
@@ -188,6 +194,7 @@ export class GranolaCatalogService {
       count: documents.length,
       loaded: true,
       loadedAt: this.deps.nowIso(),
+      source: "live",
     });
     await this.persistSnapshot();
     return documents;
@@ -217,6 +224,7 @@ export class GranolaCatalogService {
           filePath: undefined,
           loaded: true,
           loadedAt: this.deps.nowIso(),
+          source: "snapshot",
           transcriptCount: transcriptCount(this.#cacheData),
         });
         return this.#cacheData;
@@ -240,6 +248,7 @@ export class GranolaCatalogService {
       filePath: cacheFile,
       loaded: Boolean(cacheData),
       loadedAt: cacheData ? this.deps.nowIso() : undefined,
+      source: cacheData ? "file" : undefined,
       transcriptCount: cacheData ? transcriptCount(cacheData) : 0,
     });
     await this.persistSnapshot();
@@ -287,6 +296,7 @@ export class GranolaCatalogService {
         count: this.#folders.length,
         loaded: true,
         loadedAt: this.deps.nowIso(),
+        source: "live",
       });
       await this.persistSnapshot();
       return this.#folders.map(cloneGranolaFolder);
@@ -484,6 +494,7 @@ export class GranolaCatalogService {
       count: this.#folders.length,
       loaded: true,
       loadedAt: this.deps.nowIso(),
+      source: "documents",
     });
     await this.persistSnapshot();
     return this.#folders.map(cloneGranolaFolder);

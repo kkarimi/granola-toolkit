@@ -65,6 +65,7 @@ interface ToolbarFiltersProps {
 interface FolderListProps {
   error?: string;
   folders: FolderSummaryRecord[];
+  freshnessNote?: string;
   loading?: boolean;
   onSelect: (folderId: string | null) => void;
   selectedFolderId?: string | null;
@@ -93,6 +94,7 @@ interface MeetingListProps {
   error?: string;
   emptyHint?: string;
   folders: FolderSummaryRecord[];
+  freshnessNote?: string;
   heading?: string;
   loading?: boolean;
   meetings: MeetingSummaryRecord[];
@@ -709,6 +711,7 @@ export function FolderList(props: FolderListProps): JSX.Element {
         <div>
           <h2>Folder directory</h2>
           <p>Pick one part of your workspace first, then open one meeting from there.</p>
+          <Show when={props.freshnessNote}>{(note) => <p class="section-note">{note()}</p>}</Show>
         </div>
       </div>
       <div class="folder-directory__grid">
@@ -881,6 +884,7 @@ export function MeetingList(props: MeetingListProps): JSX.Element {
           {props.description ||
             (summary() ? `Browsing ${summary()}.` : "Choose a meeting from this focused list.")}
         </p>
+        <Show when={props.freshnessNote}>{(note) => <p class="section-note">{note()}</p>}</Show>
       </div>
       <Switch>
         <Match when={viewState() === "error"}>

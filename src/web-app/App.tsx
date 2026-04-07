@@ -33,7 +33,12 @@ import {
   useReviewController,
   useWebClientController,
 } from "./browser-hooks.ts";
-import { meetingContextSummary } from "./component-helpers.ts";
+import {
+  folderFreshnessNote,
+  meetingContextSummary,
+  meetingFreshnessNote,
+  meetingListFreshnessNote,
+} from "./component-helpers.ts";
 import {
   clearAutomationCapabilityState,
   loadAutomationCapabilityState,
@@ -319,7 +324,9 @@ export function App() {
         ? "Sync complete"
         : state.meetingSource === "index"
           ? "Loaded from index"
-          : "Connected",
+          : state.meetingSource === "snapshot"
+            ? "Loaded from snapshot"
+            : "Connected",
       "ok",
     );
   };
@@ -463,6 +470,25 @@ export function App() {
       selectedFolderLabel,
     );
   };
+  const foldersFreshness = () => folderFreshnessNote(state.appState);
+  const meetingListFreshness = () =>
+    meetingListFreshnessNote({
+      appState: state.appState,
+      meetingSource: state.meetingSource,
+      selectedFolderLabel:
+        state.folders.find((folder) => folder.id === state.selectedFolderId)?.name ||
+        state.selectedFolderId,
+    });
+  const meetingFreshness = () =>
+    meetingFreshnessNote({
+      appState: state.appState,
+      bundle: state.selectedMeetingBundle,
+      meeting: state.selectedMeeting,
+      meetingSource: state.meetingSource,
+      selectedFolderLabel:
+        state.folders.find((folder) => folder.id === state.selectedFolderId)?.name ||
+        state.selectedFolderId,
+    });
 
   const togglePlugin = async (id: string, enabled: boolean) => {
     const client = clientController.clientAccessor();
@@ -628,10 +654,12 @@ export function App() {
             </Match>
             <Match when={state.activePage === "folders"}>
               <FoldersPageController
+                directoryFreshnessNote={foldersFreshness()}
                 folderError={state.folderError}
                 folders={state.folders}
                 foldersLoading={state.foldersLoading}
                 listError={state.listError}
+                meetingFreshnessNote={meetingListFreshness()}
                 meetingEmptyHint={browseController.meetingEmptyHint()}
                 meetings={state.meetings}
                 meetingsLoading={state.meetingsLoading}
@@ -663,6 +691,7 @@ export function App() {
             <Match when={state.activePage === "search"}>
               <SearchPageController
                 advancedQuery={state.advancedSearchQuery}
+                freshnessNote={meetingListFreshness()}
                 onAdvancedQueryChange={(value) => {
                   setState("advancedSearchQuery", value);
                 }}
@@ -978,6 +1007,7 @@ export function App() {
             <Match when={state.activePage === "meeting"}>
               <MeetingPageController
                 detailError={state.detailError}
+                freshnessNote={meetingFreshness()}
                 meetingLoading={state.meetingLoading}
                 markdownViewerEnabled={markdownViewerEnabled()}
                 meetingDescription={meetingDescription()}
