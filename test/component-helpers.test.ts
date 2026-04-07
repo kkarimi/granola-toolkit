@@ -3,11 +3,14 @@ import { describe, expect, test } from "vite-plus/test";
 import type { GranolaAppState, GranolaMeetingBundle, MeetingRecord } from "../src/app/index.ts";
 import {
   compactPathLabel,
+  formatBytesLabel,
   folderFreshnessNote,
   formatDateTimeLabel,
   meetingContextSummary,
   meetingFreshnessNote,
   meetingListFreshnessNote,
+  pathLeafLabel,
+  relativeTimeLabel,
   metadataLines,
   resolveAsyncViewState,
   resolveMeetingWorkspaceState,
@@ -118,6 +121,11 @@ describe("web meeting helpers", () => {
       ),
     ).toBe(".../Application Support/granola-toolkit/meeting-index.json");
     expect(compactPathLabel()).toBe("Not configured");
+    expect(
+      pathLeafLabel("/Users/nima/Library/Application Support/granola-toolkit/meeting-index.json"),
+    ).toBe("meeting-index.json");
+    expect(formatBytesLabel(4_096)).toBe("4.0 KB");
+    expect(formatBytesLabel(128)).toBe("128 B");
   });
 
   test("describes sync cadence in user language", () => {
@@ -251,5 +259,17 @@ describe("web meeting helpers", () => {
     ).toBe(
       "This meeting is coming from the last local snapshot synced 2026-04-07 12:42:00. Folder labels are being recovered from synced metadata. Transcript loads on demand when you open it.",
     );
+  });
+
+  test("formats relative times in user language", () => {
+    const now = Date.now;
+    Date.now = () => Date.parse("2026-04-07T13:00:00.000Z");
+    try {
+      expect(relativeTimeLabel("2026-04-07T12:57:00.000Z")).toBe("3 min ago");
+      expect(relativeTimeLabel("2026-04-07T11:00:00.000Z")).toBe("2 hrs ago");
+      expect(relativeTimeLabel("2026-04-05T13:00:00.000Z")).toBe("2 days ago");
+    } finally {
+      Date.now = now;
+    }
   });
 });

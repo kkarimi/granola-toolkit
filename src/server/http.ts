@@ -1,4 +1,5 @@
 import { createServer, type Server as HttpServer } from "node:http";
+import { stat } from "node:fs/promises";
 import { type AddressInfo, type Socket } from "node:net";
 
 import type { GranolaApp } from "../app/core.ts";
@@ -7,6 +8,7 @@ import { defaultGranolaToolkitPersistenceLayout } from "../persistence/layout.ts
 import {
   GRANOLA_TRANSPORT_PROTOCOL_VERSION,
   type GranolaServerInfo,
+  type GranolaLocalPathInfo,
   type GranolaServerRuntimeMode,
 } from "../transport.ts";
 import {
@@ -64,6 +66,32 @@ function routeHandlers(): GranolaServerRouteHandler[] {
   ];
 }
 
+async function describeLocalPath(
+  path: string | undefined,
+  kind: "directory" | "file",
+): Promise<GranolaLocalPathInfo | undefined> {
+  if (!path?.trim()) {
+    return undefined;
+  }
+
+  try {
+    const entry = await stat(path);
+    return {
+      exists: true,
+      kind,
+      path,
+      sizeBytes: entry.isFile() ? entry.size : undefined,
+      updatedAt: entry.mtime.toISOString(),
+    };
+  } catch {
+    return {
+      exists: false,
+      kind,
+      path,
+    };
+  }
+}
+
 export async function startGranolaServer(
   app: GranolaApp,
   options: GranolaServerOptions = {},
@@ -84,6 +112,21 @@ export async function startGranolaServer(
     trustedOrigins: (options.security?.trustedOrigins ?? [])
       .map((origin) => origin.trim())
       .filter(Boolean),
+  };
+  const fileInfo = {
+    automationRules: await describeLocalPath(app.config.automation?.rulesFile || undefined, "file"),
+    catalogSnapshot: await describeLocalPath(persistenceLayout.catalogSnapshotFile, "file"),
+    config: await describeLocalPath(app.config.configFileUsed || undefined, "file"),
+    dataDirectory: await describeLocalPath(persistenceLayout.dataDirectory, "directory"),
+    meetingIndex: await describeLocalPath(persistenceLayout.meetingIndexFile, "file"),
+    pluginSettings: await describeLocalPath(
+      app.config.plugins?.settingsFile || persistenceLayout.pluginsFile,
+      "file",
+    ),
+    session: await describeLocalPath(persistenceLayout.sessionFile, "file"),
+    syncEvents: await describeLocalPath(persistenceLayout.syncEventsFile, "file"),
+    syncState: await describeLocalPath(persistenceLayout.syncStateFile, "file"),
+    transcriptCache: await describeLocalPath(app.config.transcripts.cacheFile || undefined, "file"),
   };
   const serverInfo: GranolaServerInfo = {
     build: resolveGranolaBuildInfo(),
@@ -109,6 +152,7 @@ export async function startGranolaServer(
       sync: true,
       webClient: enableWebClient,
     },
+    files: fileInfo,
     persistence: {
       catalogSnapshotFile: persistenceLayout.catalogSnapshotFile,
       dataDirectory: persistenceLayout.dataDirectory,

@@ -117,9 +117,11 @@ test.describe("toolkit web workspace", () => {
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Disable markdown viewer" })).toBeVisible();
     await page.locator(".settings-shell").getByRole("button", { name: "Diagnostics" }).click();
-    await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
-    await expect(page.getByText("Local diagnostics")).toBeVisible();
-    await expect(page.getByText("Transcript cache")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sync and local files" })).toBeVisible();
+    await expect(page.getByText("Desktop transcript cache")).toBeVisible();
+    await expect(
+      page.locator(".diagnostic-card").getByText("No custom config file").first(),
+    ).toBeVisible();
     await page
       .locator(".primary-nav")
       .getByRole("button", { name: /Review/i })

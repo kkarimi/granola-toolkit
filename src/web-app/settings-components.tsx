@@ -1,6 +1,6 @@
 /** @jsxImportSource solid-js */
 
-import { For, Show, type JSX } from "solid-js";
+import { createSignal, For, onCleanup, Show, type JSX } from "solid-js";
 
 import type {
   GranolaAppAuthState,
@@ -11,7 +11,7 @@ import type {
 import { pluginStateStatusDetail } from "../app/plugin-state.ts";
 import { granolaAgentProviderLabel } from "../agent-defaults.ts";
 import { granolaAuthModeLabel, granolaAuthRecommendation } from "../auth-summary.ts";
-import type { GranolaServerInfo } from "../transport.ts";
+import type { GranolaLocalPathInfo, GranolaServerInfo } from "../transport.ts";
 import type { GranolaAgentProviderKind } from "../types.ts";
 import { describeAuthStatus, describeSyncStatus } from "../web/client-state.ts";
 
@@ -19,8 +19,11 @@ import {
   buildIdentityLabel,
   buildStartedAtLabel,
   compactPathLabel,
+  formatBytesLabel,
   formatDateTimeLabel,
+  pathLeafLabel,
   providerSetupHint,
+  relativeTimeLabel,
   scopeLabel,
   syncCadenceLabel,
 } from "./component-helpers.ts";
@@ -47,6 +50,110 @@ interface PluginsPanelProps {
   plugins: GranolaAppPluginState[];
 }
 
+function CopyPathButton(props: { value?: string }): JSX.Element {
+  const [copied, setCopied] = createSignal(false);
+  let resetTimer: ReturnType<typeof setTimeout> | undefined;
+
+  onCleanup(() => {
+    if (resetTimer) {
+      clearTimeout(resetTimer);
+    }
+  });
+
+  const copy = async () => {
+    if (!props.value?.trim()) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(props.value);
+      setCopied(true);
+      if (resetTimer) {
+        clearTimeout(resetTimer);
+      }
+      resetTimer = setTimeout(() => setCopied(false), 1_500);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <button
+      class="mini-button"
+      disabled={!props.value?.trim()}
+      onClick={() => void copy()}
+      type="button"
+    >
+      {copied() ? "Copied" : "Copy path"}
+    </button>
+  );
+}
+
+function DiagnosticsMetricCard(props: {
+  detail?: string;
+  label: string;
+  meta?: string;
+  title: string;
+}): JSX.Element {
+  return (
+    <article class="diagnostic-card">
+      <span class="status-label">{props.label}</span>
+      <strong>{props.title}</strong>
+      <Show when={props.meta}>{(meta) => <span class="diagnostic-card__meta">{meta()}</span>}</Show>
+      <Show when={props.detail}>
+        {(detail) => <span class="diagnostic-card__detail">{detail()}</span>}
+      </Show>
+    </article>
+  );
+}
+
+function DiagnosticsFileCard(props: {
+  detail?: string;
+  file?: GranolaLocalPathInfo;
+  fallbackPath?: string;
+  label: string;
+  title: string;
+}): JSX.Element {
+  const path = () => props.file?.path || props.fallbackPath;
+  const pathLeaf = () => {
+    const value = path();
+    if (!value) {
+      return undefined;
+    }
+
+    const leaf = pathLeafLabel(value);
+    return leaf === props.title ? undefined : leaf;
+  };
+  const meta = () => {
+    const parts = [
+      props.file?.sizeBytes != null ? formatBytesLabel(props.file.sizeBytes) : null,
+      props.file?.updatedAt ? `updated ${relativeTimeLabel(props.file.updatedAt)}` : null,
+      props.file?.exists === false ? "missing" : null,
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(" · ") : undefined;
+  };
+
+  return (
+    <article class="diagnostic-card diagnostic-card--file">
+      <div class="diagnostic-card__head">
+        <span class="status-label">{props.label}</span>
+        <CopyPathButton value={path()} />
+      </div>
+      <strong>{props.title}</strong>
+      <Show when={pathLeaf()}>
+        {(value) => <span class="diagnostic-card__meta">{value()}</span>}
+      </Show>
+      <Show when={path()}>
+        {(value) => <span class="diagnostic-card__detail">{compactPathLabel(value())}</span>}
+      </Show>
+      <Show when={meta()}>{(value) => <span class="diagnostic-card__detail">{value()}</span>}</Show>
+      <Show when={props.detail}>
+        {(detail) => <span class="diagnostic-card__detail">{detail()}</span>}
+      </Show>
+    </article>
+  );
+}
+
 export function DiagnosticsPanel(props: {
   appState?: GranolaAppState | null;
   serverInfo?: GranolaServerInfo | null;
@@ -71,18 +178,14 @@ export function DiagnosticsPanel(props: {
 
     return `${summary.createdCount} created · ${summary.removedCount} removed · ${summary.transcriptReadyCount} transcripts ready · ${summary.folderCount} folders`;
   };
-  const transcriptStateLabel = () =>
-    props.appState?.cache.loaded
-      ? `${props.appState.cache.transcriptCount} transcript sets cached`
-      : props.appState?.cache.configured
-        ? "Transcript cache configured"
-        : "Transcripts load on demand";
   const transcriptStateDetail = () =>
-    props.appState?.cache.loaded
+    props.appState?.cache.loaded && props.appState.cache.transcriptCount > 0
       ? `Loaded ${formatDateTimeLabel(props.appState.cache.loadedAt)}`
-      : props.appState?.cache.filePath || props.serverInfo?.config.transcriptCacheFile
-        ? "Toolkit can warm transcripts from the configured Granola cache file."
-        : "Meeting transcripts are fetched from Granola when you open them.";
+      : props.appState?.cache.loaded
+        ? "Cache file loaded, but it does not currently contain transcript entries."
+        : props.appState?.cache.filePath || props.serverInfo?.config.transcriptCacheFile
+          ? "Toolkit can warm transcripts from the configured Granola cache file."
+          : "Meeting transcripts are fetched from Granola when you open them.";
   const fallbackSummary = () => {
     const available = [
       auth()?.apiKeyAvailable ? "API key" : null,
@@ -92,183 +195,193 @@ export function DiagnosticsPanel(props: {
 
     return available.length > 0 ? available.join(" · ") : "No fallback auth sources detected";
   };
+  const localFiles = () =>
+    [
+      {
+        detail: props.appState?.config.configFileUsed
+          ? "Custom config file currently in use."
+          : "No custom config file found. Change values from the Auth, Plugins, and Exports tabs, or add a .granola.toml later.",
+        fallbackPath: props.appState?.config.configFileUsed || undefined,
+        file: props.serverInfo?.files?.config,
+        label: "Config file",
+        title: props.appState?.config.configFileUsed
+          ? "Custom .granola.toml"
+          : "No custom config file",
+      },
+      {
+        detail: "Toolkit-owned local state directory.",
+        fallbackPath: props.serverInfo?.persistence.dataDirectory,
+        file: props.serverInfo?.files?.dataDirectory,
+        label: "Data directory",
+        title: "Local toolkit data",
+      },
+      {
+        detail: props.appState?.index.loaded
+          ? `${props.appState.index.meetingCount} meetings indexed locally`
+          : "Meeting index is available but not warmed yet.",
+        fallbackPath:
+          props.appState?.index.filePath || props.serverInfo?.persistence.meetingIndexFile,
+        file: props.serverInfo?.files?.meetingIndex,
+        label: "Meeting index",
+        title: props.appState?.index.loaded
+          ? `${props.appState.index.meetingCount} meetings in local index`
+          : "Local meeting index",
+      },
+      {
+        detail:
+          "Snapshot used when the toolkit can serve known local state before hitting Granola.",
+        fallbackPath: props.serverInfo?.persistence.catalogSnapshotFile,
+        file: props.serverInfo?.files?.catalogSnapshot,
+        label: "Catalog snapshot",
+        title: "Catalog snapshot",
+      },
+      {
+        detail: transcriptStateDetail(),
+        fallbackPath:
+          props.appState?.cache.filePath || props.serverInfo?.config.transcriptCacheFile,
+        file: props.serverInfo?.files?.transcriptCache,
+        label: "Transcript cache",
+        title: props.appState?.cache.filePath
+          ? "Desktop transcript cache"
+          : "Transcripts on demand",
+      },
+      {
+        detail: props.appState?.sync.eventsFile
+          ? `${pathLeafLabel(props.appState.sync.eventsFile)} tracks event history.`
+          : "Tracks recent sync runs and changes.",
+        fallbackPath: props.appState?.sync.filePath || props.serverInfo?.persistence.syncStateFile,
+        file: props.serverInfo?.files?.syncState,
+        label: "Sync state",
+        title: "Sync state file",
+      },
+      {
+        detail: "Stores plugin enablement and plugin-local settings.",
+        fallbackPath:
+          props.appState?.config.plugins?.settingsFile || props.serverInfo?.config.pluginsFile,
+        file: props.serverInfo?.files?.pluginSettings,
+        label: "Plugin settings",
+        title: "Plugin settings",
+      },
+      {
+        detail: "Loaded when automation rules are enabled.",
+        fallbackPath:
+          props.appState?.config.automation?.rulesFile ||
+          props.serverInfo?.config.automationRulesFile,
+        file: props.serverInfo?.files?.automationRules,
+        label: "Automation rules",
+        title: "Automation rules",
+      },
+    ] as const;
 
   return (
     <section class="jobs-panel diagnostics-panel">
       <div class="jobs-panel__head">
-        <h3>Local diagnostics</h3>
+        <h3>Sync and local files</h3>
         <p>
-          See what the toolkit is using locally: sync history, auth path, and the files backing your
-          local meeting state.
+          See when the toolkit last synced, which auth/runtime path it is using, and which local
+          files back the current view.
         </p>
       </div>
       <div class="diagnostics-grid">
         <section class="detail-section">
           <h2>Sync activity</h2>
-          <div class="status-grid">
-            <div>
-              <span class="status-label">Sync status</span>
-              <strong>{describeSyncStatus(sync() ?? {})}</strong>
-              <span class="status-detail">
-                {sync()?.lastError ? sync()?.lastError : syncCadenceLabel(props.serverInfo)}
-              </span>
-            </div>
-            <div>
-              <span class="status-label">Last completed</span>
-              <strong>{formatDateTimeLabel(sync()?.lastCompletedAt)}</strong>
-              <span class="status-detail">{props.statusLabel}</span>
-            </div>
-            <div>
-              <span class="status-label">Last started</span>
-              <strong>{formatDateTimeLabel(sync()?.lastStartedAt)}</strong>
-              <span class="status-detail">
-                {sync()?.running ? "A sync run is in progress right now." : "No sync is running."}
-              </span>
-            </div>
-            <div>
-              <span class="status-label">Last result</span>
-              <strong>{syncResultLabel()}</strong>
-              <span class="status-detail">{syncResultDetail()}</span>
-            </div>
+          <div class="diagnostic-card-grid diagnostic-card-grid--metrics">
+            <DiagnosticsMetricCard
+              detail={sync()?.lastError ? sync()?.lastError : syncCadenceLabel(props.serverInfo)}
+              label="Sync status"
+              meta={props.statusLabel}
+              title={describeSyncStatus(sync() ?? {})}
+            />
+            <DiagnosticsMetricCard
+              detail={
+                sync()?.lastCompletedAt
+                  ? formatDateTimeLabel(sync()?.lastCompletedAt)
+                  : "No completed sync yet."
+              }
+              label="Last completed"
+              meta={
+                sync()?.lastCompletedAt
+                  ? `Finished ${relativeTimeLabel(sync()?.lastCompletedAt)}`
+                  : undefined
+              }
+              title={
+                sync()?.lastCompletedAt ? relativeTimeLabel(sync()?.lastCompletedAt) : "Not yet"
+              }
+            />
+            <DiagnosticsMetricCard
+              detail={
+                sync()?.running ? "A sync run is in progress right now." : "No sync is running."
+              }
+              label="Last started"
+              meta={sync()?.lastStartedAt ? formatDateTimeLabel(sync()?.lastStartedAt) : undefined}
+              title={
+                sync()?.lastStartedAt ? relativeTimeLabel(sync()?.lastStartedAt) : "Not recorded"
+              }
+            />
+            <DiagnosticsMetricCard
+              detail={syncResultDetail()}
+              label="Last result"
+              meta={syncSummary() ? undefined : "Run sync once to populate local change tracking."}
+              title={syncResultLabel()}
+            />
           </div>
         </section>
         <section class="detail-section">
           <h2>Local files</h2>
-          <div class="status-grid">
-            <div>
-              <span class="status-label">Config file</span>
-              <strong>{compactPathLabel(props.appState?.config.configFileUsed)}</strong>
-              <span class="status-detail">
-                {props.appState?.config.configFileUsed ||
-                  "Using toolkit defaults plus CLI/env overrides."}
-              </span>
-            </div>
-            <div>
-              <span class="status-label">Data directory</span>
-              <strong>{compactPathLabel(props.serverInfo?.persistence.dataDirectory)}</strong>
-              <span class="status-detail">
-                {props.serverInfo?.persistence.dataDirectory || "Not reported"}
-              </span>
-            </div>
-            <div>
-              <span class="status-label">Meeting index</span>
-              <strong>
-                {compactPathLabel(
-                  props.appState?.index.filePath || props.serverInfo?.persistence.meetingIndexFile,
-                )}
-              </strong>
-              <span class="status-detail">
-                {props.appState?.index.loaded
-                  ? `${props.appState.index.meetingCount} meetings indexed locally`
-                  : props.appState?.index.available
-                    ? "Index file is available but not loaded yet."
-                    : "No local meeting index is available yet."}
-              </span>
-            </div>
-            <div>
-              <span class="status-label">Catalog snapshot</span>
-              <strong>{compactPathLabel(props.serverInfo?.persistence.catalogSnapshotFile)}</strong>
-              <span class="status-detail">
-                {props.serverInfo?.persistence.catalogSnapshotFile || "Not reported"}
-              </span>
-            </div>
-            <div>
-              <span class="status-label">Transcript cache</span>
-              <strong>
-                {compactPathLabel(
-                  props.appState?.cache.filePath || props.serverInfo?.config.transcriptCacheFile,
-                )}
-              </strong>
-              <span class="status-detail">{transcriptStateDetail()}</span>
-            </div>
-            <div>
-              <span class="status-label">Sync state</span>
-              <strong>
-                {compactPathLabel(
-                  props.appState?.sync.filePath || props.serverInfo?.persistence.syncStateFile,
-                )}
-              </strong>
-              <span class="status-detail">
-                {props.appState?.sync.eventsFile
-                  ? `Events: ${props.appState.sync.eventsFile}`
-                  : props.serverInfo?.persistence.syncEventsFile || "No sync events file reported"}
-              </span>
-            </div>
-            <div>
-              <span class="status-label">Plugin settings</span>
-              <strong>
-                {compactPathLabel(
-                  props.appState?.config.plugins?.settingsFile ||
-                    props.serverInfo?.config.pluginsFile,
-                )}
-              </strong>
-              <span class="status-detail">
-                {props.appState?.config.plugins?.settingsFile ||
-                  props.serverInfo?.config.pluginsFile ||
-                  "Not configured"}
-              </span>
-            </div>
-            <div>
-              <span class="status-label">Automation rules</span>
-              <strong>
-                {compactPathLabel(
-                  props.appState?.config.automation?.rulesFile ||
-                    props.serverInfo?.config.automationRulesFile,
-                )}
-              </strong>
-              <span class="status-detail">
-                {props.appState?.config.automation?.rulesFile ||
-                  props.serverInfo?.config.automationRulesFile ||
-                  "Not configured"}
-              </span>
-            </div>
+          <div class="diagnostic-card-grid">
+            <For each={localFiles()}>
+              {(entry) => (
+                <DiagnosticsFileCard
+                  detail={entry.detail}
+                  fallbackPath={entry.fallbackPath}
+                  file={entry.file}
+                  label={entry.label}
+                  title={entry.title}
+                />
+              )}
+            </For>
           </div>
         </section>
         <section class="detail-section">
           <h2>Auth and runtime</h2>
-          <div class="status-grid">
-            <div>
-              <span class="status-label">Active auth</span>
-              <strong>{describeAuthStatus(auth())}</strong>
-              <span class="status-detail">Mode: {auth()?.mode || "unknown"}</span>
-            </div>
-            <div>
-              <span class="status-label">Fallbacks available</span>
-              <strong>{fallbackSummary()}</strong>
-              <span class="status-detail">
-                {props.appState?.config.supabase
-                  ? `supabase file: ${props.appState.config.supabase}`
-                  : "Desktop session and supabase fallbacks appear here when available."}
-              </span>
-            </div>
-            <div>
-              <span class="status-label">Runtime</span>
-              <strong>{props.serverInfo?.runtime.mode || "unknown"}</strong>
-              <span class="status-detail">Started {buildStartedAtLabel(props.serverInfo)}</span>
-            </div>
-            <div>
-              <span class="status-label">Build</span>
-              <strong>{buildIdentityLabel(props.serverInfo)}</strong>
-              <span class="status-detail">
-                {props.serverInfo?.build.repositoryUrl ||
-                  props.serverInfo?.build.packageName ||
-                  "unknown"}
-              </span>
-            </div>
-            <div>
-              <span class="status-label">Session store</span>
-              <strong>{props.serverInfo?.persistence.sessionStore || "unknown"}</strong>
-              <span class="status-detail">
-                {props.serverInfo?.persistence.sessionStore === "keychain"
+          <div class="diagnostic-card-grid diagnostic-card-grid--metrics">
+            <DiagnosticsMetricCard
+              detail={`Mode: ${auth()?.mode || "unknown"}`}
+              label="Active auth"
+              meta={fallbackSummary()}
+              title={describeAuthStatus(auth())}
+            />
+            <DiagnosticsMetricCard
+              detail={`Started ${buildStartedAtLabel(props.serverInfo)}`}
+              label="Runtime"
+              meta={syncCadenceLabel(props.serverInfo)}
+              title={props.serverInfo?.runtime.mode || "unknown"}
+            />
+            <DiagnosticsMetricCard
+              detail={
+                props.serverInfo?.build.repositoryUrl ||
+                props.serverInfo?.build.packageName ||
+                "unknown"
+              }
+              label="Build"
+              meta={props.serverInfo?.build.gitCommitShort || undefined}
+              title={buildIdentityLabel(props.serverInfo)}
+            />
+            <DiagnosticsMetricCard
+              detail={
+                props.serverInfo?.persistence.sessionStore === "keychain"
                   ? "Desktop-session tokens are stored in the OS keychain."
-                  : props.serverInfo?.persistence.sessionFile || "Not reported"}
-              </span>
-            </div>
-            <div>
-              <span class="status-label">Transcript handling</span>
-              <strong>{transcriptStateLabel()}</strong>
-              <span class="status-detail">{transcriptStateDetail()}</span>
-            </div>
+                  : props.serverInfo?.files?.session?.path || "Not reported"
+              }
+              label="Session store"
+              meta={
+                props.serverInfo?.persistence.sessionStore === "file" &&
+                props.serverInfo?.files?.session?.sizeBytes != null
+                  ? formatBytesLabel(props.serverInfo.files.session.sizeBytes)
+                  : undefined
+              }
+              title={props.serverInfo?.persistence.sessionStore || "unknown"}
+            />
           </div>
           <p class="auth-card__meta">
             Need a fresh local build? Run <code>npm run web:restart</code>.

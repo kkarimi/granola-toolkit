@@ -19,15 +19,19 @@ import {
   type WebWorkspaceRecentMeeting,
   type WebWorkspaceSavedFilter,
 } from "../web/client-state.ts";
+import type { WebSettingsSection } from "./shared-components.tsx";
 
 import {
   compactPathLabel,
+  formatBytesLabel,
   formatDateTimeLabel,
   formatDateLabel,
   latestFolderNames,
   meetingsPerDay,
   meetingsWithinDays,
+  pathLeafLabel,
   relativeDateLabel,
+  relativeTimeLabel,
   resolveAsyncViewState,
   reviewSummaryLabel,
   runtimeLabel,
@@ -114,6 +118,7 @@ interface HomeDashboardPanelProps {
   onOpenFolder: (folderId: string) => void;
   onOpenLatestMeeting: (meeting: MeetingSummaryRecord) => void;
   onOpenMeeting: (meeting: WebWorkspaceRecentMeeting) => void;
+  onOpenSettings: (tab: WebSettingsSection) => void;
   onOpenReview: () => void;
   latestMeetings: MeetingSummaryRecord[];
   latestMeetingsLoading: boolean;
@@ -121,6 +126,21 @@ interface HomeDashboardPanelProps {
   recentMeetings: WebWorkspaceRecentMeeting[];
   reviewSummary: GranolaReviewInboxSummary;
   serverInfo?: GranolaServerInfo | null;
+}
+
+function CardActionButton(props: { label: string; onClick: () => void }): JSX.Element {
+  return (
+    <button
+      aria-label={props.label}
+      class="card-icon-button"
+      onClick={() => props.onClick()}
+      type="button"
+    >
+      <svg aria-hidden="true" viewBox="0 0 24 24">
+        <path d="M10.4 2h3.2l.5 2.1c.5.2 1 .4 1.5.7l1.9-1.1 2.3 2.3-1.1 1.9c.3.5.5 1 .7 1.5L22 10.4v3.2l-2.1.5c-.2.5-.4 1-.7 1.5l1.1 1.9-2.3 2.3-1.9-1.1c-.5.3-1 .5-1.5.7L13.6 22h-3.2l-.5-2.1c-.5-.2-1-.4-1.5-.7l-1.9 1.1-2.3-2.3 1.1-1.9c-.3-.5-.5-1-.7-1.5L2 13.6v-3.2l2.1-.5c.2-.5.4-1 .7-1.5L3.7 6.5l2.3-2.3 1.9 1.1c.5-.3 1-.5 1.5-.7L10.4 2Zm1.6 6.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z" />
+      </svg>
+    </button>
+  );
 }
 
 function LoadingBlock(props: { label: string; lines?: number }): JSX.Element {
@@ -340,38 +360,40 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
         ? props.appState.documents.count
         : 0;
   const configLabel = () =>
-    props.appState?.config.configFileUsed
-      ? compactPathLabel(props.appState.config.configFileUsed)
-      : "No .granola.toml loaded";
+    props.appState?.config.configFileUsed ? "Custom .granola.toml loaded" : "No custom config file";
   const configDetail = () =>
     props.appState?.config.configFileUsed
-      ? props.appState.config.configFileUsed
-      : props.serverInfo?.persistence.dataDirectory
-        ? `Defaults from ${compactPathLabel(props.serverInfo.persistence.dataDirectory)}`
-        : "Using toolkit defaults plus CLI and environment overrides.";
+      ? `${pathLeafLabel(props.appState.config.configFileUsed)} · ${compactPathLabel(props.appState.config.configFileUsed)}`
+      : "Using toolkit defaults. Change values from Auth, Plugins, and Exports, or add a .granola.toml later.";
   const transcriptLabel = () =>
-    props.appState?.cache.loaded
-      ? `${props.appState.cache.transcriptCount} transcript sets cached`
-      : props.appState?.cache.configured
-        ? "Transcript cache configured"
-        : "Transcripts on demand";
+    props.appState?.cache.loaded && props.appState.cache.transcriptCount > 0
+      ? `${props.appState.cache.transcriptCount} transcript sets in desktop cache`
+      : props.appState?.cache.loaded
+        ? "Desktop transcript cache available"
+        : props.appState?.cache.configured
+          ? "Desktop transcript cache configured"
+          : "Transcripts on demand";
   const transcriptDetail = () =>
-    props.appState?.cache.loaded
-      ? `Loaded ${formatDateTimeLabel(props.appState.cache.loadedAt)} from ${compactPathLabel(props.appState.cache.filePath)}`
-      : props.appState?.cache.filePath
-        ? `${compactPathLabel(props.appState.cache.filePath)} · toolkit can warm transcripts from this cache`
-        : "Meeting transcripts are fetched from Granola when you open them.";
+    props.appState?.cache.loaded && props.appState.cache.transcriptCount > 0
+      ? `${pathLeafLabel(props.appState.cache.filePath)} · loaded ${relativeTimeLabel(props.appState.cache.loadedAt)}`
+      : props.appState?.cache.loaded
+        ? `${pathLeafLabel(props.appState.cache.filePath)} · no transcript entries found in this cache file`
+        : props.appState?.cache.filePath
+          ? `${compactPathLabel(props.appState.cache.filePath)} · toolkit can warm transcripts from this cache`
+          : "Meeting transcripts are fetched from Granola when you open them.";
   const localIndexLabel = () =>
     props.appState?.index.loaded
-      ? `${props.appState.index.meetingCount} meetings indexed locally`
+      ? `${props.appState.index.meetingCount} meetings in local index`
       : props.appState?.documents.loaded
         ? `${props.appState.documents.count} meetings loaded`
         : "Local index not warmed yet";
   const localIndexDetail = () =>
-    props.appState?.index.filePath
-      ? `${compactPathLabel(props.appState.index.filePath)} · ${
-          props.appState.index.loadedAt
-            ? `updated ${formatDateTimeLabel(props.appState.index.loadedAt)}`
+    props.appState?.index.filePath || props.serverInfo?.files?.meetingIndex?.path
+      ? `${pathLeafLabel(props.appState?.index.filePath || props.serverInfo?.files?.meetingIndex?.path)} · ${formatBytesLabel(
+          props.serverInfo?.files?.meetingIndex?.sizeBytes,
+        )} · ${
+          props.appState?.index.loadedAt
+            ? `updated ${relativeTimeLabel(props.appState.index.loadedAt)}`
             : "index available locally"
         }`
       : "Toolkit will write a local meeting index after the first successful sync.";
@@ -382,7 +404,7 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
       props.appState?.auth.supabaseAvailable ? "supabase.json" : null,
     ].filter(Boolean);
     return sources.length > 0
-      ? `Available sources: ${sources.join(" · ")}`
+      ? `${sources.join(" · ")} available`
       : "No fallback auth sources detected yet.";
   };
 
@@ -437,8 +459,18 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
         </div>
         <div class="usage-snapshot-grid">
           <article class="snapshot-card">
-            <span class="dashboard-stat__label">Sync</span>
-            <strong>{describeSyncStatus(props.appState?.sync ?? {})}</strong>
+            <div class="snapshot-card__head">
+              <span class="dashboard-stat__label">Sync</span>
+              <CardActionButton
+                label="Open diagnostics"
+                onClick={() => props.onOpenSettings("diagnostics")}
+              />
+            </div>
+            <strong>
+              {props.appState?.sync.lastCompletedAt
+                ? `Last synced ${relativeTimeLabel(props.appState.sync.lastCompletedAt)}`
+                : describeSyncStatus(props.appState?.sync ?? {})}
+            </strong>
             <span>
               {props.appState?.sync.lastCompletedAt
                 ? `${formatDateTimeLabel(props.appState.sync.lastCompletedAt)} · ${syncCadenceLabel(props.serverInfo)}`
@@ -446,22 +478,46 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
             </span>
           </article>
           <article class="snapshot-card">
-            <span class="dashboard-stat__label">Auth</span>
+            <div class="snapshot-card__head">
+              <span class="dashboard-stat__label">Auth</span>
+              <CardActionButton
+                label="Open auth settings"
+                onClick={() => props.onOpenSettings("auth")}
+              />
+            </div>
             <strong>{authStatus()}</strong>
             <span>{authDetail()}</span>
           </article>
           <article class="snapshot-card">
-            <span class="dashboard-stat__label">Local index</span>
+            <div class="snapshot-card__head">
+              <span class="dashboard-stat__label">Local index</span>
+              <CardActionButton
+                label="Open diagnostics"
+                onClick={() => props.onOpenSettings("diagnostics")}
+              />
+            </div>
             <strong>{localIndexLabel()}</strong>
             <span>{localIndexDetail()}</span>
           </article>
           <article class="snapshot-card">
-            <span class="dashboard-stat__label">Transcripts</span>
+            <div class="snapshot-card__head">
+              <span class="dashboard-stat__label">Transcripts</span>
+              <CardActionButton
+                label="Open diagnostics"
+                onClick={() => props.onOpenSettings("diagnostics")}
+              />
+            </div>
             <strong>{transcriptLabel()}</strong>
             <span>{transcriptDetail()}</span>
           </article>
           <article class="snapshot-card">
-            <span class="dashboard-stat__label">Config</span>
+            <div class="snapshot-card__head">
+              <span class="dashboard-stat__label">Config</span>
+              <CardActionButton
+                label="Open diagnostics"
+                onClick={() => props.onOpenSettings("diagnostics")}
+              />
+            </div>
             <strong>{configLabel()}</strong>
             <span>{configDetail()}</span>
           </article>

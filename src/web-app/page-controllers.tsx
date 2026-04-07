@@ -61,6 +61,7 @@ export function HomePageController(props: {
   onOpenFoldersPage: () => void;
   onOpenReviewPage: () => void;
   onOpenSearchPage: () => void;
+  onOpenSettingsTab: (tab: WebSettingsSection) => void;
   processingIssues: import("../app/index.ts").GranolaProcessingIssue[];
   recentMeetings: WebWorkspaceRecentMeeting[];
   reviewSummary: ReviewSummary;
@@ -88,6 +89,9 @@ export function HomePageController(props: {
         }}
         onOpenMeeting={(meeting) => {
           props.onOpenMeeting(meeting);
+        }}
+        onOpenSettings={(tab) => {
+          props.onOpenSettingsTab(tab);
         }}
         onOpenReview={() => {
           props.onOpenReviewPage();

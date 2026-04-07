@@ -13,6 +13,14 @@ export const GRANOLA_TRANSPORT_PROTOCOL_VERSION = 3;
 
 export type GranolaServerRuntimeMode = "background-service" | "server" | "web-workspace";
 
+export interface GranolaLocalPathInfo {
+  exists: boolean;
+  kind: "directory" | "file";
+  path: string;
+  sizeBytes?: number;
+  updatedAt?: string;
+}
+
 export interface GranolaServerInfo {
   build: {
     gitCommit?: string;
@@ -42,6 +50,18 @@ export interface GranolaServerInfo {
     processing: boolean;
     sync: boolean;
     webClient: boolean;
+  };
+  files?: {
+    automationRules?: GranolaLocalPathInfo;
+    catalogSnapshot?: GranolaLocalPathInfo;
+    config?: GranolaLocalPathInfo;
+    dataDirectory?: GranolaLocalPathInfo;
+    meetingIndex?: GranolaLocalPathInfo;
+    pluginSettings?: GranolaLocalPathInfo;
+    session?: GranolaLocalPathInfo;
+    syncEvents?: GranolaLocalPathInfo;
+    syncState?: GranolaLocalPathInfo;
+    transcriptCache?: GranolaLocalPathInfo;
   };
   persistence: {
     catalogSnapshotFile?: string;

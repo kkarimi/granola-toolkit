@@ -406,6 +406,64 @@ export function compactPathLabel(value?: string | null): string {
   return `.../${parts.slice(-3).join("/")}`;
 }
 
+export function pathLeafLabel(value?: string | null): string {
+  if (!value?.trim()) {
+    return "Not configured";
+  }
+
+  const normalised = value.replaceAll("\\", "/");
+  const parts = normalised.split("/").filter(Boolean);
+  return parts.at(-1) || normalised;
+}
+
+export function formatBytesLabel(value?: number): string {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return "Size unknown";
+  }
+
+  if (value < 1024) {
+    return `${value} B`;
+  }
+
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(value < 10 * 1024 ? 1 : 0)} KB`;
+  }
+
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export function relativeTimeLabel(value?: string): string {
+  const timestamp = parseTimestamp(value);
+  if (timestamp == null) {
+    return "Not recorded";
+  }
+
+  const diffMs = Date.now() - timestamp;
+  const future = diffMs < 0;
+  const absoluteMs = Math.abs(diffMs);
+  const minutes = Math.round(absoluteMs / 60_000);
+  const hours = Math.round(absoluteMs / 3_600_000);
+  const days = Math.round(absoluteMs / 86_400_000);
+
+  if (absoluteMs < 60_000) {
+    return future ? "in under a minute" : "just now";
+  }
+
+  if (absoluteMs < 3_600_000) {
+    return future ? `in ${minutes} min` : `${minutes} min ago`;
+  }
+
+  if (absoluteMs < 86_400_000) {
+    return future
+      ? `in ${hours} hr${hours === 1 ? "" : "s"}`
+      : `${hours} hr${hours === 1 ? "" : "s"} ago`;
+  }
+
+  return future
+    ? `in ${days} day${days === 1 ? "" : "s"}`
+    : `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
 export function syncCadenceLabel(serverInfo?: GranolaServerInfo | null): string {
   if (!serverInfo?.runtime.syncEnabled) {
     return "Manual sync only";

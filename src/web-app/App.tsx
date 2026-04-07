@@ -646,6 +646,10 @@ export function App() {
                 onOpenSearchPage={() => {
                   void browseController.openPage("search");
                 }}
+                onOpenSettingsTab={(tab) => {
+                  setState("settingsTab", tab);
+                  setState("activePage", "settings");
+                }}
                 processingIssues={state.processingIssues}
                 recentMeetings={state.recentMeetings}
                 reviewSummary={reviewController.reviewInboxSummary()}
