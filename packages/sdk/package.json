@@ -2,7 +2,15 @@
   "name": "@kkarimi/gran-sdk",
   "version": "0.67.0",
   "description": "Node and TypeScript SDK for Gran 👵🏻",
+  "homepage": "https://kkarimi.github.io/gran/docs/sdk",
+  "bugs": {
+    "url": "https://github.com/kkarimi/gran/issues"
+  },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kkarimi/gran.git"
+  },
   "files": [
     "README.md",
     "dist"
@@ -17,6 +25,9 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "vp pack",
