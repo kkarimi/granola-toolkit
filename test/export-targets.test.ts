@@ -20,12 +20,13 @@ describe("export targets", () => {
         transcriptsSubdir: "transcripts",
       },
       {
+        dailyNotesDir: "Daily",
         id: "work-vault",
         kind: "obsidian-vault",
         name: "Work vault",
         notesFormat: "markdown",
         outputDir: "/tmp/vault",
-        transcriptsFormat: "text",
+        transcriptsFormat: "markdown",
       },
     ]);
 
@@ -35,9 +36,11 @@ describe("export targets", () => {
         kind: "bundle-folder",
       }),
       expect.objectContaining({
+        dailyNotesDir: "Daily",
         id: "work-vault",
         kind: "obsidian-vault",
         name: "Work vault",
+        transcriptsFormat: "markdown",
       }),
     ]);
     expect(await readFile(filePath, "utf8")).toContain('"work-vault"');

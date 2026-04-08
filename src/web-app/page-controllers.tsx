@@ -14,6 +14,7 @@ import type {
   GranolaAppAuthState,
   GranolaAppPluginState,
   GranolaAppState,
+  GranolaExportTarget,
   GranolaMeetingBundle,
   GranolaMeetingSort,
   MeetingRecord,
@@ -23,6 +24,7 @@ import type { GranolaReviewInboxItem, GranolaReviewInboxSummary } from "../revie
 import type { GranolaServerInfo } from "../transport.ts";
 import type { GranolaAgentProviderKind } from "../types.ts";
 import type { WebWorkspaceRecentMeeting, WorkspaceTab } from "../web/client-state.ts";
+import type { GranolaWebExportMode } from "./types.ts";
 
 import {
   ArtefactReviewPanel,
@@ -116,8 +118,6 @@ export function FoldersPageController(props: {
   meetings: MeetingSummaryRecord[];
   meetingsLoading: boolean;
   onBackToFolders: () => void;
-  onExportNotes: () => void;
-  onExportTranscripts: () => void;
   onOpenMeeting: (meetingId: string) => void;
   onRefreshFolders: () => void;
   onSelectFolder: (folderId: string) => void;
@@ -389,9 +389,11 @@ export function SettingsPageController(props: {
   onApproveRun: (runId: string) => void;
   onChangeHarness: (harness: GranolaAgentHarness) => void;
   onClearApiKey: () => void;
+  currentExportScopeLabel: string;
   onDuplicateHarness: () => void;
-  onExportNotes: () => void;
-  onExportTranscripts: () => void;
+  exportDestinationSummary: string;
+  exportMode: GranolaWebExportMode;
+  exportTargets: GranolaExportTarget[];
   onImportDesktopSession: () => void;
   onLock: () => void;
   onLogout: () => void;
@@ -404,10 +406,13 @@ export function SettingsPageController(props: {
   onReloadHarnesses: () => void;
   onRemoveHarness: () => void;
   onRerunJob: (jobId: string) => void;
+  onRunExport: () => void;
   onSaveApiKey: () => void;
   onSaveHarnesses: () => void;
+  onSelectExportTarget: (id: string | null) => void;
   onSelectHarness: (id: string) => void;
   onTogglePlugin: (id: string, enabled: boolean) => void;
+  onExportModeChange: (mode: GranolaWebExportMode) => void;
   onSwitchMode: (mode: GranolaAppAuthMode) => void;
   onTestHarness: () => void;
   onTestKindChange: (kind: GranolaAutomationArtefactKind) => void;
@@ -416,6 +421,7 @@ export function SettingsPageController(props: {
   preferredProvider: GranolaAgentProviderKind;
   processingIssues: import("../app/index.ts").GranolaProcessingIssue[];
   plugins: GranolaAppPluginState[];
+  selectedExportTargetId: string | null;
   selectedHarness: GranolaAgentHarness | null;
   selectedHarnessId: string | null;
   selectedMeeting: MeetingRecord | null;
@@ -513,27 +519,17 @@ export function SettingsPageController(props: {
               />
             </Match>
             <Match when={props.settingsTab === "exports"}>
-              <section class="settings-export-actions">
-                <div class="toolbar-actions">
-                  <button
-                    class="button button--secondary"
-                    onClick={() => props.onExportNotes()}
-                    type="button"
-                  >
-                    Export notes
-                  </button>
-                  <button
-                    class="button button--secondary"
-                    onClick={() => props.onExportTranscripts()}
-                    type="button"
-                  >
-                    Export transcripts
-                  </button>
-                </div>
-              </section>
               <ExportJobsPanel
+                currentScopeLabel={props.currentExportScopeLabel}
+                exportDestinationSummary={props.exportDestinationSummary}
+                exportMode={props.exportMode}
                 jobs={props.appState?.exports.jobs || []}
+                onExportModeChange={(mode) => props.onExportModeChange(mode)}
                 onRerun={(jobId) => props.onRerunJob(jobId)}
+                onRunExport={() => props.onRunExport()}
+                onSelectTarget={(id) => props.onSelectExportTarget(id)}
+                selectedTargetId={props.selectedExportTargetId}
+                targets={props.exportTargets}
               />
             </Match>
             <Match when={props.settingsTab === "diagnostics"}>

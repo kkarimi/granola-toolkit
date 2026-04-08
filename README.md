@@ -56,7 +56,8 @@ macOS arm64, Linux x64, and Windows x64. Extract the archive and run `granola` (
 ```bash
 granola init --provider openrouter
 granola auth login --api-key grn_...
-granola targets add --id work-vault --kind obsidian-vault --output ~/Vaults/Work
+granola targets add --id work-vault --kind obsidian-vault --output ~/Vaults/Work --daily-notes-dir Daily
+granola export --target work-vault
 granola web
 ```
 

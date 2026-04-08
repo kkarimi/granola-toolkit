@@ -1,14 +1,25 @@
+import { join, relative } from "node:path";
+
 import {
   allExportScope,
   cloneExportScope,
   folderExportScope,
   resolveExportOutputDir,
 } from "../export-scope.ts";
+import {
+  defaultExportTargetNotesFormat,
+  defaultExportTargetTranscriptsFormat,
+} from "../export-target-registry.ts";
 import { resolveExportTargetOutputDir, type ExportTargetStore } from "../export-targets.ts";
 import type { ExportJobStore } from "../export-jobs.ts";
-import { writeNotes } from "../notes.ts";
+import {
+  renderObsidianNoteExport,
+  renderObsidianTranscriptExport,
+  syncObsidianDailyNotes,
+} from "../obsidian-exports.ts";
+import { noteFileStem, writeNotes } from "../notes.ts";
 import { buildFolderSummary, resolveFolder } from "../folders.ts";
-import { writeTranscripts } from "../transcripts.ts";
+import { transcriptFileStem, writeTranscripts } from "../transcripts.ts";
 import type {
   AppConfig,
   CacheData,
@@ -131,10 +142,13 @@ export class GranolaExportService {
     documents: GranolaDocument[];
     format: NoteOutputFormat;
     outputDir: string;
+    scopedOutput: boolean;
     scope: GranolaExportScope;
+    target?: GranolaExportTarget;
   }> {
     const documents = await this.deps.listDocuments();
     const exportContext = await this.resolveExportContext(options.folderId);
+    const target = await this.readExportTarget(options.targetId);
     const filteredDocuments = exportContext.documentIds
       ? documents.filter((document) => exportContext.documentIds!.has(document.id))
       : documents;
@@ -143,7 +157,9 @@ export class GranolaExportService {
       documents: filteredDocuments,
       format,
       outputDir: await this.resolveNotesOutputDir(exportContext.scope, options),
+      scopedOutput: options.scopedOutput === true,
       scope: exportContext.scope,
+      target,
     };
   }
 
@@ -161,9 +177,12 @@ export class GranolaExportService {
     options: GranolaExportRunOptions = {},
   ): Promise<{
     cacheData: CacheData;
+    documentContexts: Map<string, GranolaDocument>;
     format: TranscriptOutputFormat;
     outputDir: string;
+    scopedOutput: boolean;
     scope: GranolaExportScope;
+    target?: GranolaExportTarget;
   }> {
     const cacheData = await this.deps.loadCache({ required: true });
     if (!cacheData) {
@@ -185,12 +204,21 @@ export class GranolaExportService {
           ),
         }
       : cacheData;
+    const target = await this.readExportTarget(options.targetId);
+    const needsDocumentContexts = target?.kind === "obsidian-vault" && format === "markdown";
+    const documents = needsDocumentContexts ? await this.deps.listDocuments() : [];
+    const scopedDocuments = exportContext.documentIds
+      ? documents.filter((document) => exportContext.documentIds!.has(document.id))
+      : documents;
 
     return {
       cacheData: scopedCacheData,
+      documentContexts: new Map(scopedDocuments.map((document) => [document.id, document])),
       format,
       outputDir: await this.resolveTranscriptsOutputDir(exportContext.scope, options),
+      scopedOutput: options.scopedOutput === true,
       scope: exportContext.scope,
+      target,
     };
   }
 
@@ -230,7 +258,9 @@ export class GranolaExportService {
     format: string,
     itemCount: number,
     outputDir: string,
+    scopedOutput: boolean,
     scope: GranolaExportScope,
+    targetId?: string,
   ): Promise<GranolaAppExportJobState> {
     return await this.updateExportJob({
       completedCount: 0,
@@ -239,9 +269,11 @@ export class GranolaExportService {
       itemCount,
       kind,
       outputDir,
+      scopedOutput,
       scope: cloneExportScope(scope),
       startedAt: this.deps.nowIso(),
       status: "running",
+      targetId,
       written: 0,
     });
   }
@@ -293,7 +325,9 @@ export class GranolaExportService {
     documents: GranolaDocument[];
     format: NoteOutputFormat;
     outputDir: string;
+    scopedOutput?: boolean;
     scope: GranolaExportScope;
+    target?: GranolaExportTarget;
     trackLastRun?: boolean;
     updateUi?: boolean;
   }): Promise<GranolaNotesExportResult> {
@@ -302,9 +336,20 @@ export class GranolaExportService {
       options.format,
       options.documents.length,
       options.outputDir,
+      options.scopedOutput === true,
       options.scope,
+      options.target?.id,
     );
     let written = 0;
+    const target = options.target;
+    const targetTranscriptFormat = target
+      ? (target.transcriptsFormat ?? defaultExportTargetTranscriptsFormat(target.kind))
+      : undefined;
+    const transcriptOutputDir = target
+      ? resolveExportTargetOutputDir(target, "transcripts", options.scope, {
+          scopedDirectory: options.scopedOutput,
+        })
+      : undefined;
 
     try {
       written = await writeNotes(options.documents, options.outputDir, options.format, {
@@ -314,7 +359,44 @@ export class GranolaExportService {
             written: progress.written,
           });
         },
+        renderMarkdown:
+          target?.kind === "obsidian-vault" && options.format === "markdown"
+            ? (note, document) =>
+                renderObsidianNoteExport({
+                  document,
+                  note,
+                  target,
+                  transcriptRelativePath:
+                    targetTranscriptFormat === "markdown" && transcriptOutputDir
+                      ? relative(
+                          target.outputDir,
+                          join(
+                            transcriptOutputDir,
+                            `${transcriptFileStem({
+                              createdAt: document.createdAt,
+                              id: document.id,
+                              title: document.title || document.id,
+                              updatedAt: document.updatedAt,
+                            })}.md`,
+                          ),
+                        ).replaceAll("\\", "/")
+                      : undefined,
+                })
+            : undefined,
       });
+      if (
+        target?.kind === "obsidian-vault" &&
+        options.format === "markdown" &&
+        options.scope.mode === "all"
+      ) {
+        written += await syncObsidianDailyNotes({
+          documents: options.documents,
+          notesFormat: options.format,
+          outputDir: target.outputDir,
+          target,
+          transcriptsFormat: targetTranscriptFormat,
+        });
+      }
       job = await this.completeExportJob(job, {
         completedCount: options.documents.length,
         written,
@@ -332,6 +414,7 @@ export class GranolaExportService {
         outputDir: options.outputDir,
         ranAt: this.deps.nowIso(),
         scope: cloneExportScope(options.scope),
+        targetId: options.target?.id,
         written,
       };
     }
@@ -344,15 +427,19 @@ export class GranolaExportService {
       job,
       outputDir: options.outputDir,
       scope: cloneExportScope(options.scope),
+      targetId: options.target?.id,
       written,
     };
   }
 
   async runTranscriptsExport(options: {
     cacheData: CacheData;
+    documentContexts?: Map<string, GranolaDocument>;
     format: TranscriptOutputFormat;
     outputDir: string;
+    scopedOutput?: boolean;
     scope: GranolaExportScope;
+    target?: GranolaExportTarget;
     trackLastRun?: boolean;
     updateUi?: boolean;
   }): Promise<GranolaTranscriptsExportResult> {
@@ -362,9 +449,20 @@ export class GranolaExportService {
       options.format,
       count,
       options.outputDir,
+      options.scopedOutput === true,
       options.scope,
+      options.target?.id,
     );
     let written = 0;
+    const target = options.target;
+    const targetNoteFormat = target
+      ? (target.notesFormat ?? defaultExportTargetNotesFormat(target.kind))
+      : undefined;
+    const notesOutputDir = target
+      ? resolveExportTargetOutputDir(target, "notes", options.scope, {
+          scopedDirectory: options.scopedOutput,
+        })
+      : undefined;
 
     try {
       written = await writeTranscripts(options.cacheData, options.outputDir, options.format, {
@@ -374,6 +472,33 @@ export class GranolaExportService {
             written: progress.written,
           });
         },
+        renderContent:
+          target?.kind === "obsidian-vault" && options.format === "markdown"
+            ? (transcript, document) => {
+                const fullDocument = options.documentContexts?.get(document.id) ?? {
+                  content: "",
+                  createdAt: document.createdAt,
+                  folderMemberships: [],
+                  id: document.id,
+                  notesPlain: "",
+                  tags: [],
+                  title: document.title,
+                  updatedAt: document.updatedAt,
+                };
+                return renderObsidianTranscriptExport({
+                  document: fullDocument,
+                  noteRelativePath:
+                    targetNoteFormat === "markdown" && notesOutputDir
+                      ? relative(
+                          target.outputDir,
+                          join(notesOutputDir, `${noteFileStem(fullDocument)}.md`),
+                        ).replaceAll("\\", "/")
+                      : undefined,
+                  target,
+                  transcript,
+                });
+              }
+            : undefined,
       });
       job = await this.completeExportJob(job, {
         completedCount: count,
@@ -392,6 +517,7 @@ export class GranolaExportService {
         outputDir: options.outputDir,
         ranAt: this.deps.nowIso(),
         scope: cloneExportScope(options.scope),
+        targetId: options.target?.id,
         written,
       };
     }
@@ -403,6 +529,7 @@ export class GranolaExportService {
       job,
       outputDir: options.outputDir,
       scope: cloneExportScope(options.scope),
+      targetId: options.target?.id,
       transcriptCount: count,
       written,
     };

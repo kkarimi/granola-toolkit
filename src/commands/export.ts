@@ -1,6 +1,10 @@
 import { join } from "node:path";
 
 import type { GranolaExportTarget } from "../app/index.ts";
+import {
+  defaultExportTargetNotesFormat,
+  defaultExportTargetTranscriptsFormat,
+} from "../export-target-registry.ts";
 import { renderExportScopeLabel } from "../export-scope.ts";
 import type { NoteOutputFormat, TranscriptOutputFormat } from "../types.ts";
 
@@ -24,7 +28,7 @@ Options:
   --notes-output <path>        Output directory for note files
   --transcripts-output <path>  Output directory for transcript files
   --notes-format <value>       Notes format: markdown, json, yaml, raw (default: markdown)
-  --transcripts-format <value> Transcript format: text, json, yaml, raw (default: text)
+  --transcripts-format <value> Transcript format: text, markdown, json, yaml, raw (default: text)
   --notes-only                 Export only notes
   --transcripts-only           Export only transcripts
   --cache <path>               Path to Granola desktop transcript file
@@ -74,12 +78,13 @@ function resolveTranscriptFormat(value: string | boolean | undefined): Transcrip
     case undefined:
       return "text";
     case "json":
+    case "markdown":
     case "raw":
     case "text":
     case "yaml":
       return value;
     default:
-      throw new Error("invalid transcripts format: expected text, json, yaml, or raw");
+      throw new Error("invalid transcripts format: expected text, markdown, json, yaml, or raw");
   }
 }
 
@@ -184,10 +189,16 @@ export const exportCommand: CommandDefinition = {
       transcriptsOutput,
     });
     const resolvedNoteFormat =
-      commandFlags["notes-format"] === undefined ? (target?.notesFormat ?? noteFormat) : noteFormat;
+      commandFlags["notes-format"] === undefined
+        ? target
+          ? (target.notesFormat ?? defaultExportTargetNotesFormat(target.kind))
+          : noteFormat
+        : noteFormat;
     const resolvedTranscriptFormat =
       commandFlags["transcripts-format"] === undefined
-        ? (target?.transcriptsFormat ?? transcriptFormat)
+        ? target
+          ? (target.transcriptsFormat ?? defaultExportTargetTranscriptsFormat(target.kind))
+          : transcriptFormat
         : transcriptFormat;
 
     debug(config.debug, "mode", mode);

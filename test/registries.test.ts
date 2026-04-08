@@ -8,6 +8,14 @@ import { GranolaExportService } from "../src/app/export-service.ts";
 import { createGranolaExporterRegistry } from "../src/app/export-registry.ts";
 import { createGranolaSyncAdapterRegistry } from "../src/client/sync-adapter-registry.ts";
 import {
+  createDefaultGranolaExportTargetRegistry,
+  createGranolaExportTargetRegistry,
+} from "../src/export-target-registry.ts";
+import {
+  createDefaultGranolaIntelligencePresetRegistry,
+  createGranolaIntelligencePresetRegistry,
+} from "../src/intelligence-presets.ts";
+import {
   enabledAutomationActions,
   executeAutomationAction,
   type AutomationActionExecutionHandlers,
@@ -216,6 +224,57 @@ describe("extension registries", () => {
         actionName: "Registry command",
         id: "registry-run",
         result: "registry",
+      }),
+    );
+  });
+
+  test("exposes export target kinds through a registry", () => {
+    const registry = createGranolaExportTargetRegistry().register("bundle-folder", {
+      defaultNotesFormat: "markdown",
+      defaultNotesSubdir: "notes",
+      defaultTranscriptsFormat: "text",
+      defaultTranscriptsSubdir: "transcripts",
+      description: "Archive folder",
+      kind: "bundle-folder",
+      label: "Bundle folder",
+    });
+
+    expect(registry.resolve("bundle-folder", "export target")).toEqual(
+      expect.objectContaining({
+        defaultNotesSubdir: "notes",
+        label: "Bundle folder",
+      }),
+    );
+    expect(
+      createDefaultGranolaExportTargetRegistry().resolve("obsidian-vault", "export target"),
+    ).toEqual(
+      expect.objectContaining({
+        defaultTranscriptsFormat: "markdown",
+        supportsDailyNotes: true,
+      }),
+    );
+  });
+
+  test("exposes intelligence presets through a registry", () => {
+    const registry = createGranolaIntelligencePresetRegistry().register("summary", {
+      description: "Custom summary preset",
+      id: "summary",
+      label: "Summary",
+      prompt: "Summarise the meeting.",
+    });
+
+    expect(registry.resolve("summary", "intelligence preset")).toEqual(
+      expect.objectContaining({
+        id: "summary",
+        label: "Summary",
+      }),
+    );
+    expect(
+      createDefaultGranolaIntelligencePresetRegistry().resolve("people", "intelligence preset"),
+    ).toEqual(
+      expect.objectContaining({
+        id: "people",
+        label: "People",
       }),
     );
   });

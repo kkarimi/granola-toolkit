@@ -7,6 +7,7 @@ import type {
   GranolaAppExportJobState,
   GranolaAppPluginState,
   GranolaAppState,
+  GranolaExportTarget,
   GranolaAppSyncRun,
 } from "../app/index.ts";
 import { pluginStateStatusDetail } from "../app/plugin-state.ts";
@@ -15,6 +16,7 @@ import { granolaAuthModeLabel, granolaAuthRecommendation } from "../auth-summary
 import type { GranolaLocalPathInfo, GranolaServerInfo } from "../transport.ts";
 import type { GranolaAgentProviderKind } from "../types.ts";
 import { describeAuthStatus, describeSyncStatus } from "../web/client-state.ts";
+import type { GranolaWebExportMode } from "./types.ts";
 
 import {
   buildIdentityLabel,
@@ -43,8 +45,16 @@ interface AuthPanelProps {
 }
 
 interface ExportJobsPanelProps {
+  currentScopeLabel: string;
+  exportDestinationSummary: string;
+  exportMode: GranolaWebExportMode;
   jobs: GranolaAppExportJobState[];
+  onExportModeChange: (mode: GranolaWebExportMode) => void;
   onRerun: (id: string) => void;
+  onRunExport: () => void;
+  onSelectTarget: (id: string | null) => void;
+  selectedTargetId: string | null;
+  targets: GranolaExportTarget[];
 }
 
 interface PluginsPanelProps {
@@ -1024,56 +1034,137 @@ export function PluginsPanel(props: PluginsPanelProps): JSX.Element {
 
 export function ExportJobsPanel(props: ExportJobsPanelProps): JSX.Element {
   return (
-    <section class="jobs-panel">
-      <div class="jobs-panel__head">
-        <h3>Recent Export Jobs</h3>
-        <p>Tracked across CLI and web runs.</p>
-      </div>
-      <div class="jobs-list">
-        <Show
-          when={props.jobs.length > 0}
-          fallback={<div class="job-empty">No export jobs yet.</div>}
-        >
-          <For each={props.jobs.slice(0, 6)}>
-            {(job) => (
-              <article class="job-card">
-                <div class="job-card__head">
-                  <div>
-                    <div class="job-card__title">{job.kind} export</div>
-                    <div class="job-card__meta">{job.id}</div>
+    <>
+      <section class="auth-panel">
+        <div class="auth-panel__head">
+          <h3>Bundled export</h3>
+          <p>
+            Export notes and transcripts together for the current scope, then reuse named targets
+            when you want a vault or archive destination instead of raw paths.
+          </p>
+        </div>
+        <div class="auth-panel__body">
+          <div class="auth-card-grid auth-card-grid--three">
+            <article class="auth-card">
+              <span class="status-label">Scope</span>
+              <strong>{props.currentScopeLabel}</strong>
+              <span class="auth-card__meta">
+                The bundled export uses the current folder scope when one is selected.
+              </span>
+            </article>
+            <article class="auth-card">
+              <span class="status-label">Target</span>
+              <strong>{props.selectedTargetId || "Default local archive"}</strong>
+              <span class="auth-card__meta">{props.exportDestinationSummary}</span>
+            </article>
+            <article class="auth-card">
+              <span class="status-label">Contents</span>
+              <strong>
+                {props.exportMode === "both"
+                  ? "Notes + transcripts"
+                  : props.exportMode === "notes"
+                    ? "Notes only"
+                    : "Transcripts only"}
+              </strong>
+              <span class="auth-card__meta">
+                Change this only when you want a narrower one-off export.
+              </span>
+            </article>
+          </div>
+          <div class="field-row field-row--inline">
+            <label>
+              <span class="field-label">Destination</span>
+              <select
+                class="select"
+                onChange={(event) => {
+                  const value = event.currentTarget.value;
+                  props.onSelectTarget(value ? value : null);
+                }}
+                value={props.selectedTargetId ?? ""}
+              >
+                <option value="">Default local archive</option>
+                <For each={props.targets}>
+                  {(target) => <option value={target.id}>{target.name ?? target.id}</option>}
+                </For>
+              </select>
+            </label>
+            <label>
+              <span class="field-label">Contents</span>
+              <select
+                class="select"
+                onChange={(event) => {
+                  props.onExportModeChange(event.currentTarget.value as GranolaWebExportMode);
+                }}
+                value={props.exportMode}
+              >
+                <option value="both">Notes + transcripts</option>
+                <option value="notes">Notes only</option>
+                <option value="transcripts">Transcripts only</option>
+              </select>
+            </label>
+          </div>
+          <div class="toolbar-actions">
+            <button
+              class="button button--primary"
+              onClick={() => props.onRunExport()}
+              type="button"
+            >
+              Export archive
+            </button>
+          </div>
+        </div>
+      </section>
+      <section class="jobs-panel">
+        <div class="jobs-panel__head">
+          <h3>Recent export jobs</h3>
+          <p>Tracked across CLI and web runs.</p>
+        </div>
+        <div class="jobs-list">
+          <Show
+            when={props.jobs.length > 0}
+            fallback={<div class="job-empty">No export jobs yet.</div>}
+          >
+            <For each={props.jobs.slice(0, 6)}>
+              {(job) => (
+                <article class="job-card">
+                  <div class="job-card__head">
+                    <div>
+                      <div class="job-card__title">{job.kind} export</div>
+                      <div class="job-card__meta">{job.id}</div>
+                    </div>
+                    <div class="job-card__status" data-status={job.status}>
+                      {job.status}
+                    </div>
                   </div>
-                  <div class="job-card__status" data-status={job.status}>
-                    {job.status}
+                  <div class="job-card__meta">
+                    {`Format: ${job.format} • ${scopeLabel(job.scope)} • ${
+                      job.itemCount > 0 ? `${job.completedCount}/${job.itemCount} items` : "0 items"
+                    } • Written: ${job.written}`}
                   </div>
-                </div>
-                <div class="job-card__meta">
-                  {`Format: ${job.format} • ${scopeLabel(job.scope)} • ${
-                    job.itemCount > 0 ? `${job.completedCount}/${job.itemCount} items` : "0 items"
-                  } • Written: ${job.written}`}
-                </div>
-                <div class="job-card__meta">Started: {job.startedAt.slice(0, 19)}</div>
-                <div class="job-card__meta">Output: {job.outputDir}</div>
-                <Show when={job.error}>
-                  <div class="job-card__meta">{job.error}</div>
-                </Show>
-                <div class="job-card__actions">
-                  <Show when={job.status !== "running"}>
-                    <button
-                      class="button button--secondary"
-                      onClick={() => {
-                        props.onRerun(job.id);
-                      }}
-                      type="button"
-                    >
-                      Rerun
-                    </button>
+                  <div class="job-card__meta">Started: {job.startedAt.slice(0, 19)}</div>
+                  <div class="job-card__meta">Output: {job.outputDir}</div>
+                  <Show when={job.error}>
+                    <div class="job-card__meta">{job.error}</div>
                   </Show>
-                </div>
-              </article>
-            )}
-          </For>
-        </Show>
-      </div>
-    </section>
+                  <div class="job-card__actions">
+                    <Show when={job.status !== "running"}>
+                      <button
+                        class="button button--secondary"
+                        onClick={() => {
+                          props.onRerun(job.id);
+                        }}
+                        type="button"
+                      >
+                        Rerun
+                      </button>
+                    </Show>
+                  </div>
+                </article>
+              )}
+            </For>
+          </Show>
+        </div>
+      </section>
+    </>
   );
 }

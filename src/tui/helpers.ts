@@ -18,7 +18,7 @@ export interface GranolaTuiQuickOpenItem {
   score: number;
 }
 
-export type GranolaTuiQuickOpenActionId = "auth" | "automation" | "clear-scope" | "sync";
+export type GranolaTuiQuickOpenActionId = "auth" | "automation" | "clear-scope" | "export" | "sync";
 
 function splitQuery(query: string): string[] {
   return query.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -110,6 +110,12 @@ export function buildGranolaTuiQuickOpenItems(
         id: "sync",
         keywords: ["sync", "refresh", "reload"],
         label: "Sync now",
+      },
+      {
+        description: "Export notes and transcripts together for the current scope",
+        id: "export",
+        keywords: ["export", "archive", "notes", "transcripts"],
+        label: "Export archive",
       },
       {
         description: "Open auth controls for API key and session switching",

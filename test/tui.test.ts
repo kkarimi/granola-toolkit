@@ -209,6 +209,7 @@ describe("buildGranolaTuiQuickOpenItems", () => {
       }),
     );
     expect(items.some((item) => item.id === "sync" && item.kind === "action")).toBe(true);
+    expect(items.some((item) => item.id === "export" && item.kind === "action")).toBe(true);
     expect(items[0]?.description).toContain("Recent");
   });
 });

@@ -2608,12 +2608,13 @@ describe("GranolaApp", () => {
     ]);
   });
 
-  test("resolves note and transcript exports through a named target", async () => {
+  test("writes obsidian-friendly exports through a named target", async () => {
     const outputDir = await mkdtemp(join(tmpdir(), "granola-app-target-"));
     const cacheFile = join(outputDir, "cache.json");
     await writeFile(cacheFile, "{}\n", "utf8");
     const targetStore = new MemoryExportTargetStore([
       {
+        dailyNotesDir: "Daily",
         id: "work-vault",
         kind: "obsidian-vault",
         outputDir,
@@ -2654,18 +2655,23 @@ describe("GranolaApp", () => {
     const notesResult = await app.exportNotes("markdown", {
       targetId: "work-vault",
     });
-    const transcriptsResult = await app.exportTranscripts("text", {
+    const transcriptsResult = await app.exportTranscripts("markdown", {
       targetId: "work-vault",
     });
 
     expect(notesResult.outputDir).toBe(join(outputDir, "Meetings"));
     expect(transcriptsResult.outputDir).toBe(join(outputDir, "Meeting Transcripts"));
+    expect(notesResult.targetId).toBe("work-vault");
+    expect(transcriptsResult.targetId).toBe("work-vault");
     expect(await readFile(join(outputDir, "Meetings", "Alpha Sync.md"), "utf8")).toContain(
-      "Alpha Sync",
+      "[[Meeting Transcripts/Alpha Sync]]",
     );
     expect(
-      await readFile(join(outputDir, "Meeting Transcripts", "Alpha Sync.txt"), "utf8"),
-    ).toContain("Hello team");
+      await readFile(join(outputDir, "Meeting Transcripts", "Alpha Sync.md"), "utf8"),
+    ).toContain("[[Meetings/Alpha Sync]]");
+    expect(await readFile(join(outputDir, "Daily", "2024-01-01.md"), "utf8")).toContain(
+      "[[Meetings/Alpha Sync]] · [[Meeting Transcripts/Alpha Sync]]",
+    );
   });
 
   test("tracks list filters and quick-open state", async () => {

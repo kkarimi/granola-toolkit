@@ -42,8 +42,9 @@ export function createDefaultGranolaExporterRegistry(): GranolaExporterRegistry 
       async rerun(service, job) {
         return await service.exportNotes(job.format as NoteOutputFormat, {
           folderId: job.scope.mode === "folder" ? job.scope.folderId : undefined,
-          outputDir: job.outputDir,
-          scopedOutput: false,
+          outputDir: job.targetId ? undefined : job.outputDir,
+          scopedOutput: job.scopedOutput ?? false,
+          targetId: job.targetId,
         });
       },
     })
@@ -59,8 +60,9 @@ export function createDefaultGranolaExporterRegistry(): GranolaExporterRegistry 
       async rerun(service, job) {
         return await service.exportTranscripts(job.format as TranscriptOutputFormat, {
           folderId: job.scope.mode === "folder" ? job.scope.folderId : undefined,
-          outputDir: job.outputDir,
-          scopedOutput: false,
+          outputDir: job.targetId ? undefined : job.outputDir,
+          scopedOutput: job.scopedOutput ?? false,
+          targetId: job.targetId,
         });
       },
     });

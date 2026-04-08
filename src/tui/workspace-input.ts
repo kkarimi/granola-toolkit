@@ -5,6 +5,7 @@ import type { GranolaTuiFocusPane, GranolaTuiWorkspaceTab } from "./types.ts";
 interface GranolaTuiWorkspaceInputActions {
   activePane: GranolaTuiFocusPane;
   cycleTab: (delta: number) => void;
+  exportArchive: () => void;
   exit: () => void;
   moveSelection: (delta: number) => void;
   openSelectedMeeting: () => void;
@@ -30,6 +31,11 @@ export function handleWorkspaceInput(
 
   if (matchesKey(data, "r")) {
     actions.refresh(true);
+    return true;
+  }
+
+  if (matchesKey(data, "e")) {
+    actions.exportArchive();
     return true;
   }
 

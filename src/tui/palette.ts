@@ -139,7 +139,9 @@ export class GranolaTuiQuickOpenPalette implements Component, Focusable {
     }
 
     for (const hintLine of wrapTextWithAnsi(
-      granolaTuiTheme.dim("Enter to open, Esc to cancel, arrows to move, type sync/auth/all"),
+      granolaTuiTheme.dim(
+        "Enter to open, Esc to cancel, arrows to move, type sync/export/auth/all",
+      ),
       Math.max(1, bodyWidth - 4),
     )) {
       lines.push(frameLine(hintLine, bodyWidth));

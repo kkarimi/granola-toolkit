@@ -113,6 +113,10 @@ function documentFilename(document: GranolaDocument): string {
   return sanitiseFilename(document.title || document.id, "untitled");
 }
 
+export function noteFileStem(document: GranolaDocument): string {
+  return documentFilename(document);
+}
+
 function noteFileExtension(format: NoteOutputFormat): string {
   switch (format) {
     case "json":
@@ -136,6 +140,7 @@ export async function writeNotes(
       total: number;
       written: number;
     }) => Promise<void> | void;
+    renderMarkdown?: (note: NoteExportRecord, document: GranolaDocument) => string;
   } = {},
 ): Promise<number> {
   const sorted = [...documents].sort(
@@ -147,12 +152,16 @@ export async function writeNotes(
   return await syncManagedExports({
     items: sorted.map((document) => {
       const note = buildNoteExport(document);
+      const content =
+        format === "markdown" && options.renderMarkdown
+          ? options.renderMarkdown(note, document)
+          : renderNoteExport(note, format);
 
       return {
-        content: renderNoteExport(note, format),
+        content,
         extension: noteFileExtension(format),
         id: note.id,
-        preferredStem: documentFilename(document),
+        preferredStem: noteFileStem(document),
         sourceUpdatedAt: latestDocumentTimestamp(document),
       };
     }),

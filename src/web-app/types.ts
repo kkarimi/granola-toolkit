@@ -8,6 +8,7 @@ import type {
   GranolaAutomationEvaluationRun,
   GranolaAutomationRule,
   GranolaAppState,
+  GranolaExportTarget,
   GranolaMeetingBundle,
   GranolaMeetingSort,
   GranolaSyncEventKind,
@@ -22,6 +23,7 @@ import type { WebMainPage, WebSettingsSection, WebStatusTone } from "./component
 import type { WebWorkspacePreferences, WorkspaceTab } from "../web/client-state.ts";
 
 export type MeetingReturnPage = Exclude<WebMainPage, "meeting">;
+export type GranolaWebExportMode = "both" | "notes" | "transcripts";
 
 export interface GranolaWebBrowserConfig {
   passwordRequired: boolean;
@@ -40,6 +42,8 @@ export interface GranolaWebAppState {
   automationRuns: GranolaAutomationActionRun[];
   appState: GranolaAppState | null;
   detailError: string;
+  exportMode: GranolaWebExportMode;
+  exportTargets: GranolaExportTarget[];
   folderError: string;
   folders: FolderSummaryRecord[];
   foldersLoading: boolean;
@@ -68,6 +72,7 @@ export interface GranolaWebAppState {
   search: string;
   searchSubmitted: boolean;
   selectedAutomationArtefactId: string | null;
+  selectedExportTargetId: string | null;
   selectedFolderId: string | null;
   selectedHarnessId: string | null;
   selectedMeeting: MeetingRecord | null;

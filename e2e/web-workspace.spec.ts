@@ -116,6 +116,10 @@ test.describe("toolkit web workspace", () => {
         ),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Disable markdown viewer" })).toBeVisible();
+    await page.locator(".settings-shell").getByRole("button", { name: "Exports" }).click();
+    await expect(page.getByRole("heading", { name: "Bundled export" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Export archive" })).toBeVisible();
+    await expect(page.getByText("All meetings", { exact: true })).toBeVisible();
     await page.locator(".settings-shell").getByRole("button", { name: "Diagnostics" }).click();
     await expect(page.getByRole("heading", { name: "Sync and local files" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Recent sync runs" })).toBeVisible();

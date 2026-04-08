@@ -653,10 +653,6 @@ select {
   gap: 16px;
 }
 
-.settings-export-actions {
-  padding: 0 24px 0;
-}
-
 .search-panel {
   display: grid;
   gap: 14px;
@@ -913,6 +909,12 @@ select {
   display: grid;
   gap: 12px;
   margin-top: 14px;
+}
+
+.auth-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
 }
 
 .auth-card,

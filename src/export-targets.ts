@@ -1,12 +1,13 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import type {
-  GranolaExportScope,
-  GranolaExportTarget,
-  GranolaExportTargetKind,
-} from "./app/index.ts";
+import type { GranolaExportScope, GranolaExportTarget } from "./app/index.ts";
 import { resolveExportOutputDir } from "./export-scope.ts";
+import {
+  defaultExportTargetNotesSubdir,
+  defaultExportTargetTranscriptsSubdir,
+  parseGranolaExportTargetKind,
+} from "./export-target-registry.ts";
 import { defaultGranolaToolkitPersistenceLayout } from "./persistence/layout.ts";
 import type { NoteOutputFormat, TranscriptOutputFormat } from "./types.ts";
 import { asRecord, parseJsonString, stringValue } from "./utils.ts";
@@ -19,11 +20,6 @@ function cloneTarget(target: GranolaExportTarget): GranolaExportTarget {
   return { ...target };
 }
 
-function parseTargetKind(value: unknown): GranolaExportTargetKind | undefined {
-  const kind = stringValue(value).trim();
-  return kind === "bundle-folder" || kind === "obsidian-vault" ? kind : undefined;
-}
-
 function parseNoteFormat(value: unknown): NoteOutputFormat | undefined {
   const format = stringValue(value).trim();
   return format === "json" || format === "markdown" || format === "raw" || format === "yaml"
@@ -33,7 +29,11 @@ function parseNoteFormat(value: unknown): NoteOutputFormat | undefined {
 
 function parseTranscriptFormat(value: unknown): TranscriptOutputFormat | undefined {
   const format = stringValue(value).trim();
-  return format === "json" || format === "raw" || format === "text" || format === "yaml"
+  return format === "json" ||
+    format === "markdown" ||
+    format === "raw" ||
+    format === "text" ||
+    format === "yaml"
     ? format
     : undefined;
 }
@@ -46,12 +46,13 @@ function normaliseTarget(value: unknown): GranolaExportTarget | undefined {
 
   const id = stringValue(record.id).trim();
   const outputDir = stringValue(record.outputDir).trim();
-  const kind = parseTargetKind(record.kind);
+  const kind = parseGranolaExportTargetKind(record.kind);
   if (!id || !outputDir || !kind) {
     return undefined;
   }
 
   return {
+    dailyNotesDir: stringValue(record.dailyNotesDir).trim() || undefined,
     id,
     kind,
     name: stringValue(record.name).trim() || undefined,
@@ -74,14 +75,6 @@ function normaliseFile(parsed: unknown): ExportTargetsFile {
       .map((target) => normaliseTarget(target))
       .filter((target): target is GranolaExportTarget => Boolean(target)),
   };
-}
-
-export function defaultExportTargetNotesSubdir(kind: GranolaExportTargetKind): string {
-  return kind === "obsidian-vault" ? "Meetings" : "notes";
-}
-
-export function defaultExportTargetTranscriptsSubdir(kind: GranolaExportTargetKind): string {
-  return kind === "obsidian-vault" ? "Meeting Transcripts" : "transcripts";
 }
 
 export function resolveExportTargetSubdir(

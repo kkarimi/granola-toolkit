@@ -691,13 +691,43 @@ export class GranolaTuiWorkspace implements Component {
     this.setStatus("Quick open");
   }
 
-  private async runQuickOpenAction(actionId: "auth" | "automation" | "clear-scope" | "sync") {
+  private async exportArchive(): Promise<void> {
+    const folderId = this.#selectedFolderId;
+    const scopeLabel = folderId
+      ? this.#folders.find((folder) => folder.id === folderId)?.name || folderId
+      : "all meetings";
+    this.setStatus(`Exporting ${scopeLabel}…`);
+
+    try {
+      const notesResult = await this.app.exportNotes("markdown", {
+        folderId,
+        scopedOutput: true,
+      });
+      const transcriptsResult = await this.app.exportTranscripts("text", {
+        folderId,
+        scopedOutput: true,
+      });
+      this.setStatus(
+        `Exported ${notesResult.documentCount} notes and ${transcriptsResult.transcriptCount} transcripts`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.setStatus(message, "error");
+    }
+  }
+
+  private async runQuickOpenAction(
+    actionId: "auth" | "automation" | "clear-scope" | "export" | "sync",
+  ) {
     switch (actionId) {
       case "auth":
         this.openAuthPanel();
         return;
       case "automation":
         this.openAutomationPanel();
+        return;
+      case "export":
+        await this.exportArchive();
         return;
       case "clear-scope":
         this.#selectedFolderId = undefined;
@@ -798,6 +828,9 @@ export class GranolaTuiWorkspace implements Component {
       activePane: this.#activePane,
       cycleTab: (delta) => {
         this.cycleTab(delta);
+      },
+      exportArchive: () => {
+        void this.exportArchive();
       },
       exit: () => {
         this.options.onExit();

@@ -20,6 +20,12 @@ import {
 } from "../app/plugin-state.ts";
 import { defaultPluginDefinitions } from "../plugin-registry.ts";
 import {
+  defaultExportTargetNotesFormat,
+  defaultExportTargetNotesSubdir,
+  defaultExportTargetTranscriptsFormat,
+  defaultExportTargetTranscriptsSubdir,
+} from "../export-target-registry.ts";
+import {
   AppStatePanel,
   PrimaryNav,
   SecurityPanel,
@@ -79,6 +85,8 @@ export function App() {
     appState: null,
     automationRuns: [],
     detailError: "",
+    exportMode: "both",
+    exportTargets: [],
     folderError: "",
     folders: [],
     foldersLoading: false,
@@ -105,6 +113,7 @@ export function App() {
     search: "",
     serverInfo: null,
     selectedAutomationArtefactId: null,
+    selectedExportTargetId: null,
     selectedFolderId: startup.folderId || null,
     selectedHarnessId: null,
     selectedMeetingBundle: null,
@@ -202,39 +211,79 @@ export function App() {
     updatePreferences,
   });
 
-  const exportNotes = async () => {
+  const loadExportTargets = async () => {
     const client = clientController.clientAccessor();
     if (!client) {
       return;
     }
 
-    setStatus(state.selectedFolderId ? "Exporting folder notes…" : "Exporting notes…", "busy");
-    try {
-      await client.exportNotes("markdown", {
-        folderId: state.selectedFolderId || undefined,
-      });
-      await refreshAll();
-    } catch (error) {
-      setState("detailError", error instanceof Error ? error.message : String(error));
-      setStatus("Export failed", "error");
+    const result = await client.listExportTargets();
+    setState("exportTargets", result.targets);
+    if (
+      state.selectedExportTargetId &&
+      !result.targets.some((target) => target.id === state.selectedExportTargetId)
+    ) {
+      setState("selectedExportTargetId", null);
     }
   };
 
-  const exportTranscripts = async () => {
+  const selectedExportTarget = () =>
+    state.exportTargets.find((target) => target.id === state.selectedExportTargetId) ?? null;
+  const currentExportScopeLabel = () =>
+    state.selectedFolderId
+      ? state.folders.find((folder) => folder.id === state.selectedFolderId)?.name ||
+        state.selectedFolderId
+      : "All meetings";
+  const exportDestinationSummary = () => {
+    const target = selectedExportTarget();
+    if (target) {
+      const notesSubdir = target.notesSubdir || defaultExportTargetNotesSubdir(target.kind);
+      const transcriptsSubdir =
+        target.transcriptsSubdir || defaultExportTargetTranscriptsSubdir(target.kind);
+      return `${target.name ?? target.id} · ${notesSubdir} + ${transcriptsSubdir}`;
+    }
+
+    const notesPath = state.appState?.config.notes.output || "Configured notes output";
+    const transcriptsPath =
+      state.appState?.config.transcripts.output || "Configured transcript output";
+    return `${notesPath} + ${transcriptsPath}`;
+  };
+
+  const runBundledExport = async () => {
     const client = clientController.clientAccessor();
     if (!client) {
       return;
     }
 
-    setStatus(
-      state.selectedFolderId ? "Exporting folder transcripts…" : "Exporting transcripts…",
-      "busy",
-    );
+    const target = selectedExportTarget();
+    const folderId = state.selectedFolderId || undefined;
+    const scopeLabel = folderId ? currentExportScopeLabel() : "all meetings";
+    setStatus(`Exporting ${scopeLabel}…`, "busy");
     try {
-      await client.exportTranscripts("text", {
-        folderId: state.selectedFolderId || undefined,
-      });
+      if (state.exportMode !== "transcripts") {
+        await client.exportNotes(
+          target ? (target.notesFormat ?? defaultExportTargetNotesFormat(target.kind)) : "markdown",
+          {
+            folderId,
+            scopedOutput: true,
+            targetId: target?.id,
+          },
+        );
+      }
+      if (state.exportMode !== "notes") {
+        await client.exportTranscripts(
+          target
+            ? (target.transcriptsFormat ?? defaultExportTargetTranscriptsFormat(target.kind))
+            : "text",
+          {
+            folderId,
+            scopedOutput: true,
+            targetId: target?.id,
+          },
+        );
+      }
       await refreshAll();
+      setStatus(target ? `Exported via ${target.name ?? target.id}` : "Export complete", "ok");
     } catch (error) {
       setState("detailError", error instanceof Error ? error.message : String(error));
       setStatus("Export failed", "error");
@@ -293,6 +342,7 @@ export function App() {
       browseController.loadFolders(forceRefresh),
       browseController.loadHomeMeetings(forceRefresh),
       clientController.mergeAuthState(),
+      loadExportTargets(),
     ];
 
     if (automationEnabled()) {
@@ -670,12 +720,6 @@ export function App() {
                 onBackToFolders={() => {
                   void browseController.openPage("folders");
                 }}
-                onExportNotes={() => {
-                  void exportNotes();
-                }}
-                onExportTranscripts={() => {
-                  void exportTranscripts();
-                }}
                 onOpenMeeting={(meetingId) => {
                   void browseController.openMeetingFromPage(meetingId, "folders", {
                     folderId: state.selectedFolderId,
@@ -769,12 +813,6 @@ export function App() {
                       void clientController.clearApiKey(refreshAll);
                     }}
                     onDuplicateHarness={harnessController.duplicateHarness}
-                    onExportNotes={() => {
-                      void exportNotes();
-                    }}
-                    onExportTranscripts={() => {
-                      void exportTranscripts();
-                    }}
                     onImportDesktopSession={() => {
                       void clientController.importDesktopSession();
                     }}
@@ -836,6 +874,20 @@ export function App() {
                     plugins={plugins()}
                     preferredProvider={state.preferredProvider}
                     processingIssues={state.processingIssues}
+                    currentExportScopeLabel={currentExportScopeLabel()}
+                    exportDestinationSummary={exportDestinationSummary()}
+                    exportMode={state.exportMode}
+                    exportTargets={state.exportTargets}
+                    onExportModeChange={(mode) => {
+                      setState("exportMode", mode);
+                    }}
+                    onRunExport={() => {
+                      void runBundledExport();
+                    }}
+                    onSelectExportTarget={(id) => {
+                      setState("selectedExportTargetId", id);
+                    }}
+                    selectedExportTargetId={state.selectedExportTargetId}
                     selectedHarness={harnessController.selectedHarness()}
                     selectedHarnessId={state.selectedHarnessId}
                     selectedMeeting={state.selectedMeeting}
@@ -935,12 +987,6 @@ export function App() {
                   void clientController.clearApiKey(refreshAll);
                 }}
                 onDuplicateHarness={harnessController.duplicateHarness}
-                onExportNotes={() => {
-                  void exportNotes();
-                }}
-                onExportTranscripts={() => {
-                  void exportTranscripts();
-                }}
                 onImportDesktopSession={() => {
                   void clientController.importDesktopSession();
                 }}
@@ -1002,6 +1048,20 @@ export function App() {
                 plugins={plugins()}
                 preferredProvider={state.preferredProvider}
                 processingIssues={state.processingIssues}
+                currentExportScopeLabel={currentExportScopeLabel()}
+                exportDestinationSummary={exportDestinationSummary()}
+                exportMode={state.exportMode}
+                exportTargets={state.exportTargets}
+                onExportModeChange={(mode) => {
+                  setState("exportMode", mode);
+                }}
+                onRunExport={() => {
+                  void runBundledExport();
+                }}
+                onSelectExportTarget={(id) => {
+                  setState("selectedExportTargetId", id);
+                }}
+                selectedExportTargetId={state.selectedExportTargetId}
                 selectedHarness={harnessController.selectedHarness()}
                 selectedHarnessId={state.selectedHarnessId}
                 selectedMeeting={state.selectedMeeting}

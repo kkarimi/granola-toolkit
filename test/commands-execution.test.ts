@@ -504,10 +504,12 @@ describe("command execution", () => {
       makeContext({
         commandArgs: ["add"],
         commandFlags: {
+          "daily-notes-dir": "Daily",
           id: "work-vault",
           kind: "obsidian-vault",
           "notes-subdir": "Meetings",
           output: "/tmp/vault",
+          "transcripts-format": "markdown",
           "transcripts-subdir": "Meeting Transcripts",
         },
       }),
@@ -516,13 +518,14 @@ describe("command execution", () => {
     expect(exitCode).toBe(0);
     expect(app.saveExportTargets).toHaveBeenCalledWith([
       {
+        dailyNotesDir: "Daily",
         id: "work-vault",
         kind: "obsidian-vault",
         name: undefined,
         notesFormat: undefined,
         notesSubdir: "Meetings",
         outputDir: "/tmp/vault",
-        transcriptsFormat: undefined,
+        transcriptsFormat: "markdown",
         transcriptsSubdir: "Meeting Transcripts",
       },
     ]);

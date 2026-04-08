@@ -138,6 +138,8 @@ export function renderTranscriptExport(
         title: transcript.title,
         updatedAt: transcript.updatedAt,
       });
+    case "markdown":
+      return formatTranscriptMarkdown(transcript);
     case "text":
       break;
   }
@@ -172,6 +174,38 @@ function formatTranscriptText(transcript: TranscriptExportRecord): string {
   return `${[...header, ...body].join("\n").trimEnd()}\n`;
 }
 
+function formatTranscriptMarkdown(transcript: TranscriptExportRecord): string {
+  const lines: string[] = [];
+
+  if (transcript.title.trim()) {
+    lines.push(`# ${transcript.title.trim()}`, "");
+  }
+
+  lines.push(
+    `- ID: ${transcript.id}`,
+    `- Created: ${transcript.createdAt || "Unknown"}`,
+    `- Updated: ${transcript.updatedAt || "Unknown"}`,
+    `- Segments: ${transcript.segments.length}`,
+  );
+
+  if (transcript.speakers.length > 0) {
+    lines.push(`- Speakers: ${transcript.speakers.map((speaker) => speaker.label).join(", ")}`);
+  }
+
+  lines.push("", "## Transcript", "");
+
+  if (transcript.segments.length === 0) {
+    lines.push("(Transcript unavailable)");
+  } else {
+    for (const segment of transcript.segments) {
+      const time = formatTimestampForTranscript(segment.startTimestamp);
+      lines.push(`- [${time}] **${segment.speaker}:** ${segment.text}`);
+    }
+  }
+
+  return `${lines.join("\n").trimEnd()}\n`;
+}
+
 export function formatTranscript(document: CacheDocument, segments: TranscriptSegment[]): string {
   const normalisedSegments = normaliseTranscriptSegments(segments);
   return renderTranscriptExport(
@@ -184,10 +218,16 @@ function transcriptFilename(document: CacheDocument): string {
   return sanitiseFilename(document.title || document.id, "untitled");
 }
 
+export function transcriptFileStem(document: CacheDocument): string {
+  return transcriptFilename(document);
+}
+
 function transcriptFileExtension(format: TranscriptOutputFormat): string {
   switch (format) {
     case "json":
       return ".json";
+    case "markdown":
+      return ".md";
     case "raw":
       return ".raw.json";
     case "text":
@@ -207,6 +247,11 @@ export async function writeTranscripts(
       total: number;
       written: number;
     }) => Promise<void> | void;
+    renderContent?: (
+      transcript: TranscriptExportRecord,
+      document: CacheDocument,
+      segments: TranscriptSegment[],
+    ) => string;
   } = {},
 ): Promise<number> {
   const entries = Object.entries(cacheData.transcripts)
@@ -231,7 +276,9 @@ export async function writeTranscripts(
 
       const normalisedSegments = normaliseTranscriptSegments(segments);
       const transcript = buildTranscriptExport(document, normalisedSegments, segments);
-      const content = renderTranscriptExport(transcript, format);
+      const content =
+        options.renderContent?.(transcript, document, segments) ??
+        renderTranscriptExport(transcript, format);
       if (!content) {
         return [];
       }
@@ -241,7 +288,7 @@ export async function writeTranscripts(
           content,
           extension: transcriptFileExtension(format),
           id: document.id,
-          preferredStem: transcriptFilename(document),
+          preferredStem: transcriptFileStem(document),
           sourceUpdatedAt: document.updatedAt,
         },
       ];

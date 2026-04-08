@@ -645,6 +645,47 @@ function createWorkspaceHarness(
     shipped: true,
   } satisfies GranolaAppPluginState;
 
+  const exportNotesMock = vi.fn(async () => ({
+    documentCount: meetings.length,
+    documents: Object.values(documents),
+    format: "markdown" as const,
+    job: {
+      completedCount: meetings.length,
+      format: "markdown",
+      id: "notes-export-job",
+      itemCount: meetings.length,
+      kind: "notes" as const,
+      outputDir: "/tmp/notes",
+      scope: { mode: "all" as const },
+      startedAt: "2024-03-01T12:00:00.000Z",
+      status: "completed" as const,
+      written: meetings.length,
+    },
+    outputDir: "/tmp/notes",
+    scope: { mode: "all" as const },
+    written: meetings.length,
+  }));
+  const exportTranscriptsMock = vi.fn(async () => ({
+    cacheData: cacheByMeeting["doc-alpha-1111"]!,
+    format: "text" as const,
+    job: {
+      completedCount: meetings.length,
+      format: "text",
+      id: "transcripts-export-job",
+      itemCount: meetings.length,
+      kind: "transcripts" as const,
+      outputDir: "/tmp/transcripts",
+      scope: { mode: "all" as const },
+      startedAt: "2024-03-01T12:00:00.000Z",
+      status: "completed" as const,
+      written: meetings.length,
+    },
+    outputDir: "/tmp/transcripts",
+    scope: { mode: "all" as const },
+    transcriptCount: meetings.length,
+    written: meetings.length,
+  }));
+
   const app: GranolaTuiApp = {
     listPlugins: vi.fn(
       async (): Promise<GranolaAppPluginsResult> => ({
@@ -658,8 +699,8 @@ function createWorkspaceHarness(
       meetingTitle: "Alpha Sync",
     })),
     evaluateAutomationCases: vi.fn(),
-    exportNotes: vi.fn(),
-    exportTranscripts: vi.fn(),
+    exportNotes: exportNotesMock,
+    exportTranscripts: exportTranscriptsMock,
     findFolder: vi.fn(),
     findMeeting,
     getFolder: vi.fn(),
@@ -826,6 +867,8 @@ function createWorkspaceHarness(
 
   return {
     app,
+    exportNotesMock,
+    exportTranscriptsMock,
     emitState(nextState: GranolaAppState) {
       for (const listener of listeners) {
         listener({
@@ -920,6 +963,26 @@ describe("GranolaTuiWorkspace", () => {
 
     expect(harness.findMeeting).toHaveBeenCalledWith("bravox");
     expect(harness.workspace.render(100).join("\n")).toContain("Bravo Review");
+  });
+
+  test("exports the bundled archive for the current scope", async () => {
+    const harness = createWorkspaceHarness();
+
+    await harness.workspace.initialise();
+    harness.workspace.handleInput("e");
+    await harness.flush();
+
+    expect(harness.exportNotesMock).toHaveBeenCalledWith("markdown", {
+      folderId: undefined,
+      scopedOutput: true,
+    });
+    expect(harness.exportTranscriptsMock).toHaveBeenCalledWith("text", {
+      folderId: undefined,
+      scopedOutput: true,
+    });
+    expect(harness.workspace.render(100).join("\n")).toContain(
+      "Exported 2 notes and 2 transcripts",
+    );
   });
 
   test("switches detail tabs with hotkeys and cycling", async () => {

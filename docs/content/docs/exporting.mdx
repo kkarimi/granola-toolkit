@@ -43,7 +43,7 @@ Examples:
 ```bash
 granola targets list
 granola targets add --id work-archive --output ./exports
-granola targets add --id work-vault --kind obsidian-vault --output ~/Vaults/Work
+granola targets add --id work-vault --kind obsidian-vault --output ~/Vaults/Work --daily-notes-dir Daily
 granola export --target work-vault
 granola targets remove work-archive
 ```
@@ -52,6 +52,8 @@ For Obsidian vault targets, the toolkit defaults to:
 
 - notes in `Meetings`
 - transcripts in `Meeting Transcripts`
+- markdown transcripts with note backlinks
+- optional daily notes when `--daily-notes-dir` is configured
 
 ## Notes And Transcript Formats
 
@@ -65,6 +67,7 @@ Notes support:
 Transcripts support:
 
 - `text`
+- `markdown`
 - `json`
 - `yaml`
 - `raw`
@@ -74,6 +77,7 @@ Examples:
 ```bash
 granola export --notes-format json
 granola export --transcripts-format yaml
+granola export --transcripts-format markdown
 granola export --target work-vault --notes-format markdown
 ```
 

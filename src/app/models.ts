@@ -19,7 +19,7 @@ export interface NoteExportRecord {
   updatedAt: string;
 }
 
-export type TranscriptOutputFormat = "json" | "raw" | "text" | "yaml";
+export type TranscriptOutputFormat = "json" | "markdown" | "raw" | "text" | "yaml";
 
 export interface TranscriptExportSegmentRecord {
   endTimestamp: string;

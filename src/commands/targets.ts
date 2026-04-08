@@ -1,4 +1,8 @@
 import { type GranolaExportTarget, type GranolaExportTargetKind } from "../app/index.ts";
+import {
+  listGranolaExportTargetDefinitions,
+  parseGranolaExportTargetKind,
+} from "../export-target-registry.ts";
 import { toJson, toYaml } from "../render.ts";
 
 import { createCommandAppContext } from "./shared.ts";
@@ -7,6 +11,9 @@ import type { CommandDefinition } from "./types.ts";
 type TargetsFormat = "json" | "text" | "yaml";
 
 function targetsHelp(): string {
+  const kinds = listGranolaExportTargetDefinitions()
+    .map((definition) => definition.kind)
+    .join(" or ");
   return `Granola targets
 
 Usage:
@@ -21,14 +28,15 @@ Options:
   --format <value>           text, json, yaml (default: text)
   --id <value>               Target id for add/remove
   --name <value>             Human label for the target
-  --kind <value>             bundle-folder or obsidian-vault (default: bundle-folder)
+  --kind <value>             ${kinds} (default: bundle-folder)
   --output <path>            Root output directory for the target
   --notes-subdir <path>      Notes subdirectory inside the target root
   --transcripts-subdir <path>
                             Transcript subdirectory inside the target root
   --notes-format <value>     markdown, json, yaml, raw
   --transcripts-format <value>
-                            text, json, yaml, raw
+                            text, markdown, json, yaml, raw
+  --daily-notes-dir <path>   Optional daily note directory for obsidian-vault targets
   --config <path>            Path to .granola.toml
   --debug                    Enable debug logging
   -h, --help                 Show help
@@ -49,15 +57,20 @@ function resolveFormat(value: string | boolean | undefined): TargetsFormat {
 }
 
 function resolveKind(value: string | boolean | undefined): GranolaExportTargetKind {
-  switch (value) {
-    case undefined:
-      return "bundle-folder";
-    case "bundle-folder":
-    case "obsidian-vault":
-      return value;
-    default:
-      throw new Error("invalid target kind: expected bundle-folder or obsidian-vault");
+  if (value === undefined) {
+    return "bundle-folder";
   }
+
+  const kind = parseGranolaExportTargetKind(value);
+  if (!kind) {
+    throw new Error(
+      `invalid target kind: expected ${listGranolaExportTargetDefinitions()
+        .map((definition) => definition.kind)
+        .join(" or ")}`,
+    );
+  }
+
+  return kind;
 }
 
 function resolveNotesFormat(
@@ -83,12 +96,13 @@ function resolveTranscriptsFormat(
     case undefined:
       return undefined;
     case "json":
+    case "markdown":
     case "raw":
     case "text":
     case "yaml":
       return value;
     default:
-      throw new Error("invalid transcripts format: expected text, json, yaml, or raw");
+      throw new Error("invalid transcripts format: expected text, markdown, json, yaml, or raw");
   }
 }
 
@@ -139,6 +153,10 @@ function buildTargetFromFlags(
   }
 
   return {
+    dailyNotesDir:
+      typeof commandFlags["daily-notes-dir"] === "string" && commandFlags["daily-notes-dir"].trim()
+        ? commandFlags["daily-notes-dir"].trim()
+        : undefined,
     id,
     kind: resolveKind(commandFlags.kind),
     name:
@@ -163,6 +181,7 @@ function buildTargetFromFlags(
 export const targetsCommand: CommandDefinition = {
   description: "Manage named export targets",
   flags: {
+    "daily-notes-dir": { type: "string" },
     format: { type: "string" },
     help: { type: "boolean" },
     id: { type: "string" },

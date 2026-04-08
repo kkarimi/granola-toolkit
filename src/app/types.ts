@@ -319,6 +319,7 @@ export interface GranolaPkmTarget {
 }
 
 export interface GranolaExportTarget {
+  dailyNotesDir?: string;
   id: string;
   kind: GranolaExportTargetKind;
   name?: string;
@@ -515,6 +516,7 @@ export interface GranolaAppExportRunState {
   outputDir: string;
   ranAt: string;
   scope: GranolaExportScope;
+  targetId?: string;
   written: number;
 }
 
@@ -527,9 +529,11 @@ export interface GranolaAppExportJobState {
   itemCount: number;
   kind: GranolaExportJobKind;
   outputDir: string;
+  scopedOutput?: boolean;
   scope: GranolaExportScope;
   startedAt: string;
   status: GranolaExportJobStatus;
+  targetId?: string;
   written: number;
 }
 
@@ -591,6 +595,7 @@ export interface GranolaNotesExportResult {
   job: GranolaAppExportJobState;
   outputDir: string;
   scope: GranolaExportScope;
+  targetId?: string;
   written: number;
 }
 
@@ -600,6 +605,7 @@ export interface GranolaTranscriptsExportResult {
   job: GranolaAppExportJobState;
   outputDir: string;
   scope: GranolaExportScope;
+  targetId?: string;
   transcriptCount: number;
   written: number;
 }
