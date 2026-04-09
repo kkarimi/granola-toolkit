@@ -341,6 +341,128 @@ describe("GranolaApp", () => {
     expect(listFolders).toHaveBeenCalledTimes(1);
   });
 
+  test("surfaces a narrow Yazd source seam for meetings, artifacts, and changes", async () => {
+    const syncEventStore = new MemorySyncEventStore();
+    await syncEventStore.appendEvents([
+      {
+        folders: [
+          {
+            createdAt: "2024-01-01T08:00:00Z",
+            documentCount: 1,
+            id: "folder-team-1111",
+            isFavourite: true,
+            name: "Team",
+            updatedAt: "2024-01-04T10:00:00Z",
+            workspaceId: "workspace-1",
+          },
+        ],
+        id: "sync-1:2",
+        kind: "transcript.ready",
+        meetingId: "doc-alpha-1111",
+        occurredAt: "2024-03-01T12:00:00.000Z",
+        runId: "sync-1",
+        tags: ["team", "alpha"],
+        title: "Alpha Sync",
+        transcriptLoaded: true,
+        updatedAt: "2024-01-03T10:00:00Z",
+      },
+    ]);
+
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile: "",
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          mode: "supabase-file",
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: true,
+          supabasePath: "/tmp/supabase.json",
+        },
+        cacheLoader: async () => cacheData,
+        granolaClient: {
+          listDocuments: async () => documents,
+          listFolders: async () => folders,
+        },
+        now: () => new Date("2024-03-01T12:00:00Z"),
+        syncEventStore,
+      },
+    );
+
+    expect(await app.inspectYazdSource()).toEqual(
+      expect.objectContaining({
+        id: "gran",
+        label: "Gran",
+        product: "gran",
+      }),
+    );
+
+    const items = await app.listYazdSourceItems({ limit: 10, search: "alpha" });
+    expect(items).toEqual(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            folderNames: ["Team"],
+            id: "doc-alpha-1111",
+            title: "Alpha Sync",
+            transcriptLoaded: false,
+          }),
+        ],
+        source: "live",
+      }),
+    );
+
+    const fetched = await app.fetchYazdSourceItem("doc-alpha-1111");
+    expect(fetched).toEqual(
+      expect.objectContaining({
+        item: expect.objectContaining({
+          id: "doc-alpha-1111",
+          title: "Alpha Sync",
+        }),
+        markdown: expect.stringContaining("Alpha notes"),
+        text: expect.stringContaining("Alpha notes"),
+      }),
+    );
+
+    const artifacts = await app.buildYazdSourceArtifacts("doc-alpha-1111");
+    expect(artifacts).toEqual(
+      expect.objectContaining({
+        sourceItemId: "doc-alpha-1111",
+        sourcePluginId: "gran",
+        title: "Alpha Sync",
+      }),
+    );
+    expect(artifacts.artifacts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "note", title: "Alpha Sync" }),
+        expect.objectContaining({ kind: "entity", text: "Team" }),
+      ]),
+    );
+
+    const changes = await app.listYazdSourceChanges({ limit: 10 });
+    expect(changes).toEqual(
+      expect.objectContaining({
+        changes: [
+          expect.objectContaining({
+            id: "sync-1:2",
+            itemId: "doc-alpha-1111",
+            kind: "transcript-ready",
+          }),
+        ],
+      }),
+    );
+  });
+
   test("syncs the local meeting index and persists structured sync state", async () => {
     const meetingIndexStore = new MemoryMeetingIndexStore();
     const syncEventStore = new MemorySyncEventStore();

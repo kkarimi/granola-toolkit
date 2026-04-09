@@ -1,5 +1,13 @@
 export { GranolaApp, createGranolaApp } from "./core.ts";
 export {
+  GRAN_YAZD_SOURCE_ID,
+  buildGranolaYazdArtifactBundle,
+  buildGranolaYazdSourceChange,
+  buildGranolaYazdSourceFetchResult,
+  buildGranolaYazdSourceInfo,
+  buildGranolaYazdSourceItemSummary,
+} from "../yazd-source.ts";
+export {
   buildMeetingPkmArtifactBundle,
   buildPkmAutomationArtefactProjection,
   buildPkmEntityArtifactsFromDocument,
@@ -122,6 +130,8 @@ export type {
   GranolaExportRunOptions,
   GranolaExportJobRunResult,
   GranolaAppDocumentsState,
+  GranolaYazdArtifact,
+  GranolaYazdArtifactBundle,
   GranolaAppExportRunState,
   GranolaAppFoldersState,
   GranolaAppIndexState,
@@ -169,5 +179,12 @@ export type {
   GranolaPkmTargetsResult,
   GranolaPkmTargetReviewMode,
   GranolaPkmTargetTransport,
+  GranolaYazdSourceChange,
+  GranolaYazdSourceChangesResult,
+  GranolaYazdSourceFetchResult,
+  GranolaYazdSourceInfo,
+  GranolaYazdSourceItemSummary,
+  GranolaYazdSourceListOptions,
+  GranolaYazdSourceListResult,
   GranolaTranscriptsExportResult,
 } from "./types.ts";

@@ -132,6 +132,9 @@ export const granolaTransportPaths = {
   syncRun: "/sync",
   syncEvents: "/sync/events",
   state: "/state",
+  yazdSource: "/yazd/source",
+  yazdSourceChanges: "/yazd/source/changes",
+  yazdSourceItems: "/yazd/source/items",
 } as const;
 
 function appendSearchParams(
@@ -153,6 +156,14 @@ export function granolaMeetingPath(id: string): string {
   return `${granolaTransportPaths.meetings}/${encodeURIComponent(id)}`;
 }
 
+export function granolaYazdSourceItemPath(id: string): string {
+  return `${granolaTransportPaths.yazdSourceItems}/${encodeURIComponent(id)}`;
+}
+
+export function granolaYazdSourceArtifactsPath(id: string): string {
+  return `${granolaYazdSourceItemPath(id)}/artifacts`;
+}
+
 export function granolaMeetingResolvePath(
   query: string,
   options: { includeTranscript?: boolean } = {},
@@ -172,6 +183,38 @@ export function granolaMeetingsPath(options: GranolaMeetingListOptions = {}): st
     sort: options.sort,
     updatedFrom: options.updatedFrom,
     updatedTo: options.updatedTo,
+  });
+}
+
+export function granolaYazdSourceItemsPath(
+  options: {
+    cursor?: string;
+    folderId?: string;
+    limit?: number;
+    search?: string;
+    since?: string;
+  } = {},
+): string {
+  return appendSearchParams(granolaTransportPaths.yazdSourceItems, {
+    cursor: options.cursor,
+    folderId: options.folderId,
+    limit: options.limit,
+    search: options.search,
+    since: options.since,
+  });
+}
+
+export function granolaYazdSourceChangesPath(
+  options: {
+    cursor?: string;
+    limit?: number;
+    since?: string;
+  } = {},
+): string {
+  return appendSearchParams(granolaTransportPaths.yazdSourceChanges, {
+    cursor: options.cursor,
+    limit: options.limit,
+    since: options.since,
   });
 }
 

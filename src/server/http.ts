@@ -26,6 +26,7 @@ import { handleExportRoute } from "./routes/exports.ts";
 import { handlePluginRoute } from "./routes/plugins.ts";
 import { handlePublicRoute } from "./routes/public.ts";
 import { handleSyncRoute } from "./routes/sync.ts";
+import { handleYazdSourceRoute } from "./routes/yazd-source.ts";
 
 export interface GranolaServer {
   app: GranolaApp;
@@ -62,6 +63,7 @@ function routeHandlers(): GranolaServerRouteHandler[] {
     handlePluginRoute,
     handleAutomationRoute,
     handleCatalogRoute,
+    handleYazdSourceRoute,
     handleExportRoute,
   ];
 }

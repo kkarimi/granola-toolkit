@@ -40,6 +40,12 @@ import type {
   GranolaPkmTargetsResult,
   GranolaAutomationRunsResult,
   GranolaTranscriptsExportResult,
+  GranolaYazdArtifactBundle,
+  GranolaYazdSourceChangesResult,
+  GranolaYazdSourceFetchResult,
+  GranolaYazdSourceInfo,
+  GranolaYazdSourceListOptions,
+  GranolaYazdSourceListResult,
   NoteOutputFormat,
   TranscriptOutputFormat,
 } from "../app/index.ts";
@@ -65,6 +71,10 @@ import {
   granolaPluginPath,
   granolaProcessingIssueRecoverPath,
   granolaProcessingIssuesPath,
+  granolaYazdSourceArtifactsPath,
+  granolaYazdSourceChangesPath,
+  granolaYazdSourceItemPath,
+  granolaYazdSourceItemsPath,
   granolaExportTargetsPath,
   GRANOLA_TRANSPORT_PROTOCOL_VERSION,
   type GranolaServerInfo,
@@ -244,6 +254,30 @@ export class GranolaServerClient implements GranolaAppApi {
 
   async inspectAuth(): Promise<GranolaAppAuthState> {
     return await this.requestJson(granolaTransportPaths.authStatus);
+  }
+
+  async inspectYazdSource(): Promise<GranolaYazdSourceInfo> {
+    return await this.requestJson(granolaTransportPaths.yazdSource);
+  }
+
+  async listYazdSourceItems(
+    options: GranolaYazdSourceListOptions = {},
+  ): Promise<GranolaYazdSourceListResult> {
+    return await this.requestJson(granolaYazdSourceItemsPath(options));
+  }
+
+  async fetchYazdSourceItem(id: string): Promise<GranolaYazdSourceFetchResult> {
+    return await this.requestJson(granolaYazdSourceItemPath(id));
+  }
+
+  async buildYazdSourceArtifacts(id: string): Promise<GranolaYazdArtifactBundle> {
+    return await this.requestJson(granolaYazdSourceArtifactsPath(id));
+  }
+
+  async listYazdSourceChanges(
+    options: { cursor?: string; limit?: number; since?: string } = {},
+  ): Promise<GranolaYazdSourceChangesResult> {
+    return await this.requestJson(granolaYazdSourceChangesPath(options));
   }
 
   async listPlugins(): Promise<GranolaAppPluginsResult> {

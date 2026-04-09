@@ -179,6 +179,91 @@ export interface GranolaAppSyncEvent {
   updatedAt?: string;
 }
 
+export interface GranolaYazdSourceInfo {
+  description?: string;
+  id: string;
+  label: string;
+  product: "gran";
+}
+
+export interface GranolaYazdSourceListOptions {
+  cursor?: string;
+  folderId?: string;
+  limit?: number;
+  search?: string;
+  since?: string;
+}
+
+export interface GranolaYazdSourceItemSummary {
+  folderIds: string[];
+  folderNames: string[];
+  id: string;
+  kind: "meeting";
+  summary?: string;
+  tags: string[];
+  title: string;
+  transcriptLoaded: boolean;
+  transcriptSegmentCount: number;
+  updatedAt?: string;
+}
+
+export interface GranolaYazdSourceListResult {
+  items: GranolaYazdSourceItemSummary[];
+  nextCursor?: string;
+  source: MeetingSummarySource;
+}
+
+export interface GranolaYazdSourceFetchResult {
+  item: GranolaYazdSourceItemSummary;
+  markdown?: string;
+  metadata?: Record<string, unknown>;
+  text?: string;
+}
+
+export interface GranolaYazdArtifact {
+  id: string;
+  kind: "action-item" | "decision" | "entity" | "note" | "transcript";
+  markdown?: string;
+  metadata?: Record<string, unknown>;
+  provenance: {
+    actionId?: string;
+    artefactId?: string;
+    capturedAt: string;
+    model?: string;
+    provider?: GranolaAgentProviderKind;
+    reviewStatus: "approved" | "generated" | "rejected";
+    ruleId?: string;
+    sourceId: string;
+    sourceKind: string;
+    sourceUpdatedAt?: string;
+  };
+  text?: string;
+  title: string;
+}
+
+export interface GranolaYazdArtifactBundle {
+  artifacts: GranolaYazdArtifact[];
+  metadata?: Record<string, unknown>;
+  sourceItemId: string;
+  sourcePluginId: string;
+  tags?: string[];
+  title: string;
+  updatedAt?: string;
+}
+
+export interface GranolaYazdSourceChange {
+  happenedAt?: string;
+  id: string;
+  itemId: string;
+  kind: "created" | "deleted" | "transcript-ready" | "updated";
+  title?: string;
+}
+
+export interface GranolaYazdSourceChangesResult {
+  changes: GranolaYazdSourceChange[];
+  nextCursor?: string;
+}
+
 export interface GranolaAutomationRuleWhen {
   eventKinds?: GranolaSyncEventKind[];
   folderIds?: string[];
@@ -776,6 +861,15 @@ export interface GranolaAppApi {
   getState(): GranolaAppState;
   subscribe(listener: (event: GranolaAppStateEvent) => void): () => void;
   inspectAuth(): Promise<GranolaAppAuthState>;
+  inspectYazdSource(): Promise<GranolaYazdSourceInfo>;
+  listYazdSourceItems(options?: GranolaYazdSourceListOptions): Promise<GranolaYazdSourceListResult>;
+  fetchYazdSourceItem(id: string): Promise<GranolaYazdSourceFetchResult>;
+  buildYazdSourceArtifacts(id: string): Promise<GranolaYazdArtifactBundle>;
+  listYazdSourceChanges(options?: {
+    cursor?: string;
+    limit?: number;
+    since?: string;
+  }): Promise<GranolaYazdSourceChangesResult>;
   listPlugins(): Promise<GranolaAppPluginsResult>;
   setPluginEnabled(id: GranolaAppPluginId, enabled: boolean): Promise<GranolaAppPluginState>;
   listAgentHarnesses(): Promise<GranolaAgentHarnessesResult>;

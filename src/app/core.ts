@@ -118,6 +118,13 @@ import type {
   TranscriptOutputFormat,
 } from "../types.ts";
 import { writeTextFile } from "../utils.ts";
+import {
+  buildGranolaYazdArtifactBundle,
+  buildGranolaYazdSourceChange,
+  buildGranolaYazdSourceFetchResult,
+  buildGranolaYazdSourceInfo,
+  buildGranolaYazdSourceItemSummary,
+} from "../yazd-source.ts";
 
 import type {
   GranolaAppApi,
@@ -157,6 +164,12 @@ import type {
   GranolaAppSyncRun,
   GranolaAppSyncResult,
   GranolaAppSyncState,
+  GranolaYazdArtifactBundle,
+  GranolaYazdSourceChangesResult,
+  GranolaYazdSourceFetchResult,
+  GranolaYazdSourceInfo,
+  GranolaYazdSourceListOptions,
+  GranolaYazdSourceListResult,
   GranolaExportTarget,
   GranolaExportTargetsResult,
   GranolaExportRunOptions,
@@ -819,6 +832,68 @@ export class GranolaApp implements GranolaAppApi {
 
   async inspectAuth(): Promise<GranolaAppAuthState> {
     return await this.#auth.inspectAuth();
+  }
+
+  async inspectYazdSource(): Promise<GranolaYazdSourceInfo> {
+    return buildGranolaYazdSourceInfo();
+  }
+
+  async listYazdSourceItems(
+    options: GranolaYazdSourceListOptions = {},
+  ): Promise<GranolaYazdSourceListResult> {
+    const result = await this.listMeetings({
+      folderId: options.folderId,
+      limit: options.limit,
+      preferIndex: true,
+      search: options.search,
+      updatedFrom: options.since,
+    });
+
+    return {
+      items: result.meetings.map((meeting) => buildGranolaYazdSourceItemSummary(meeting)),
+      nextCursor: undefined,
+      source: result.source,
+    };
+  }
+
+  async fetchYazdSourceItem(id: string): Promise<GranolaYazdSourceFetchResult> {
+    const bundle = await this.readMeetingBundleById(id, { requireCache: true }).catch(
+      async () => await this.readMeetingBundleById(id),
+    );
+    return buildGranolaYazdSourceFetchResult(bundle);
+  }
+
+  async buildYazdSourceArtifacts(id: string): Promise<GranolaYazdArtifactBundle> {
+    const bundle = await this.readMeetingBundleById(id, { requireCache: true }).catch(
+      async () => await this.readMeetingBundleById(id),
+    );
+    return buildGranolaYazdArtifactBundle(bundle);
+  }
+
+  async listYazdSourceChanges(
+    options: { cursor?: string; limit?: number; since?: string } = {},
+  ): Promise<GranolaYazdSourceChangesResult> {
+    const cursor = options.cursor?.trim() || undefined;
+    const sinceTimestamp = options.since?.trim() ? Date.parse(options.since) : undefined;
+    const events = (await this.listSyncEvents({ limit: options.limit ?? 50 })).events.filter(
+      (event) => {
+        if (cursor && event.id === cursor) {
+          return false;
+        }
+
+        if (sinceTimestamp == null || Number.isNaN(sinceTimestamp)) {
+          return true;
+        }
+
+        const occurredAt = Date.parse(event.occurredAt);
+        return Number.isNaN(occurredAt) ? true : occurredAt >= sinceTimestamp;
+      },
+    );
+
+    return {
+      changes: events.map((event) => buildGranolaYazdSourceChange(event)),
+      nextCursor: undefined,
+    };
   }
 
   async listPlugins(): Promise<GranolaAppPluginsResult> {

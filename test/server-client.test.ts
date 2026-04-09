@@ -494,6 +494,73 @@ describe("GranolaServerClient", () => {
     );
   });
 
+  test("exposes the Yazd source seam over the attached server", async () => {
+    const { app } = createTestApp();
+    const server = await startGranolaServer(app);
+    closeServer = async () => await server.close();
+
+    const client = await createGranolaServerClient(server.url);
+    closeClient = async () => await client.close();
+
+    await app.sync();
+
+    expect(await client.inspectYazdSource()).toEqual(
+      expect.objectContaining({
+        id: "gran",
+        label: "Gran",
+        product: "gran",
+      }),
+    );
+
+    const items = await client.listYazdSourceItems({ limit: 5, search: "alpha" });
+    expect(items).toEqual(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            id: "doc-alpha-1111",
+            title: "Alpha Sync",
+            transcriptLoaded: false,
+          }),
+        ],
+        source: "index",
+      }),
+    );
+
+    expect(await client.fetchYazdSourceItem("doc-alpha-1111")).toEqual(
+      expect.objectContaining({
+        item: expect.objectContaining({
+          id: "doc-alpha-1111",
+          title: "Alpha Sync",
+        }),
+        markdown: expect.stringContaining("Alpha notes"),
+      }),
+    );
+
+    const artifacts = await client.buildYazdSourceArtifacts("doc-alpha-1111");
+    expect(artifacts).toEqual(
+      expect.objectContaining({
+        sourceItemId: "doc-alpha-1111",
+        sourcePluginId: "gran",
+      }),
+    );
+    expect(artifacts.artifacts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "note" }),
+        expect.objectContaining({ kind: "entity", text: "Team" }),
+      ]),
+    );
+
+    const changes = await client.listYazdSourceChanges({ limit: 10 });
+    expect(changes.changes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          itemId: "doc-alpha-1111",
+          kind: "created",
+        }),
+      ]),
+    );
+  });
+
   test("manages harnesses and evaluations through the attached server", async () => {
     const { app } = createTestApp({ withCacheFile: true });
     const server = await startGranolaServer(app);
