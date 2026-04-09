@@ -7,31 +7,8 @@
 
 The unofficial open-source Swiss army knife for Granola.
 
-Sync your meeting archive locally, browse it in the browser or terminal, export anything you need,
-and run your own agents against transcripts and notes.
-
-> `gran` is for people who want more than a flat export command:
-> a local-first Granola archive, a real browser and terminal workspace, and automation you control.
-
-## Why Use It
-
-- Local-first control instead of being trapped in one app surface
-- CLI, browser, and TUI on one shared runtime and one local index
-- Bring your own agent workflows on top of transcripts and notes
-- Export notes and transcripts into files you actually own
-- Open-source and scriptable, with local prompts, rules, skills, and plugins
-
-## What You Get
-
-- `gran sync` for local indexing and refresh
-- `gran web` for a browser workspace
-- `gran tui` / `gran attach` for keyboard-first terminal use
-- `gran export` for bundled note + transcript exports
-- `gran kb` for named vaults, folders, and knowledge-base profiles
-- `gran intelligence` for built-in presets like decisions and action items
-- `gran automation` plus harnesses/rules for BYOA review workflows
-- `@kkarimi/gran-sdk` for Node and TypeScript integrations on the same local-first core
-- local diagnostics, sync history, and inspectable runtime state
+Sync your meeting archive locally, browse it in the browser or terminal, export it into knowledge
+bases you own, and run your own agents against transcripts and notes.
 
 ## Install
 
@@ -56,124 +33,24 @@ If you do not want to install via npm, each GitHub release also publishes standa
 macOS arm64, Linux x64, and Windows x64. Extract the archive and run `gran` (or `gran.exe` on
 Windows).
 
-## Start Here
+## Start
 
 ```bash
 gran init
 ```
-
-In an interactive terminal, `gran init` guides you through:
-
-1. connecting Granola
-2. importing your meetings
-3. opening a local workspace
-
-If you skip the guide or run `gran init` in a non-interactive shell, the shortest follow-up is:
-
-```bash
-gran web --config ./.gran.json
-```
-
-That opens the browser workspace, which is the default first-run path. You can still choose the
-terminal workspace from guided setup, or run `gran tui --config ./.gran.json` later.
-
-## Example Workflows
-
-### Local Archive And Browser Workspace
-
-```bash
-gran init
-```
-
-Use this when you want the fastest way to get your Granola archive into a local workspace you can
-actually use every day.
-
-### Obsidian Vault Publishing
-
-```bash
-gran init --provider openrouter
-gran kb add --name "Work vault" --kind obsidian-vault --output ~/Vaults/Work --daily-notes-dir Daily
-gran export --kb work-vault
-```
-
-Use this when your main goal is to keep notes and transcripts in an Obsidian vault you own.
-
-### Review-First Meeting Notes
-
-```bash
-gran init --provider openrouter
-```
-
-Then choose the browser workspace in guided setup. After the first import, open
-`Settings -> Automation`, enable the automation plugin, keep the starter harness or edit it, and
-review drafts before anything is published.
-
-### Terminal-First Use
-
-```bash
-gran init
-```
-
-Choose the terminal workspace in guided setup if you want to stay in the terminal from the first
-run.
-
-## Project Setup And Config
-
-`gran init` writes a project-local `.gran.json` for you. That is the normal way to set up a
-project. It also creates `./.gran/` for prompts, rules, and knowledge-base files. If you want to inspect
-or edit the generated config and companion files directly, see
-[`Auth and configuration`](https://kkarimi.github.io/gran/docs/auth-and-configuration/) in the
-docs.
-
-Configuration precedence is:
-
-1. command-line flags
-2. environment variables
-3. `.gran.json`
-4. platform defaults
-
-Relative paths in `.gran.json` resolve from the directory that contains the config file.
-
-## Debug Logging
-
-Yes, the toolkit supports a real debug mode.
-
-```bash
-gran sync --debug
-gran web --debug --foreground
-DEBUG_MODE=1 gran service start
-```
-
-Useful when you want to see config resolution, auth mode selection, sync behaviour, and runtime
-paths while diagnosing local-state issues.
 
 ## Documentation
 
-The detailed documentation lives at
-[`kkarimi.github.io/gran`](https://kkarimi.github.io/gran/).
+The full docs live at [kkarimi.github.io/gran](https://kkarimi.github.io/gran/).
 
-Local docs development:
+Start with:
 
-```bash
-npm run docs:dev
-npm run docs:check
-```
-
-Key docs entry points:
-
-- [`Overview`](https://kkarimi.github.io/gran/docs/)
-- [`Getting Started`](https://kkarimi.github.io/gran/docs/getting-started/)
-- [`Workflows`](https://kkarimi.github.io/gran/docs/workflows/)
-- [`SDK`](https://kkarimi.github.io/gran/docs/sdk/)
-- [`Automation`](https://kkarimi.github.io/gran/docs/automation/)
-- [`Server, Web, and TUI`](https://kkarimi.github.io/gran/docs/server-web-and-tui/)
-- [`Auth and Configuration`](https://kkarimi.github.io/gran/docs/auth-and-configuration/)
-- [`Exporting`](https://kkarimi.github.io/gran/docs/exporting/)
-- [`Meetings and Folders`](https://kkarimi.github.io/gran/docs/meetings-and-folders/)
-- [`Agent Skills`](https://kkarimi.github.io/gran/docs/agent-skills/)
-- [`Architecture`](https://kkarimi.github.io/gran/docs/architecture/)
-- [`Releases`](https://kkarimi.github.io/gran/docs/releases/)
-- [`Development`](https://kkarimi.github.io/gran/docs/development/)
+- [Overview](https://kkarimi.github.io/gran/docs/)
+- [Getting started](https://kkarimi.github.io/gran/docs/getting-started/)
+- [Workflows and examples](https://kkarimi.github.io/gran/docs/workflows/)
+- [SDK](https://kkarimi.github.io/gran/docs/sdk/)
+- [Automation and BYOA](https://kkarimi.github.io/gran/docs/automation/)
+- [Auth and configuration](https://kkarimi.github.io/gran/docs/auth-and-configuration/)
 
 Release history is also tracked in
 [`CHANGELOG.md`](https://github.com/kkarimi/gran/blob/main/CHANGELOG.md).
@@ -188,7 +65,7 @@ expectations, and contribution workflow.
 ```bash
 curl -fsSL https://vite.plus | bash
 vp install
-npm run web:check
+npm run docs:check
 vp pack
 node dist/cli.js --help
 ```
