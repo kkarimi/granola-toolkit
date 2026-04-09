@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-description: Install the toolkit, set up auth once, sync locally, and start from a real Granola workspace instead of raw files.
+description: Install the toolkit, create a local project, connect Granola once, and start from a real workspace instead of raw files.
 ---
 
 ## Install
@@ -30,7 +30,7 @@ If you use external agents, the repo also ships an OpenClaw-ready skill at
 Create a local project bootstrap first:
 
 ```bash
-gran init --provider openrouter
+gran init
 ```
 
 That writes:
@@ -40,86 +40,91 @@ That writes:
 - `./.gran/automation-rules.json`
 - starter prompt files under `./.gran/prompts/`
 
-The generated files are intentionally local and editable. They give you a working starting point
-for team notes and customer follow-up notes without forcing you to reverse-engineer the JSON shape
-first.
+The generated files are intentionally local and editable. They give you a project-local home for
+config, targets, prompts, and future automation without forcing you to reverse-engineer the JSON
+shape first.
 
-Store a Granola Personal API key once:
+The smoothest first run today is browser-first:
+
+```bash
+gran web
+```
+
+The first-run flow in the web workspace will guide you through the two things you actually need
+before the app becomes useful:
+
+1. save a Granola API key
+2. run the first meeting import
+
+After that, you land in the workspace with your local archive ready to browse.
+
+`gran web` prefers the reusable background-service path, so for many users the command above is
+enough to both launch the browser and warm the local sync runtime.
+
+If you prefer CLI auth instead, store a Granola Personal API key once:
 
 ```bash
 gran auth login --api-key grn_...
 gran auth status
 ```
 
-If you chose `--provider openrouter` or `--provider openai`, export the matching provider key in
-the shell or service that runs your sync loop:
-
-```bash
-export OPENROUTER_API_KEY=...
-# or
-export OPENAI_API_KEY=...
-```
-
 If you prefer to reuse the desktop app session, `gran auth login` imports it from
 `supabase.json`.
 
-Then verify that folders and meetings resolve cleanly:
-
-```bash
-gran service start --config ./.gran.json
-gran automation rules
-gran automation runs
-gran search customer onboarding
-gran folder list
-gran meeting list --limit 10
-gran meeting view 1234abcd
-```
-
-If you prefer to start in the browser instead of the terminal, run:
-
-```bash
-gran web
-```
-
-The first-run flow in the web workspace will guide you through the same setup in order: store a
-Granola API key, run the first meeting import, choose an agent provider, and create a starter
-reviewable notes pipeline before it drops you into the full workspace.
-
-`gran web` prefers the reusable background-service path, so for many users the command above
-is enough to both launch the browser and warm the local sync runtime.
-
-If you want to warm the service before opening the browser, or keep it running headlessly, use:
-
-```bash
-gran service start
-gran web
-gran attach
-gran service status
-```
-
-## Typical Starting Commands
+Then run the first sync and verify that folders and meetings resolve cleanly:
 
 ```bash
 gran service start
 gran sync
-gran search onboarding risk
-gran export
-gran export --folder Team
-gran web
-gran attach
+gran folder list
+gran meeting list --limit 10
+gran search onboarding
 ```
 
-## When to Use Which Surface
+## Choose A Surface
 
-- Use the CLI when you want scripts, exports, or stable machine-readable output.
-- Use the SDK when you want the same local-first core inside Node or TypeScript code.
-- Use `gran service start` when you want the sync loop and local workspace runtime to stay warm.
-- Use `gran web` when you want quick navigation, tabs, and export actions in a browser.
-- Use `gran attach` when you want the same shared runtime in a keyboard-first terminal UI.
+### Browser Workspace
+
+```bash
+gran web
+```
+
+Use this when you want the calmest first-run path and the easiest place to inspect sync state,
+folders, review queues, targets, and diagnostics.
+
+### Terminal Workspace
+
+```bash
+gran service start
+gran tui
+```
+
+Use this when you want a keyboard-first workspace on the same shared local runtime.
+
+### Headless Local Runtime
+
+```bash
+gran service start
+gran attach
+gran service status
+```
+
+Use this when you want the sync loop and local runtime running before you open either browser or
+terminal UI.
+
+## Common Next Steps
+
+- `gran export` when you want notes and transcripts in durable local files
+- `gran targets add ...` when you want a named destination like an Obsidian vault
+- `Settings -> Automation` when you want review-first AI notes
+- `gran attach` when you want to reuse the running service in the terminal
+
+For concrete examples, see [`Workflows`](/docs/workflows).
 
 ## Next
 
 <Cards>
+  <Card title="Workflows" href="/docs/workflows" />
   <Card title="Automation" href="/docs/automation" />
   <Card title="Shared local runtime" href="/docs/server-web-and-tui" />
   <Card title="SDK" href="/docs/sdk" />

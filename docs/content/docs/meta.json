@@ -3,6 +3,7 @@
   "pages": [
     "index",
     "getting-started",
+    "workflows",
     "automation",
     "server-web-and-tui",
     "sdk",

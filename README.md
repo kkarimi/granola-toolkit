@@ -56,23 +56,18 @@ If you do not want to install via npm, each GitHub release also publishes standa
 macOS arm64, Linux x64, and Windows x64. Extract the archive and run `gran` (or `gran.exe` on
 Windows).
 
-## Quick Start
+## Start Here
 
 ```bash
-gran init --provider openrouter
-gran auth login --api-key grn_...
-gran targets add --id work-vault --kind obsidian-vault --output ~/Vaults/Work --daily-notes-dir Daily
-gran export --target work-vault
+gran init
 gran web
 ```
 
-`gran init` creates a local `.gran.json`, starter harnesses, starter automation rules, and
-prompt files under `./.gran/` so the first-run setup is not just “read docs and assemble JSON by
-hand”.
+That gives you the shortest real path to value:
 
-If you start with `gran web`, the browser walks you through the same first-run path:
-enter a Granola API key, import your meetings, choose an agent provider, and land in a workspace
-with a starter reviewable notes pipeline already configured.
+1. `gran init` creates a local `.gran.json` plus editable files under `./.gran/`
+2. `gran web` walks you through saving a Granola API key and importing your meetings
+3. after that, you land in a workspace with your local archive ready to browse, search, and export
 
 `gran web` prefers the long-running background-service path by default: it will reuse the
 existing service when one is already running, or start it for you when you have not asked for a
@@ -84,25 +79,57 @@ opening a browser first.
 If you prefer to reuse the desktop app session instead, `gran auth login` imports it from
 `supabase.json`.
 
-## Set Default Configuration
+## Example Workflows
 
-`gran init` writes a project-local `.gran.json` for you. If you want to edit it directly,
-the file can look like this:
+### Local Archive And Browser Workspace
 
-```json
-{
-  "agent-provider": "openrouter",
-  "agent-model": "openai/gpt-5-mini",
-  "agent-harnesses-file": "./.gran/agent-harnesses.json",
-  "automation-rules-file": "./.gran/automation-rules.json",
-  "pkm-targets-file": "./.gran/pkm-targets.json",
-  "output": "./exports/notes",
-  "transcript-output": "./exports/transcripts",
-  "debug": false
-}
+```bash
+gran init
+gran web
 ```
 
-The CLI reads configuration in this order:
+Use this when you want the fastest way to get your Granola archive into a local workspace you can
+actually use every day.
+
+### Obsidian Vault Publishing
+
+```bash
+gran init --provider openrouter
+gran targets add --id work-vault --kind obsidian-vault --output ~/Vaults/Work --daily-notes-dir Daily
+gran export --target work-vault
+```
+
+Use this when your main goal is to keep notes and transcripts in an Obsidian vault you own.
+
+### Review-First Meeting Notes
+
+```bash
+gran init --provider openrouter
+gran web
+```
+
+Then in `Settings -> Automation`, enable the automation plugin, keep the starter harness or edit
+it, and review drafts before anything is published.
+
+### Terminal-First Use
+
+```bash
+gran init
+gran service start
+gran tui
+```
+
+Use this when you want a warm local runtime and a keyboard-first workspace. Today the smoothest
+guided setup is still in the browser; a guided terminal setup flow is planned.
+
+## Project Setup And Config
+
+`gran init` writes a project-local `.gran.json` for you. That is the normal way to set up a
+project. If you want to inspect or edit the generated config and companion files directly, see
+[`Auth and configuration`](https://kkarimi.github.io/gran/docs/auth-and-configuration/) in the
+docs.
+
+Configuration precedence is:
 
 1. command-line flags
 2. environment variables
@@ -140,6 +167,7 @@ Key docs entry points:
 
 - [`Overview`](https://kkarimi.github.io/gran/docs/)
 - [`Getting Started`](https://kkarimi.github.io/gran/docs/getting-started/)
+- [`Workflows`](https://kkarimi.github.io/gran/docs/workflows/)
 - [`SDK`](https://kkarimi.github.io/gran/docs/sdk/)
 - [`Automation`](https://kkarimi.github.io/gran/docs/automation/)
 - [`Server, Web, and TUI`](https://kkarimi.github.io/gran/docs/server-web-and-tui/)

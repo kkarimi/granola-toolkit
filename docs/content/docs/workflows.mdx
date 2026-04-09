@@ -1,0 +1,98 @@
+---
+title: Workflows
+description: Start from real goals like local browsing, Obsidian publishing, review-first notes, and terminal-first use.
+---
+
+This page is the practical version of the docs.
+
+Instead of learning Gran feature by feature, start from the outcome you want.
+
+## I Want A Local Workspace For My Granola Archive
+
+```bash
+gran init
+gran web
+```
+
+Then:
+
+1. save a Granola API key
+2. import your meetings
+3. start browsing, searching, and opening meetings from the local workspace
+
+Use this path when you mostly want a better Granola browser with a local index, sync loop, and
+export access.
+
+## I Want Everything In Obsidian
+
+```bash
+gran init --provider openrouter
+gran targets add --id work-vault --kind obsidian-vault --output ~/Vaults/Work --daily-notes-dir Daily
+gran export --target work-vault
+```
+
+Use this when Obsidian is your system of record.
+
+Obsidian targets support:
+
+- meeting notes and transcripts in stable subdirectories
+- markdown transcripts
+- note/transcript backlinks
+- optional daily-note placement
+
+## I Want Reviewable AI Notes Before Anything Gets Published
+
+```bash
+gran init --provider openrouter
+gran web
+```
+
+Then:
+
+1. open `Settings -> Automation`
+2. enable the automation plugin
+3. keep or edit the starter harness
+4. review drafts in the Review workspace before publishing them
+
+Use this path when you want Gran to help produce notes, but you still want human approval before
+they are written into a vault or downstream system.
+
+## I Want To Stay In The Terminal
+
+```bash
+gran init
+gran service start
+gran tui
+```
+
+Use this when you want the shared local runtime warmed in the background and a keyboard-first
+workspace in the foreground.
+
+Today, the smoothest guided first-run setup still lives in `gran web`. A guided terminal setup flow
+is planned so TUI users can save auth, run first sync, and choose their starting surface without
+dropping to docs first.
+
+## I Want Raw Exports I Control
+
+```bash
+gran init
+gran export
+gran export --folder Team
+gran exports list
+```
+
+Use this when you want durable local files without enabling any automation yet.
+
+`gran export` is the normal path because it writes notes and transcripts together unless you ask for
+only one of them.
+
+## I Want To Build On Top Of Gran In My Own Code
+
+```bash
+npm install @kkarimi/gran-sdk
+```
+
+Use the SDK when you want the same local-first runtime, PKM targets, and export logic inside Node
+or TypeScript code instead of shell commands.
+
+See [`SDK`](/docs/sdk) for examples.
