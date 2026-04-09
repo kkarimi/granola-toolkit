@@ -21,8 +21,8 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  NEXT_PUBLIC_DOCS_BASE_PATH: /granola-toolkit
-  NEXT_PUBLIC_DOCS_SITE_URL: https://kkarimi.github.io/granola-toolkit
+  NEXT_PUBLIC_DOCS_BASE_PATH: /gran
+  NEXT_PUBLIC_DOCS_SITE_URL: https://kkarimi.github.io/gran
 
 jobs:
   build:
