@@ -113,13 +113,13 @@ export function AutomationRunsPanel(props: AutomationRunsPanelProps): JSX.Elemen
   return (
     <section class="jobs-panel">
       <div class="jobs-panel__head">
-        <h3>Automation Runs</h3>
-        <p>Recent action runs triggered by durable sync events.</p>
+        <h3>Needs approval</h3>
+        <p>Actions that paused and are waiting for a yes or no.</p>
       </div>
       <div class="jobs-list">
         <Show
           when={props.runs.length > 0}
-          fallback={<div class="job-empty">No automation runs yet.</div>}
+          fallback={<div class="job-empty">Nothing is waiting for approval.</div>}
         >
           <For each={props.runs.slice(0, 6)}>
             {(run) => (
@@ -181,13 +181,13 @@ export function ProcessingIssuesPanel(props: ProcessingIssuesPanelProps): JSX.El
   return (
     <section class="jobs-panel">
       <div class="jobs-panel__head">
-        <h3>Processing Health</h3>
-        <p>Catch stale syncs, missing transcripts, and failed or outdated note pipelines.</p>
+        <h3>Needs recovery</h3>
+        <p>Problems that need a retry, a transcript refresh, or a closer look.</p>
       </div>
       <div class="jobs-list">
         <Show
           when={props.issues.length > 0}
-          fallback={<div class="job-empty">No processing issues detected.</div>}
+          fallback={<div class="job-empty">Nothing needs recovery right now.</div>}
         >
           <For each={props.issues.slice(0, 8)}>
             {(issue) => (
@@ -240,17 +240,17 @@ export function ReviewInboxPanel(props: ReviewInboxPanelProps): JSX.Element {
   return (
     <section class="jobs-panel">
       <div class="jobs-panel__head">
-        <h3>Review Inbox</h3>
+        <h3>Needs attention</h3>
         <p>
           {props.summary.total > 0
-            ? `${props.summary.total} items need attention: ${props.summary.issues} issues, ${props.summary.artefacts} artefacts, ${props.summary.runs} approvals.`
-            : "Nothing needs attention right now."}
+            ? `${props.summary.total} items need attention: ${props.summary.issues} recoveries, ${props.summary.artefacts} publish drafts, ${props.summary.runs} approvals.`
+            : "Everything is clear right now."}
         </p>
       </div>
       <div class="jobs-list">
         <Show
           when={props.items.length > 0}
-          fallback={<div class="job-empty">No review items waiting.</div>}
+          fallback={<div class="job-empty">Nothing is waiting in the inbox.</div>}
         >
           <For each={props.items.slice(0, 12)}>
             {(item) => (
@@ -289,13 +289,13 @@ export function AutomationArtefactsPanel(props: AutomationArtefactsPanelProps): 
   return (
     <section class="jobs-panel">
       <div class="jobs-panel__head">
-        <h3>Review Queue</h3>
-        <p>Generated note and enrichment candidates waiting for review or follow-up.</p>
+        <h3>Ready to publish</h3>
+        <p>Generated meeting drafts waiting for review before they are written anywhere else.</p>
       </div>
       <div class="jobs-list">
         <Show
           when={props.artefacts.length > 0}
-          fallback={<div class="job-empty">No automation artefacts yet.</div>}
+          fallback={<div class="job-empty">No publish-ready drafts yet.</div>}
         >
           <For each={props.artefacts.slice(0, 10)}>
             {(artefact) => (
@@ -338,12 +338,12 @@ export function IssueReviewPanel(props: {
   return (
     <section class="review-panel">
       <div class="jobs-panel__head">
-        <h3>Issue Review</h3>
-        <p>Inspect the issue, jump to the meeting if needed, and run recovery from one place.</p>
+        <h3>Needs recovery</h3>
+        <p>Inspect the problem, jump to the meeting if needed, and retry from one place.</p>
       </div>
       <Show
         when={props.issue}
-        fallback={<div class="job-empty">Select a processing issue to inspect it.</div>}
+        fallback={<div class="job-empty">Select a recovery item to inspect it.</div>}
       >
         {(issue) => (
           <div class="review-body">
@@ -398,12 +398,12 @@ export function RunReviewPanel(props: {
   return (
     <section class="review-panel">
       <div class="jobs-panel__head">
-        <h3>Approval Review</h3>
-        <p>Approve or reject ask-user automation runs with the meeting context still in view.</p>
+        <h3>Needs approval</h3>
+        <p>Approve or reject actions that explicitly asked for confirmation.</p>
       </div>
       <Show
         when={props.run}
-        fallback={<div class="job-empty">Select a pending run to review it.</div>}
+        fallback={<div class="job-empty">Select an approval item to review it.</div>}
       >
         {(run) => (
           <div class="review-body">
@@ -461,18 +461,16 @@ export function ArtefactReviewPanel(props: ArtefactReviewPanelProps): JSX.Elemen
   return (
     <section class="review-panel">
       <div class="jobs-panel__head">
-        <h3>Artefact Review</h3>
+        <h3>Ready to publish</h3>
         <p>
-          Review generated candidate notes, compare them to the current meeting, then approve,
-          reject, edit, or rerun.
+          Review the draft, compare it with the current meeting note, then publish, reject, edit, or
+          rerun.
         </p>
       </div>
       <Show
         when={props.artefact}
         fallback={
-          <div class="job-empty">
-            {props.error || "Select an automation artefact to review it."}
-          </div>
+          <div class="job-empty">{props.error || "Select a publish-ready draft to review it."}</div>
         }
       >
         {(artefact) => (
@@ -486,7 +484,7 @@ export function ArtefactReviewPanel(props: ArtefactReviewPanelProps): JSX.Elemen
             <Show when={!props.error} fallback={<div class="empty">{props.error}</div>}>
               <div class="review-grid">
                 <section class="detail-section">
-                  <h2>Current Meeting Notes</h2>
+                  <h2>Current note</h2>
                   <Show
                     when={props.markdownViewerEnabled}
                     fallback={
@@ -501,16 +499,16 @@ export function ArtefactReviewPanel(props: ArtefactReviewPanelProps): JSX.Elemen
                   </Show>
                 </section>
                 <section class="detail-section">
-                  <h2>Candidate</h2>
+                  <h2>Draft to publish</h2>
                   <section class="detail-section detail-section--subsection">
-                    <h3>Publish target</h3>
+                    <h3>Destination</h3>
                     <Show
                       when={props.publishPreview?.targets.length}
                       fallback={
                         <p class="section-note">
                           {props.publishPreviewError ||
                             props.publishPreview?.message ||
-                            "No linked PKM publish target is configured for this artefact yet."}
+                            "No linked publish destination is configured for this draft yet."}
                         </p>
                       }
                     >
@@ -568,7 +566,7 @@ export function ArtefactReviewPanel(props: ArtefactReviewPanelProps): JSX.Elemen
                     </Show>
                   </section>
                   <section class="detail-section detail-section--subsection">
-                    <h3>Provenance</h3>
+                    <h3>How this draft was generated</h3>
                     <div class="detail-meta">
                       <div class="detail-chip">{`Rule: ${artefact().ruleName}`}</div>
                       <div class="detail-chip">{`Source action: ${artefact().actionName}`}</div>
@@ -615,7 +613,7 @@ export function ArtefactReviewPanel(props: ArtefactReviewPanelProps): JSX.Elemen
                     </div>
                   </Show>
                   <label class="field-row">
-                    <span class="field-label">Review Note</span>
+                    <span class="field-label">Reviewer note</span>
                     <textarea
                       class="review-textarea review-textarea--summary"
                       onInput={(event) => {

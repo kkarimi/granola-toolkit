@@ -744,7 +744,7 @@ export class GranolaApp implements GranolaAppApi {
 
   private assertAutomationPluginEnabled(): void {
     if (!this.automationPluginEnabled()) {
-      throw new Error("automation plugin is disabled. Enable it in Settings -> Plugins first.");
+      throw new Error("automation plugin is disabled. Enable it in Settings -> Automation first.");
     }
   }
 

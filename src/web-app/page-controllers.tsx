@@ -310,12 +310,12 @@ export function ReviewPageController(props: {
       <PageHeader
         actions={
           <button class="button button--secondary" onClick={() => props.onRefresh()} type="button">
-            Refresh review state
+            Refresh
           </button>
         }
-        description="Review approvals, artefacts, and processing issues in one place instead of mixing them into the meeting page."
+        description="Handle recoveries, approvals, and publish-ready drafts in one calm inbox."
         eyebrow="Review"
-        title="Review queue"
+        title="Review"
       />
       <div class="review-layout">
         <section class="review-layout__sidebar">
@@ -369,7 +369,7 @@ export function ReviewPageController(props: {
               />
             </Match>
             <Match when={true}>
-              <div class="empty">Select something from the review inbox to inspect it.</div>
+              <div class="empty">Select something from the inbox to inspect it.</div>
             </Match>
           </Switch>
         </section>
@@ -437,16 +437,16 @@ export function SettingsPageController(props: {
   statusLabel: string;
 }) {
   const settingsTabs: Array<{ id: WebSettingsSection; label: string }> = [
-    { id: "auth", label: "Auth" },
-    { id: "plugins", label: "Plugins" },
-    { id: "exports", label: "Exports" },
-    { id: "diagnostics", label: "Diagnostics" },
+    { id: "auth", label: "Connection" },
+    { id: "plugins", label: "Automation" },
+    { id: "exports", label: "Publishing" },
+    { id: "diagnostics", label: "Advanced" },
   ];
 
   return (
     <>
       <PageHeader
-        description="Choose how the toolkit connects to Granola, enable plugins, review exports, and inspect local state."
+        description="Manage how Gran connects, publishes, automates, and stores local state."
         eyebrow="Settings"
         title="Settings"
       />

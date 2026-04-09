@@ -447,7 +447,7 @@ export function DiagnosticsPanel(props: {
       {
         detail: props.appState?.config.configFileUsed
           ? "Custom config file currently in use."
-          : "No custom config file found. Change values from the Auth, Plugins, and Exports tabs, or add a .gran.json later.",
+          : "No custom config file found. Change values from the Connection, Automation, and Publishing tabs, or add a .gran.json later.",
         fallbackPath: props.appState?.config.configFileUsed || undefined,
         file: props.serverInfo?.files?.config,
         label: "Config file",
@@ -571,7 +571,7 @@ export function DiagnosticsPanel(props: {
   return (
     <section class="jobs-panel diagnostics-panel">
       <div class="jobs-panel__head">
-        <h3>Sync and local files</h3>
+        <h3>Advanced diagnostics</h3>
         <p>
           See when the toolkit last synced, which auth/runtime path it is using, and which local
           files back the current view.
@@ -639,7 +639,7 @@ export function DiagnosticsPanel(props: {
           </div>
         </section>
         <section class="detail-section">
-          <h2>Auth and runtime</h2>
+          <h2>Connection and runtime</h2>
           <div class="diagnostic-card-grid diagnostic-card-grid--metrics">
             <DiagnosticsMetricCard
               detail={`Mode: ${auth()?.mode || "unknown"}`}
@@ -734,7 +734,7 @@ export function AuthPanel(props: AuthPanelProps): JSX.Element {
   return (
     <section class="auth-panel">
       <div class="auth-panel__head">
-        <h3>Auth</h3>
+        <h3>Connection</h3>
         <p>
           Prefer a Granola Personal API key, then keep a desktop session and{" "}
           <code>supabase.json</code> as fallbacks when needed.
@@ -1019,9 +1019,10 @@ export function PluginsPanel(props: PluginsPanelProps): JSX.Element {
   return (
     <section class="auth-panel">
       <div class="auth-panel__head">
-        <h3>Plugins</h3>
+        <h3>Automation</h3>
         <p>
-          Shipped capabilities are loaded from the toolkit plugin registry and can be enabled here.
+          Turn shipped capabilities on only when you want them, then configure the automation flows
+          you actually use.
         </p>
       </div>
       <div class="auth-panel__body">
@@ -1048,10 +1049,10 @@ export function ExportJobsPanel(props: ExportJobsPanelProps): JSX.Element {
     <>
       <section class="auth-panel">
         <div class="auth-panel__head">
-          <h3>Bundled export</h3>
+          <h3>Publishing</h3>
           <p>
-            Export notes and transcripts together for the current scope, then reuse named targets
-            when you want a vault or archive destination instead of raw paths.
+            Send notes and transcripts together to your local archive or a named PKM target without
+            splitting the workflow into separate commands.
           </p>
         </div>
         <div class="auth-panel__body">

@@ -107,7 +107,7 @@ test.describe("toolkit web workspace", () => {
       .locator(".primary-nav")
       .getByRole("button", { name: /Settings/i })
       .click();
-    await page.locator(".settings-shell").getByRole("button", { name: "Plugins" }).click();
+    await page.locator(".settings-shell").getByRole("button", { name: "Automation" }).click();
     await expect(
       page
         .locator(".auth-panel")
@@ -116,12 +116,12 @@ test.describe("toolkit web workspace", () => {
         ),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Disable markdown viewer" })).toBeVisible();
-    await page.locator(".settings-shell").getByRole("button", { name: "Exports" }).click();
-    await expect(page.getByRole("heading", { name: "Bundled export" })).toBeVisible();
+    await page.locator(".settings-shell").getByRole("button", { name: "Publishing" }).click();
+    await expect(page.getByRole("heading", { name: "Publishing" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Export archive" })).toBeVisible();
     await expect(page.getByText("All meetings", { exact: true })).toBeVisible();
-    await page.locator(".settings-shell").getByRole("button", { name: "Diagnostics" }).click();
-    await expect(page.getByRole("heading", { name: "Sync and local files" })).toBeVisible();
+    await page.locator(".settings-shell").getByRole("button", { name: "Advanced" }).click();
+    await expect(page.getByRole("heading", { name: "Advanced diagnostics" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Recent sync runs" })).toBeVisible();
     await expect(page.locator(".sync-run-detail")).toContainText("2 meetings checked");
     await expect(page.getByText("Desktop transcript file")).toBeVisible();
@@ -137,14 +137,14 @@ test.describe("toolkit web workspace", () => {
       .locator(".primary-nav")
       .getByRole("button", { name: /Review/i })
       .click();
-    await expect(page.getByText("Review Inbox")).toBeVisible();
+    await expect(page.getByText("Needs attention")).toBeVisible();
     await page
       .locator(".jobs-list")
       .getByRole("button", { name: /Team Notes/i })
       .first()
       .click();
-    await expect(page.getByRole("heading", { name: "Artefact Review" })).toBeVisible();
-    await expect(page.getByText("Publish target")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Ready to publish" })).toBeVisible();
+    await expect(page.getByText("Destination")).toBeVisible();
     await expect(page.getByRole("combobox")).toHaveValue("team-vault");
     await expect(page.locator(".publish-preview-list")).toContainText("Meeting note");
     await expect(page.locator(".publish-preview-list")).toContainText(
@@ -154,7 +154,7 @@ test.describe("toolkit web workspace", () => {
     await expect(page.getByRole("link", { name: "Open" }).first()).toBeVisible();
   });
 
-  test("configures and tests automation from Settings -> Plugins while keeping the selected meeting", async ({
+  test("configures and tests automation from Settings -> Automation while keeping the selected meeting", async ({
     page,
   }) => {
     await page.goto(server.url);
@@ -179,7 +179,7 @@ test.describe("toolkit web workspace", () => {
       .locator(".primary-nav")
       .getByRole("button", { name: /Settings/i })
       .click();
-    await page.locator(".settings-shell").getByRole("button", { name: "Plugins" }).click();
+    await page.locator(".settings-shell").getByRole("button", { name: "Automation" }).click();
     await expect(page.getByRole("heading", { name: "Harness Editor" })).toBeVisible();
     await expect(page.getByText("Team Notes").first()).toBeVisible();
     await expect(page.getByText("Run Team Notes against Alpha Sync.")).toBeVisible({
@@ -202,7 +202,7 @@ test.describe("toolkit web workspace", () => {
     );
   });
 
-  test("guides a first-run user through onboarding, then enables automation from plugins", async ({
+  test("guides a first-run user through onboarding, then enables automation from settings", async ({
     page,
   }) => {
     test.setTimeout(60_000);
@@ -248,9 +248,11 @@ test.describe("toolkit web workspace", () => {
         .locator(".primary-nav")
         .getByRole("button", { name: /Settings/i })
         .click();
-      await page.locator(".settings-shell").getByRole("button", { name: "Plugins" }).click();
+      await page.locator(".settings-shell").getByRole("button", { name: "Automation" }).click();
       await expect(
-        page.getByText("Shipped capabilities are loaded from the toolkit plugin registry"),
+        page.getByText(
+          "Turn shipped capabilities on only when you want them, then configure the automation flows you actually use.",
+        ),
       ).toBeVisible();
       await page.getByRole("button", { name: "Enable automation" }).click();
       await expect(page.getByRole("heading", { name: "Harness Editor" })).toBeVisible({

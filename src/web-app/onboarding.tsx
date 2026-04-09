@@ -185,7 +185,7 @@ export function deriveOnboardingState(input: {
     {
       body: automationEnabled
         ? "Choose the AI agent you want to use by default, then seed a starter reviewable notes pipeline."
-        : "Automation is optional. Enable the plugin later from Settings -> Plugins when you want agent-driven meeting pipelines.",
+        : "Automation is optional. Enable it later from Settings -> Automation when you want agent-driven meeting pipelines.",
       complete: pipelineReady,
       cta: automationEnabled && !pipelineReady ? "Create starter pipeline" : undefined,
       detail: pipelineReady
