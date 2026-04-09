@@ -1,10 +1,10 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { describe, expect, test } from "vite-plus/test";
 
-import { initialiseGranolaToolkitProject } from "../src/init.ts";
+import { initialiseGranolaToolkitProject, inspectGranolaToolkitProject } from "../src/init.ts";
 
 describe("initialiseGranolaToolkitProject", () => {
   test("creates a local bootstrap with starter config, harnesses, rules, and prompts", async () => {
@@ -55,5 +55,38 @@ describe("initialiseGranolaToolkitProject", () => {
         provider: "codex",
       }),
     ).rejects.toThrow("init would overwrite existing files:");
+  });
+
+  test("inspects a complete existing bootstrap cleanly", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "gran-init-"));
+
+    await initialiseGranolaToolkitProject({
+      directory,
+      provider: "codex",
+    });
+
+    const state = await inspectGranolaToolkitProject(directory);
+
+    expect(state.directory).toBe(directory);
+    expect(state.hasAnyFiles).toBe(true);
+    expect(state.isComplete).toBe(true);
+    expect(state.missingFiles).toEqual([]);
+    expect(state.existingFiles).toHaveLength(6);
+  });
+
+  test("inspects a partial bootstrap so init can explain the problem", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "gran-init-"));
+
+    await initialiseGranolaToolkitProject({
+      directory,
+      provider: "codex",
+    });
+    await rm(join(directory, ".gran", "automation-rules.json"));
+
+    const state = await inspectGranolaToolkitProject(directory);
+
+    expect(state.hasAnyFiles).toBe(true);
+    expect(state.isComplete).toBe(false);
+    expect(state.missingFiles).toContain(join(directory, ".gran", "automation-rules.json"));
   });
 });

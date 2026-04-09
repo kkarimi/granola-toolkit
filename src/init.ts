@@ -19,6 +19,16 @@ export interface GranolaProjectInitResult {
   directory: string;
 }
 
+export interface GranolaProjectBootstrapState {
+  configPath: string;
+  directory: string;
+  existingFiles: string[];
+  expectedFiles: string[];
+  hasAnyFiles: boolean;
+  isComplete: boolean;
+  missingFiles: string[];
+}
+
 const TEAM_PROMPT = `# Team Notes Harness
 
 Turn this meeting into concise internal notes for the team.
@@ -165,6 +175,63 @@ async function pathExists(filePath: string): Promise<boolean> {
   }
 }
 
+function projectBootstrapFiles(directory: string) {
+  const configPath = join(directory, ".gran.json");
+  const projectDirectory = join(directory, ".gran");
+  const promptsDirectory = join(projectDirectory, "prompts");
+  const teamPromptPath = join(promptsDirectory, "team-notes.md");
+  const customerPromptPath = join(promptsDirectory, "customer-follow-up.md");
+  const harnessesPath = join(projectDirectory, "agent-harnesses.json");
+  const rulesPath = join(projectDirectory, "automation-rules.json");
+  const pkmTargetsPath = join(projectDirectory, "pkm-targets.json");
+
+  return {
+    configPath,
+    files: [
+      configPath,
+      harnessesPath,
+      rulesPath,
+      pkmTargetsPath,
+      teamPromptPath,
+      customerPromptPath,
+    ],
+    harnessesPath,
+    pkmTargetsPath,
+    promptsDirectory,
+    projectDirectory,
+    rulesPath,
+    teamPromptPath,
+    customerPromptPath,
+  };
+}
+
+export async function inspectGranolaToolkitProject(
+  directory: string,
+): Promise<GranolaProjectBootstrapState> {
+  const resolvedDirectory = resolvePath(directory);
+  const { configPath, files } = projectBootstrapFiles(resolvedDirectory);
+  const existingFiles: string[] = [];
+  const missingFiles: string[] = [];
+
+  for (const filePath of files) {
+    if (await pathExists(filePath)) {
+      existingFiles.push(filePath);
+    } else {
+      missingFiles.push(filePath);
+    }
+  }
+
+  return {
+    configPath,
+    directory: resolvedDirectory,
+    existingFiles,
+    expectedFiles: files,
+    hasAnyFiles: existingFiles.length > 0,
+    isComplete: missingFiles.length === 0,
+    missingFiles,
+  };
+}
+
 async function ensureWritable(filePaths: string[], force: boolean): Promise<void> {
   if (force) {
     return;
@@ -197,22 +264,15 @@ export async function initialiseGranolaToolkitProject(
   options: GranolaProjectInitOptions,
 ): Promise<GranolaProjectInitResult> {
   const directory = resolvePath(options.directory);
-  const configPath = join(directory, ".gran.json");
-  const projectDirectory = join(directory, ".gran");
-  const promptsDirectory = join(projectDirectory, "prompts");
-  const teamPromptPath = join(promptsDirectory, "team-notes.md");
-  const customerPromptPath = join(promptsDirectory, "customer-follow-up.md");
-  const harnessesPath = join(projectDirectory, "agent-harnesses.json");
-  const rulesPath = join(projectDirectory, "automation-rules.json");
-  const pkmTargetsPath = join(projectDirectory, "pkm-targets.json");
-  const files = [
+  const {
     configPath,
+    files,
     harnessesPath,
-    rulesPath,
     pkmTargetsPath,
     teamPromptPath,
     customerPromptPath,
-  ];
+    rulesPath,
+  } = projectBootstrapFiles(directory);
   const provider = options.provider;
   const model = defaultModel(provider, options.model);
 

@@ -1,6 +1,6 @@
 import { resolve as resolvePath } from "node:path";
 
-import { initialiseGranolaToolkitProject } from "../init.ts";
+import { initialiseGranolaToolkitProject, inspectGranolaToolkitProject } from "../init.ts";
 import type { GranolaAgentProviderKind } from "../types.ts";
 
 import { maybeRunGuidedSetupAfterInit } from "./guided-setup.ts";
@@ -76,23 +76,46 @@ export const initCommand: CommandDefinition = {
         ? commandFlags.dir.trim()
         : process.cwd();
     const provider = parseProvider(commandFlags.provider);
-    const result = await initialiseGranolaToolkitProject({
-      directory,
-      force: commandFlags.force === true,
-      model: typeof commandFlags.model === "string" ? commandFlags.model.trim() : undefined,
-      provider,
-    });
-    const root = resolvePath(result.directory);
+    const force = commandFlags.force === true;
+    const bootstrap = await inspectGranolaToolkitProject(directory);
+    const root = resolvePath(bootstrap.directory);
+    let configPath = bootstrap.configPath;
 
-    console.log(`Created a local Gran project in ${root}`);
-    console.log("");
-    console.log("Project files:");
-    console.log("  .gran.json");
-    console.log("  ./.gran/");
+    if (bootstrap.isComplete && !force) {
+      console.log(`Found an existing local Gran project in ${root}`);
+      console.log("");
+      console.log("Reusing:");
+      console.log("  .gran.json");
+      console.log("  ./.gran/");
+    } else {
+      if (bootstrap.hasAnyFiles && !force) {
+        throw new Error(
+          `gran init found an incomplete project in ${root}.\nExisting files:\n${bootstrap.existingFiles
+            .map((filePath) => `- ${filePath}`)
+            .join("\n")}\nMissing files:\n${bootstrap.missingFiles
+            .map((filePath) => `- ${filePath}`)
+            .join("\n")}\nRe-run with --force to replace the generated files.`,
+        );
+      }
+
+      const result = await initialiseGranolaToolkitProject({
+        directory,
+        force,
+        model: typeof commandFlags.model === "string" ? commandFlags.model.trim() : undefined,
+        provider,
+      });
+      configPath = result.configPath;
+
+      console.log(`Created a local Gran project in ${root}`);
+      console.log("");
+      console.log("Project files:");
+      console.log("  .gran.json");
+      console.log("  ./.gran/");
+    }
 
     const guidedExitCode = await maybeRunGuidedSetupAfterInit({
       commandFlags,
-      configPath: result.configPath,
+      configPath,
       globalFlags,
     });
     if (guidedExitCode !== undefined) {

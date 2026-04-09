@@ -840,6 +840,15 @@ describe("command execution", () => {
 
   test("init command can hand off directly into guided setup", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(initModule, "inspectGranolaToolkitProject").mockResolvedValue({
+      configPath: "/tmp/project/.gran.json",
+      directory: "/tmp/project",
+      existingFiles: [],
+      expectedFiles: [],
+      hasAnyFiles: false,
+      isComplete: false,
+      missingFiles: [],
+    });
     vi.spyOn(initModule, "initialiseGranolaToolkitProject").mockResolvedValue({
       configPath: "/tmp/project/.gran.json",
       createdFiles: ["/tmp/project/.gran.json", "/tmp/project/.gran/automation-rules.json"],
@@ -866,6 +875,58 @@ describe("command execution", () => {
       globalFlags: {},
     });
     expect(log).toHaveBeenCalledWith("Created a local Gran project in /tmp/project");
+  });
+
+  test("init command reuses an existing complete project instead of failing", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(initModule, "inspectGranolaToolkitProject").mockResolvedValue({
+      configPath: "/tmp/project/.gran.json",
+      directory: "/tmp/project",
+      existingFiles: ["/tmp/project/.gran.json", "/tmp/project/.gran/agent-harnesses.json"],
+      expectedFiles: [],
+      hasAnyFiles: true,
+      isComplete: true,
+      missingFiles: [],
+    });
+    const initialise = vi.spyOn(initModule, "initialiseGranolaToolkitProject");
+    const maybeRunGuidedSetupAfterInit = vi
+      .spyOn(guidedSetupModule, "maybeRunGuidedSetupAfterInit")
+      .mockResolvedValue(undefined);
+
+    const exitCode = await initCommand.run(
+      makeContext({
+        commandFlags: {},
+      }),
+    );
+
+    expect(exitCode).toBe(0);
+    expect(initialise).not.toHaveBeenCalled();
+    expect(maybeRunGuidedSetupAfterInit).toHaveBeenCalledWith({
+      commandFlags: {},
+      configPath: "/tmp/project/.gran.json",
+      globalFlags: {},
+    });
+    expect(log).toHaveBeenCalledWith("Found an existing local Gran project in /tmp/project");
+  });
+
+  test("init command explains when an existing project is incomplete", async () => {
+    vi.spyOn(initModule, "inspectGranolaToolkitProject").mockResolvedValue({
+      configPath: "/tmp/project/.gran.json",
+      directory: "/tmp/project",
+      existingFiles: ["/tmp/project/.gran.json"],
+      expectedFiles: [],
+      hasAnyFiles: true,
+      isComplete: false,
+      missingFiles: ["/tmp/project/.gran/automation-rules.json"],
+    });
+
+    await expect(
+      initCommand.run(
+        makeContext({
+          commandFlags: {},
+        }),
+      ),
+    ).rejects.toThrow("gran init found an incomplete project in /tmp/project.");
   });
 
   test("meeting command lists meetings inside a resolved folder", async () => {
