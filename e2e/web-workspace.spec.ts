@@ -26,10 +26,10 @@ test.describe("toolkit web workspace", () => {
       timeout: 20_000,
     });
     await expect(page.getByRole("heading", { name: "Latest meetings" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Sync and local state" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Usage snapshot" })).toBeVisible();
+    await expect(page.getByText("Last sync", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Needs attention" })).toBeVisible();
     await expect(page.getByLabel("Meetings in the last 7 days")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Sync health" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Recent" })).toBeVisible();
     await expect(page.locator(".meeting-list")).toHaveCount(0);
     await page
       .locator(".latest-meetings-grid")

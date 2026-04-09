@@ -683,6 +683,36 @@ select {
   margin-top: 0;
 }
 
+.search-panel__advanced {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.search-panel__advanced summary {
+  padding: 14px 18px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+  list-style: none;
+}
+
+.search-panel__advanced summary::-webkit-details-marker {
+  display: none;
+}
+
+.search-panel__advanced-body {
+  display: grid;
+  gap: 16px;
+  padding: 0 18px 18px;
+}
+
+.search-panel__exact-open {
+  display: grid;
+  gap: 8px;
+}
+
 .advanced-search-panel {
   display: grid;
   gap: 14px;
@@ -1023,7 +1053,6 @@ select {
   max-width: min(100%, 50rem);
 }
 
-.card-icon-button,
 .copy-icon-button,
 .mini-button {
   border: 1px solid var(--line);
@@ -1037,22 +1066,6 @@ select {
     background 140ms ease;
 }
 
-.card-icon-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-}
-
-.card-icon-button svg {
-  width: 16px;
-  height: 16px;
-  fill: currentColor;
-}
-
-.card-icon-button:hover,
 .copy-icon-button:hover,
 .mini-button:hover {
   border-color: rgba(13, 106, 109, 0.25);
@@ -1252,8 +1265,7 @@ select {
   background: rgba(255, 255, 255, 0.76);
 }
 
-.diagnostic-card__head,
-.snapshot-card__head {
+.diagnostic-card__head {
   display: flex;
   align-items: start;
   justify-content: space-between;
@@ -1652,15 +1664,13 @@ select {
   line-height: 1.5;
 }
 
-.latest-meetings-grid,
-.usage-snapshot-grid {
+.latest-meetings-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
-.latest-meeting-card,
-.snapshot-card {
+.latest-meeting-card {
   width: 100%;
   display: grid;
   gap: 8px;
@@ -1670,10 +1680,6 @@ select {
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.76);
   color: inherit;
-}
-
-.snapshot-card__head {
-  align-items: center;
 }
 
 .latest-meeting-card {
@@ -1702,15 +1708,10 @@ select {
   font-size: 1rem;
 }
 
-.latest-meeting-card__meta,
-.snapshot-card span:last-child {
+.latest-meeting-card__meta {
   color: var(--muted);
   font-size: 0.92rem;
   line-height: 1.5;
-}
-
-.snapshot-card strong {
-  font-size: 1.05rem;
 }
 
 .activity-chart {
@@ -1995,7 +1996,6 @@ select {
   .home-dashboard__stats,
   .home-dashboard__grid,
   .latest-meetings-grid,
-  .usage-snapshot-grid,
   .advanced-search-panel__body,
   .search-panel__filters,
   .onboarding-providers,

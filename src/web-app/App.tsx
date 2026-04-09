@@ -694,20 +694,10 @@ export function App() {
                 onOpenMeeting={(meeting) => {
                   void browseController.openRecentMeeting(meeting.id, meeting.folderId);
                 }}
-                onOpenFoldersPage={() => {
-                  void browseController.openPage("folders");
-                }}
                 onOpenReviewPage={() => {
                   if (automationEnabled()) {
                     void browseController.openPage("review");
                   }
-                }}
-                onOpenSearchPage={() => {
-                  void browseController.openPage("search");
-                }}
-                onOpenSettingsTab={(tab) => {
-                  setState("settingsTab", tab);
-                  setState("activePage", "settings");
                 }}
                 processingIssues={state.processingIssues}
                 recentMeetings={state.recentMeetings}

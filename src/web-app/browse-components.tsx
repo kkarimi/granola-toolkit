@@ -13,29 +13,20 @@ import type { GranolaReviewInboxSummary } from "../review-inbox.ts";
 import type { GranolaServerInfo } from "../transport.ts";
 import {
   currentFilterSummary,
-  describeAuthStatus,
   describeSyncStatus,
   hasActiveFilters,
   type WebWorkspaceRecentMeeting,
   type WebWorkspaceSavedFilter,
 } from "../web/client-state.ts";
-import type { WebSettingsSection } from "./shared-components.tsx";
-
 import {
-  compactPathLabel,
-  formatBytesLabel,
-  formatDateTimeLabel,
   formatDateLabel,
   latestFolderNames,
   meetingsPerDay,
   meetingsWithinDays,
-  pathLeafLabel,
   relativeDateLabel,
   relativeTimeLabel,
   resolveAsyncViewState,
   reviewSummaryLabel,
-  runtimeLabel,
-  syncCadenceLabel,
   syncHealthSummary,
 } from "./component-helpers.ts";
 
@@ -118,7 +109,6 @@ interface HomeDashboardPanelProps {
   onOpenFolder: (folderId: string) => void;
   onOpenLatestMeeting: (meeting: MeetingSummaryRecord) => void;
   onOpenMeeting: (meeting: WebWorkspaceRecentMeeting) => void;
-  onOpenSettings: (tab: WebSettingsSection) => void;
   onOpenReview: () => void;
   latestMeetings: MeetingSummaryRecord[];
   latestMeetingsLoading: boolean;
@@ -126,21 +116,6 @@ interface HomeDashboardPanelProps {
   recentMeetings: WebWorkspaceRecentMeeting[];
   reviewSummary: GranolaReviewInboxSummary;
   serverInfo?: GranolaServerInfo | null;
-}
-
-function CardActionButton(props: { label: string; onClick: () => void }): JSX.Element {
-  return (
-    <button
-      aria-label={props.label}
-      class="card-icon-button"
-      onClick={() => props.onClick()}
-      type="button"
-    >
-      <svg aria-hidden="true" viewBox="0 0 24 24">
-        <path d="M10.4 2h3.2l.5 2.1c.5.2 1 .4 1.5.7l1.9-1.1 2.3 2.3-1.1 1.9c.3.5.5 1 .7 1.5L22 10.4v3.2l-2.1.5c-.2.5-.4 1-.7 1.5l1.1 1.9-2.3 2.3-1.9-1.1c-.5.3-1 .5-1.5.7L13.6 22h-3.2l-.5-2.1c-.5-.2-1-.4-1.5-.7l-1.9 1.1-2.3-2.3 1.1-1.9c-.3-.5-.5-1-.7-1.5L2 13.6v-3.2l2.1-.5c.2-.5.4-1 .7-1.5L3.7 6.5l2.3-2.3 1.9 1.1c.5-.3 1-.5 1.5-.7L10.4 2Zm1.6 6.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z" />
-      </svg>
-    </button>
-  );
 }
 
 function LoadingBlock(props: { label: string; lines?: number }): JSX.Element {
@@ -261,79 +236,77 @@ export function SearchWorkspacePanel(props: SearchWorkspacePanelProps): JSX.Elem
           </button>
         </div>
       </div>
-      <div class="search-panel__filters">
-        <label>
-          <span class="field-label">Sort</span>
-          <select
-            class="select"
-            onChange={(event) => {
-              props.onSortChange(event.currentTarget.value as GranolaMeetingSort);
-            }}
-            value={props.sort}
-          >
-            <option value="updated-desc">Newest first</option>
-            <option value="updated-asc">Oldest first</option>
-            <option value="title-asc">Title A-Z</option>
-            <option value="title-desc">Title Z-A</option>
-          </select>
-        </label>
-        <label>
-          <span class="field-label">Updated From</span>
-          <input
-            class="field-input"
-            onChange={(event) => {
-              props.onUpdatedFromChange(event.currentTarget.value);
-            }}
-            type="date"
-            value={props.updatedFrom}
-          />
-        </label>
-        <label>
-          <span class="field-label">Updated To</span>
-          <input
-            class="field-input"
-            onChange={(event) => {
-              props.onUpdatedToChange(event.currentTarget.value);
-            }}
-            type="date"
-            value={props.updatedTo}
-          />
-        </label>
-      </div>
-      <section class="advanced-search-panel advanced-search-panel--embedded">
-        <div class="advanced-search-panel__head">
-          <div>
-            <h3>Exact open</h3>
-            <p>Use this only when you already know the exact title or Granola id.</p>
+      <details class="search-panel__advanced">
+        <summary>Refine search</summary>
+        <div class="search-panel__advanced-body">
+          <div class="search-panel__filters">
+            <label>
+              <span class="field-label">Sort</span>
+              <select
+                class="select"
+                onChange={(event) => {
+                  props.onSortChange(event.currentTarget.value as GranolaMeetingSort);
+                }}
+                value={props.sort}
+              >
+                <option value="updated-desc">Newest first</option>
+                <option value="updated-asc">Oldest first</option>
+                <option value="title-asc">Title A-Z</option>
+                <option value="title-desc">Title Z-A</option>
+              </select>
+            </label>
+            <label>
+              <span class="field-label">Updated From</span>
+              <input
+                class="field-input"
+                onChange={(event) => {
+                  props.onUpdatedFromChange(event.currentTarget.value);
+                }}
+                type="date"
+                value={props.updatedFrom}
+              />
+            </label>
+            <label>
+              <span class="field-label">Updated To</span>
+              <input
+                class="field-input"
+                onChange={(event) => {
+                  props.onUpdatedToChange(event.currentTarget.value);
+                }}
+                type="date"
+                value={props.updatedTo}
+              />
+            </label>
+          </div>
+          <div class="search-panel__exact-open">
+            <span class="field-label">Exact open</span>
+            <div class="advanced-search-panel__body">
+              <input
+                class="field-input"
+                onInput={(event) => {
+                  props.onAdvancedQueryChange(event.currentTarget.value);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    props.onOpenAdvanced();
+                  }
+                }}
+                placeholder="Exact title or meeting id"
+                value={props.advancedQuery}
+              />
+              <button class="button button--secondary" onClick={props.onOpenAdvanced} type="button">
+                Open
+              </button>
+            </div>
           </div>
         </div>
-        <div class="advanced-search-panel__body">
-          <input
-            class="field-input"
-            onInput={(event) => {
-              props.onAdvancedQueryChange(event.currentTarget.value);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                props.onOpenAdvanced();
-              }
-            }}
-            placeholder="Exact title or meeting id"
-            value={props.advancedQuery}
-          />
-          <button class="button button--secondary" onClick={props.onOpenAdvanced} type="button">
-            Open
-          </button>
-        </div>
-      </section>
+      </details>
     </section>
   );
 }
 
 export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element {
-  const syncStatus = () => describeSyncStatus(props.appState?.sync ?? {});
-  const authStatus = () => describeAuthStatus(props.appState?.auth);
   const health = () =>
     syncHealthSummary(props.appState?.sync, props.serverInfo, props.processingIssues);
   const latestMeetings = () => props.latestMeetings.slice(0, 4);
@@ -353,59 +326,34 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
       (current, candidate) => (candidate.count > current ? candidate.count : current),
       0,
     );
-  const indexedMeetings = () =>
-    props.appState?.index.loaded
-      ? props.appState.index.meetingCount
-      : props.appState?.documents.loaded
-        ? props.appState.documents.count
-        : 0;
-  const configLabel = () =>
-    props.appState?.config.configFileUsed ? "Custom .gran.json loaded" : "No custom config file";
-  const configDetail = () =>
-    props.appState?.config.configFileUsed
-      ? `${pathLeafLabel(props.appState.config.configFileUsed)} · ${compactPathLabel(props.appState.config.configFileUsed)}`
-      : "Using toolkit defaults. Change values from Auth, Plugins, and Exports, or add a .gran.json later.";
-  const transcriptLabel = () =>
-    props.appState?.cache.loaded && props.appState.cache.transcriptCount > 0
-      ? `${props.appState.cache.transcriptCount} transcript sets available locally`
-      : props.appState?.cache.loaded
-        ? "Desktop transcript file available"
-        : props.appState?.cache.configured
-          ? "Desktop transcript file configured"
-          : "Transcripts on demand";
-  const transcriptDetail = () =>
-    props.appState?.cache.loaded && props.appState.cache.transcriptCount > 0
-      ? `${pathLeafLabel(props.appState.cache.filePath)} · loaded ${relativeTimeLabel(props.appState.cache.loadedAt)}`
-      : props.appState?.cache.loaded
-        ? `${pathLeafLabel(props.appState.cache.filePath)} · desktop transcript file read, but no transcript entries were found`
-        : props.appState?.cache.filePath
-          ? `${compactPathLabel(props.appState.cache.filePath)} · toolkit can read desktop transcript data from this file when needed`
-          : "Meeting transcripts are fetched from Granola when you open them.";
-  const localIndexLabel = () =>
-    props.appState?.index.loaded
-      ? `${props.appState.index.meetingCount} meetings in local index`
-      : props.appState?.documents.loaded
-        ? `${props.appState.documents.count} meetings loaded`
-        : "Local index not warmed yet";
-  const localIndexDetail = () =>
-    props.appState?.index.filePath || props.serverInfo?.files?.meetingIndex?.path
-      ? `${pathLeafLabel(props.appState?.index.filePath || props.serverInfo?.files?.meetingIndex?.path)} · ${formatBytesLabel(
-          props.serverInfo?.files?.meetingIndex?.sizeBytes,
-        )} · ${
-          props.appState?.index.loadedAt
-            ? `updated ${relativeTimeLabel(props.appState.index.loadedAt)}`
-            : "index available locally"
-        }`
-      : "Toolkit will write a local meeting index after the first successful sync.";
-  const authDetail = () => {
-    const sources = [
-      props.appState?.auth.apiKeyAvailable ? "API key" : null,
-      props.appState?.auth.storedSessionAvailable ? "desktop session" : null,
-      props.appState?.auth.supabaseAvailable ? "supabase.json" : null,
-    ].filter(Boolean);
-    return sources.length > 0
-      ? `${sources.join(" · ")} available`
-      : "No fallback auth sources detected yet.";
+  const lastSyncTitle = () =>
+    props.appState?.sync.lastCompletedAt
+      ? `Last synced ${relativeTimeLabel(props.appState.sync.lastCompletedAt)}`
+      : describeSyncStatus(props.appState?.sync ?? {});
+  const lastSyncDetail = () =>
+    props.appState?.sync.lastCompletedAt
+      ? `${formatDateLabel(props.appState.sync.lastCompletedAt)} · local data is ready to browse`
+      : "Connect Granola and run the first import to warm the local workspace.";
+  const attentionTitle = () => {
+    if (props.processingIssues.length > 0) {
+      return `${props.processingIssues.length} issue${props.processingIssues.length === 1 ? "" : "s"}`;
+    }
+    if (props.automationEnabled && props.reviewSummary.total > 0) {
+      return reviewSummaryLabel(props.reviewSummary);
+    }
+    return "Nothing waiting";
+  };
+  const attentionDetail = () => {
+    if (props.processingIssues.length > 0) {
+      return "Something needs recovery before the pipeline can settle.";
+    }
+    if (props.automationEnabled && props.reviewSummary.total > 0) {
+      return `${props.reviewSummary.issues} issues, ${props.reviewSummary.artefacts} artefacts, ${props.reviewSummary.runs} approvals.`;
+    }
+    if (!props.automationEnabled) {
+      return "Automation is optional and currently turned off.";
+    }
+    return "No review items or processing issues right now.";
   };
 
   return (
@@ -426,103 +374,16 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
           <span>{`${activeFolderCount()} folders touched, ${transcriptReadyCount()} transcript-ready.`}</span>
         </article>
         <article class="dashboard-stat">
-          <span class="dashboard-stat__label">Local runtime</span>
-          <strong>{runtimeLabel(props.serverInfo)}</strong>
-          <span>
-            {indexedMeetings() > 0
-              ? `${String(indexedMeetings())} indexed locally overall.`
-              : "Run sync to warm the local meeting index."}
-          </span>
+          <span class="dashboard-stat__label">Last sync</span>
+          <strong>{lastSyncTitle()}</strong>
+          <span>{lastSyncDetail()}</span>
         </article>
         <article class="dashboard-stat">
-          <span class="dashboard-stat__label">
-            {props.automationEnabled ? "Review queue" : "Automation plugin"}
-          </span>
-          <strong>
-            {props.automationEnabled ? reviewSummaryLabel(props.reviewSummary) : "Disabled"}
-          </strong>
-          <span>
-            {props.automationEnabled
-              ? props.reviewSummary.total > 0
-                ? `${props.reviewSummary.issues} issues, ${props.reviewSummary.artefacts} artefacts, ${props.reviewSummary.runs} approvals.`
-                : "Nothing needs approval right now."
-              : "Enable automation from Settings -> Plugins when you want agent workflows and review queues."}
-          </span>
+          <span class="dashboard-stat__label">Needs attention</span>
+          <strong>{attentionTitle()}</strong>
+          <span>{attentionDetail()}</span>
         </article>
       </div>
-      <section class="detail-section">
-        <div class="section-head">
-          <div>
-            <h2>Sync and local state</h2>
-            <p>What the toolkit is showing locally, and where that state comes from.</p>
-          </div>
-        </div>
-        <div class="usage-snapshot-grid">
-          <article class="snapshot-card">
-            <div class="snapshot-card__head">
-              <span class="dashboard-stat__label">Sync</span>
-              <CardActionButton
-                label="Open diagnostics"
-                onClick={() => props.onOpenSettings("diagnostics")}
-              />
-            </div>
-            <strong>
-              {props.appState?.sync.lastCompletedAt
-                ? `Last synced ${relativeTimeLabel(props.appState.sync.lastCompletedAt)}`
-                : describeSyncStatus(props.appState?.sync ?? {})}
-            </strong>
-            <span>
-              {props.appState?.sync.lastCompletedAt
-                ? `${formatDateTimeLabel(props.appState.sync.lastCompletedAt)} · ${syncCadenceLabel(props.serverInfo)}`
-                : syncCadenceLabel(props.serverInfo)}
-            </span>
-          </article>
-          <article class="snapshot-card">
-            <div class="snapshot-card__head">
-              <span class="dashboard-stat__label">Auth</span>
-              <CardActionButton
-                label="Open auth settings"
-                onClick={() => props.onOpenSettings("auth")}
-              />
-            </div>
-            <strong>{authStatus()}</strong>
-            <span>{authDetail()}</span>
-          </article>
-          <article class="snapshot-card">
-            <div class="snapshot-card__head">
-              <span class="dashboard-stat__label">Local index</span>
-              <CardActionButton
-                label="Open diagnostics"
-                onClick={() => props.onOpenSettings("diagnostics")}
-              />
-            </div>
-            <strong>{localIndexLabel()}</strong>
-            <span>{localIndexDetail()}</span>
-          </article>
-          <article class="snapshot-card">
-            <div class="snapshot-card__head">
-              <span class="dashboard-stat__label">Transcripts</span>
-              <CardActionButton
-                label="Open diagnostics"
-                onClick={() => props.onOpenSettings("diagnostics")}
-              />
-            </div>
-            <strong>{transcriptLabel()}</strong>
-            <span>{transcriptDetail()}</span>
-          </article>
-          <article class="snapshot-card">
-            <div class="snapshot-card__head">
-              <span class="dashboard-stat__label">Config</span>
-              <CardActionButton
-                label="Open diagnostics"
-                onClick={() => props.onOpenSettings("diagnostics")}
-              />
-            </div>
-            <strong>{configLabel()}</strong>
-            <span>{configDetail()}</span>
-          </article>
-        </div>
-      </section>
       <section class="detail-section">
         <div class="section-head">
           <div>
@@ -571,44 +432,14 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
       <section class="detail-section home-activity">
         <div class="section-head">
           <div>
-            <h2>Usage snapshot</h2>
-            <p>Recent meeting activity in your local workspace.</p>
+            <h2>Last 7 days</h2>
+            <p>Recent meeting activity from your local index.</p>
           </div>
-          <div class="home-activity__meta">{syncStatus()}</div>
-        </div>
-        <div class="usage-snapshot-grid">
-          <article class="snapshot-card">
-            <span class="dashboard-stat__label">Connection</span>
-            <strong>{authStatus()}</strong>
-            <span>API key first, desktop session fallback.</span>
-          </article>
-          <article class="snapshot-card">
-            <span class="dashboard-stat__label">Sync</span>
-            <strong>{health().title}</strong>
-            <span>{health().detail}</span>
-          </article>
-          <article class="snapshot-card">
-            <span class="dashboard-stat__label">Most active day</span>
-            <strong>
-              {busiestDay() > 0
-                ? `${weekActivity().find((day) => day.count === busiestDay())?.label || "This week"}`
-                : "No activity yet"}
-            </strong>
-            <span>
-              {busiestDay() > 0
-                ? `${busiestDay()} meetings on the busiest day.`
-                : "Waiting for meetings to land."}
-            </span>
-          </article>
-          <article class="snapshot-card">
-            <span class="dashboard-stat__label">Folders available</span>
-            <strong>{String(props.folders.length)}</strong>
-            <span>
-              {props.folders.length > 0
-                ? "Use folders as the default browse path."
-                : "Folders will show up after Granola exposes them."}
-            </span>
-          </article>
+          <div class="home-activity__meta">
+            {busiestDay() > 0
+              ? `${busiestDay()} meetings on the busiest day.`
+              : "Waiting for meetings to land."}
+          </div>
         </div>
         <div class="activity-chart">
           <div class="activity-chart__head">
@@ -633,27 +464,27 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
           </div>
         </div>
       </section>
-      <div class="home-dashboard__grid">
-        <section class="detail-section">
-          <h2>Sync health</h2>
-          <div class="health-card" data-tone={health().tone}>
-            <strong>{health().title}</strong>
-            <p>{health().detail}</p>
-            <Show when={props.processingIssues.length > 0 || props.reviewSummary.total > 0}>
-              <Show when={props.automationEnabled}>
-                <button
-                  class="button button--secondary"
-                  onClick={() => {
-                    props.onOpenReview();
-                  }}
-                  type="button"
-                >
-                  Open Review Inbox
-                </button>
-              </Show>
+      <section class="detail-section">
+        <h2>Needs attention</h2>
+        <div class="health-card" data-tone={health().tone}>
+          <strong>{health().title}</strong>
+          <p>{health().detail}</p>
+          <Show when={props.processingIssues.length > 0 || props.reviewSummary.total > 0}>
+            <Show when={props.automationEnabled}>
+              <button
+                class="button button--secondary"
+                onClick={() => {
+                  props.onOpenReview();
+                }}
+                type="button"
+              >
+                Open Review Inbox
+              </button>
             </Show>
-          </div>
-        </section>
+          </Show>
+        </div>
+      </section>
+      <div class="home-dashboard__grid">
         <section class="detail-section">
           <h2>Folders</h2>
           <Show
@@ -689,7 +520,7 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
           </Show>
         </section>
         <section class="detail-section">
-          <h2>Continue where you left off</h2>
+          <h2>Recent</h2>
           <Show
             when={props.recentMeetings.length > 0}
             fallback={
@@ -731,10 +562,10 @@ export function BrowsePromptPanel(props: {
 }): JSX.Element {
   return (
     <section class="browse-prompt">
-      <h2>Choose one clear path</h2>
+      <h2>Search your archive</h2>
       <p>
-        Pick a folder, open a recent meeting from Home, or switch to Search. The meeting list only
-        shows up after you intentionally narrow it down.
+        Search by title, note text, transcript text, folder, or tag. Use folders from the sidebar
+        when you want to browse instead of search.
       </p>
       <Show when={props.foldersAvailable === 0 && !props.hasRecentMeetings}>
         <p class="browse-prompt__hint">
@@ -953,7 +784,7 @@ export function MeetingList(props: MeetingListProps): JSX.Element {
           <div class="meeting-empty">
             {summary()
               ? `No meetings match ${summary()}.`
-              : props.emptyHint || "No meetings yet. Try Sync now."}
+              : props.emptyHint || "No meetings yet. Connect Granola and run the first import."}
           </div>
         </Match>
         <Match when={viewState() === "content"}>

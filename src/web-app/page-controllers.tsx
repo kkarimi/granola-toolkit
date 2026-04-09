@@ -61,10 +61,7 @@ export function HomePageController(props: {
   onOpenFolder: (folderId: string) => void;
   onOpenLatestMeeting: (meeting: MeetingSummaryRecord) => void;
   onOpenMeeting: (meeting: WebWorkspaceRecentMeeting) => void;
-  onOpenFoldersPage: () => void;
   onOpenReviewPage: () => void;
-  onOpenSearchPage: () => void;
-  onOpenSettingsTab: (tab: WebSettingsSection) => void;
   processingIssues: import("../app/index.ts").GranolaProcessingIssue[];
   recentMeetings: WebWorkspaceRecentMeeting[];
   reviewSummary: ReviewSummary;
@@ -73,7 +70,7 @@ export function HomePageController(props: {
   return (
     <>
       <PageHeader
-        description="Latest meetings, sync health, and what needs attention."
+        description="Latest meetings, last sync, and what needs attention."
         eyebrow="Home"
         title="Home"
       />
@@ -92,9 +89,6 @@ export function HomePageController(props: {
         }}
         onOpenMeeting={(meeting) => {
           props.onOpenMeeting(meeting);
-        }}
-        onOpenSettings={(tab) => {
-          props.onOpenSettingsTab(tab);
         }}
         onOpenReview={() => {
           props.onOpenReviewPage();
@@ -223,7 +217,7 @@ export function SearchPageController(props: {
   return (
     <>
       <PageHeader
-        description="Find a meeting by title, notes, transcript, folder, or tag."
+        description="Find a meeting by title, notes, transcript text, folder, or tag."
         eyebrow="Search"
         title="Search"
       />
