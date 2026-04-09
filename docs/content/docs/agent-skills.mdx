@@ -1,9 +1,29 @@
 ---
 title: Agent Skills
-description: Reuse Gran from external agents, including the built-in OpenClaw skill directory shipped in this repo.
+description: Reuse Gran from external agents, including Pi/OpenClaw installs and the built-in skill directory shipped in this repo.
 ---
 
-## OpenClaw Skill
+## Pi Package
+
+Gran can now be installed directly as a Pi package:
+
+```bash
+pi install npm:@kkarimi/gran
+```
+
+That gives Pi/OpenClaw the shipped `gran` skill automatically, without copying files out of this
+repo by hand.
+
+For a pinned GitHub install:
+
+```bash
+pi install git:github.com/kkarimi/gran
+```
+
+Pi package support follows the upstream Pi package manifest model from the
+[pi-mono coding-agent README](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent).
+
+## Local Skill Directory
 
 This repo ships an OpenClaw-ready skill directory at:
 

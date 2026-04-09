@@ -1,7 +1,9 @@
 export {
+  buildGranolaYazdAgentPrompt,
   buildObsidianOpenFileUri,
   buildObsidianSearchUri,
   createGranolaApp,
+  createGranolaYazdAgentPlugin,
   type FolderRecord,
   type GranolaAgentHarness,
   type GranolaAgentHarnessExplanationsResult,
@@ -45,6 +47,7 @@ export {
   type GranolaYazdSourceInfo,
   type GranolaYazdSourceListOptions,
   type GranolaYazdSourceListResult,
+  listGranolaYazdAgentPlugins,
   type NoteOutputFormat,
   type TranscriptOutputFormat,
 } from "../../../src/app/index.ts";

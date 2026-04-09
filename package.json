@@ -8,6 +8,7 @@
     "cli",
     "granola",
     "notes",
+    "pi-package",
     "search",
     "sync",
     "transcripts",
@@ -32,7 +33,8 @@
   ],
   "files": [
     "README.md",
-    "dist/cli.js"
+    "dist/cli.js",
+    "skills/openclaw-gran"
   ],
   "type": "module",
   "main": "dist/cli.js",
@@ -108,5 +110,10 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "packageManager": "npm@11.7.0"
+  "packageManager": "npm@11.7.0",
+  "pi": {
+    "skills": [
+      "./skills/openclaw-gran"
+    ]
+  }
 }
