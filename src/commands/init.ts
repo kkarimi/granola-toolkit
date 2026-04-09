@@ -3,6 +3,7 @@ import { relative, resolve as resolvePath } from "node:path";
 import { initialiseGranolaToolkitProject } from "../init.ts";
 import type { GranolaAgentProviderKind } from "../types.ts";
 
+import { maybeRunGuidedSetupAfterInit } from "./guided-setup.ts";
 import type { CommandDefinition } from "./types.ts";
 
 function initHelp(): string {
@@ -20,8 +21,10 @@ Create a local project bootstrap with:
 Options:
   --dir <path>        Target directory (default: current directory)
   --force             Overwrite existing generated files
+  --guided            Start guided setup immediately after bootstrap
   --model <value>     Override the starter model for generated harnesses
   --provider <value>  codex, openai, openrouter (default: codex)
+  --skip-guide        Skip the interactive guided setup prompt
   -h, --help          Show help
 `;
 }
@@ -55,13 +58,15 @@ export const initCommand: CommandDefinition = {
   flags: {
     dir: { type: "string" },
     force: { type: "boolean" },
+    guided: { type: "boolean" },
     help: { type: "boolean" },
     model: { type: "string" },
     provider: { type: "string" },
+    "skip-guide": { type: "boolean" },
   },
   help: initHelp,
   name: "init",
-  async run({ commandArgs, commandFlags }) {
+  async run({ commandArgs, commandFlags, globalFlags }) {
     if (commandArgs.length > 0) {
       throw new Error("gran init does not accept positional arguments");
     }
@@ -85,17 +90,23 @@ export const initCommand: CommandDefinition = {
     for (const filePath of result.createdFiles) {
       console.log(`  - ./${relative(root, filePath)}`);
     }
+
+    const guidedExitCode = await maybeRunGuidedSetupAfterInit({
+      commandFlags,
+      configPath: result.configPath,
+      globalFlags,
+    });
+    if (guidedExitCode !== undefined) {
+      return guidedExitCode;
+    }
+
     console.log("");
     console.log("Next:");
-    console.log("1. Store Gran auth once with `gran auth login --api-key grn_...`.");
+    console.log("  gran web --config ./.gran.json");
+    console.log("  gran tui --config ./.gran.json");
+    console.log("");
     console.log(providerNextStep(provider));
-    console.log(
-      "3. Edit the prompt files under ./.gran/prompts/ to match your real meeting types.",
-    );
-    console.log("4. Run `gran sync --config ./.gran.json` and `gran web --config ./.gran.json`.");
-    console.log(
-      "5. If your folders are not named Team or Customers, adjust ./.gran/automation-rules.json and ./.gran/agent-harnesses.json before enabling a watch loop.",
-    );
+    console.log("Edit ./.gran/prompts/ when you want to tune meeting-specific agent output.");
     return 0;
   },
 };

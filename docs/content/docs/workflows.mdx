@@ -11,14 +11,14 @@ Instead of learning Gran feature by feature, start from the outcome you want.
 
 ```bash
 gran init
-gran web
 ```
 
 Then:
 
-1. save a Granola API key
-2. import your meetings
-3. start browsing, searching, and opening meetings from the local workspace
+1. choose the browser workspace in guided setup
+2. save a Granola API key
+3. import your meetings
+4. start browsing, searching, and opening meetings from the local workspace
 
 Use this path when you mostly want a better Granola browser with a local index, sync loop, and
 export access.
@@ -44,7 +44,6 @@ Obsidian targets support:
 
 ```bash
 gran init --provider openrouter
-gran web
 ```
 
 Then:
@@ -61,16 +60,10 @@ they are written into a vault or downstream system.
 
 ```bash
 gran init
-gran service start
-gran tui
 ```
 
-Use this when you want the shared local runtime warmed in the background and a keyboard-first
-workspace in the foreground.
-
-Today, the smoothest guided first-run setup still lives in `gran web`. A guided terminal setup flow
-is planned so TUI users can save auth, run first sync, and choose their starting surface without
-dropping to docs first.
+Choose the terminal workspace in guided setup when you want the shared local runtime and a
+keyboard-first workspace without dropping to docs first.
 
 ## I Want Raw Exports I Control
 

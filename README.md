@@ -60,24 +60,26 @@ Windows).
 
 ```bash
 gran init
-gran web
 ```
 
-That gives you the shortest real path to value:
+In an interactive terminal, `gran init` now offers a guided setup flow that:
 
-1. `gran init` creates a local `.gran.json` plus editable files under `./.gran/`
-2. `gran web` walks you through saving a Granola API key and importing your meetings
-3. after that, you land in a workspace with your local archive ready to browse, search, and export
+1. creates a local `.gran.json` plus editable files under `./.gran/`
+2. asks whether you want the browser workspace or terminal workspace
+3. lets you save a Personal API key or import the desktop session
+4. runs the first import
+5. opens the workspace you picked
 
-`gran web` prefers the long-running background-service path by default: it will reuse the
+If you skip the guide or run `gran init` in a non-interactive shell, the shortest follow-up is:
+
+```bash
+gran web --config ./.gran.json
+gran tui --config ./.gran.json
+```
+
+`gran web` still prefers the long-running background-service path by default: it will reuse the
 existing service when one is already running, or start it for you when you have not asked for a
 foreground/debug session.
-
-`gran service start` is available when you want to warm the local sync loop without
-opening a browser first.
-
-If you prefer to reuse the desktop app session instead, `gran auth login` imports it from
-`supabase.json`.
 
 ## Example Workflows
 
@@ -85,7 +87,6 @@ If you prefer to reuse the desktop app session instead, `gran auth login` import
 
 ```bash
 gran init
-gran web
 ```
 
 Use this when you want the fastest way to get your Granola archive into a local workspace you can
@@ -105,22 +106,20 @@ Use this when your main goal is to keep notes and transcripts in an Obsidian vau
 
 ```bash
 gran init --provider openrouter
-gran web
 ```
 
-Then in `Settings -> Automation`, enable the automation plugin, keep the starter harness or edit
-it, and review drafts before anything is published.
+Then choose the browser workspace in guided setup. After the first import, open
+`Settings -> Automation`, enable the automation plugin, keep the starter harness or edit it, and
+review drafts before anything is published.
 
 ### Terminal-First Use
 
 ```bash
 gran init
-gran service start
-gran tui
 ```
 
-Use this when you want a warm local runtime and a keyboard-first workspace. Today the smoothest
-guided setup is still in the browser; a guided terminal setup flow is planned.
+Choose the terminal workspace in guided setup if you want to stay in the terminal from the first
+run.
 
 ## Project Setup And Config
 

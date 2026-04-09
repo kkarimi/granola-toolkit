@@ -8,7 +8,9 @@ import type { CommandContext } from "../src/commands/types.ts";
 import { authCommand } from "../src/commands/auth.ts";
 import { exportCommand } from "../src/commands/export.ts";
 import { exportsCommand } from "../src/commands/exports.ts";
+import * as guidedSetupModule from "../src/commands/guided-setup.ts";
 import { intelligenceCommand } from "../src/commands/intelligence.ts";
+import { initCommand } from "../src/commands/init.ts";
 import { meetingCommand } from "../src/commands/meeting.ts";
 import { notesCommand } from "../src/commands/notes.ts";
 import { searchCommand } from "../src/commands/search.ts";
@@ -23,6 +25,7 @@ import * as appModule from "../src/app/index.ts";
 import * as browserModule from "../src/browser.ts";
 import * as configModule from "../src/config.ts";
 import * as evaluationModule from "../src/evaluations.ts";
+import * as initModule from "../src/init.ts";
 import * as serverClientModule from "../src/server/client.ts";
 import * as serverModule from "../src/server/http.ts";
 import * as serviceModule from "../src/service.ts";
@@ -833,6 +836,36 @@ describe("command execution", () => {
       apiKey: "grn_test_123",
     });
     expect(log).toHaveBeenCalledWith("Stored Granola API key");
+  });
+
+  test("init command can hand off directly into guided setup", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(initModule, "initialiseGranolaToolkitProject").mockResolvedValue({
+      configPath: "/tmp/project/.gran.json",
+      createdFiles: ["/tmp/project/.gran.json", "/tmp/project/.gran/automation-rules.json"],
+      directory: "/tmp/project",
+    });
+    const maybeRunGuidedSetupAfterInit = vi
+      .spyOn(guidedSetupModule, "maybeRunGuidedSetupAfterInit")
+      .mockResolvedValue(0);
+
+    const exitCode = await initCommand.run(
+      makeContext({
+        commandFlags: {
+          guided: true,
+        },
+      }),
+    );
+
+    expect(exitCode).toBe(0);
+    expect(maybeRunGuidedSetupAfterInit).toHaveBeenCalledWith({
+      commandFlags: {
+        guided: true,
+      },
+      configPath: "/tmp/project/.gran.json",
+      globalFlags: {},
+    });
+    expect(log).toHaveBeenCalledWith("Initialised Gran 👵🏻 in /tmp/project");
   });
 
   test("meeting command lists meetings inside a resolved folder", async () => {

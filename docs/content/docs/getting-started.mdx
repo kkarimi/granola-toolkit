@@ -44,22 +44,24 @@ The generated files are intentionally local and editable. They give you a projec
 config, targets, prompts, and future automation without forcing you to reverse-engineer the JSON
 shape first.
 
-The smoothest first run today is browser-first:
+In an interactive terminal, `gran init` now offers guided setup immediately:
+
+1. choose browser or terminal
+2. save a Personal API key or import the desktop session
+3. run the first meeting import
+4. open the workspace you picked
+
+That means `gran init` is usually enough for the first run.
+
+If you skip the guide or you are running in a non-interactive shell, continue with one of:
 
 ```bash
-gran web
+gran web --config ./.gran.json
+gran tui --config ./.gran.json
 ```
 
-The first-run flow in the web workspace will guide you through the two things you actually need
-before the app becomes useful:
-
-1. save a Granola API key
-2. run the first meeting import
-
-After that, you land in the workspace with your local archive ready to browse.
-
-`gran web` prefers the reusable background-service path, so for many users the command above is
-enough to both launch the browser and warm the local sync runtime.
+`gran web` prefers the reusable background-service path, so it will reuse or start the local
+runtime for you.
 
 If you prefer CLI auth instead, store a Granola Personal API key once:
 
@@ -95,11 +97,11 @@ folders, review queues, targets, and diagnostics.
 ### Terminal Workspace
 
 ```bash
-gran service start
 gran tui
 ```
 
-Use this when you want a keyboard-first workspace on the same shared local runtime.
+Use this when you want a keyboard-first workspace on the same shared local runtime. If you start
+from `gran init`, the guided setup can land you here directly.
 
 ### Headless Local Runtime
 
