@@ -10,6 +10,11 @@ import type {
 import { syncManagedExports } from "./export-state.ts";
 import { resolveExportTargetSubdir } from "./export-targets.ts";
 import { noteFileStem } from "./notes.ts";
+import {
+  buildPkmMeetingContextFromDocument,
+  buildPkmNoteArtifact,
+  buildPkmTranscriptArtifact,
+} from "./pkm-artifacts.ts";
 import { transcriptFileStem } from "./transcripts.ts";
 import type { CacheDocument, GranolaDocument } from "./types.ts";
 import { latestDocumentTimestamp, quoteYamlString } from "./utils.ts";
@@ -33,10 +38,6 @@ function attendeesForDocument(document: GranolaDocument): string[] {
     document.people?.attendees.map((person) => person.name || person.email || person.companyName) ??
       [],
   );
-}
-
-function foldersForDocument(document: GranolaDocument): string[] {
-  return uniqueValues(document.folderMemberships?.map((folder) => folder.name) ?? []);
 }
 
 function frontmatterLines(entries: Array<[string, string | string[] | undefined]>): string[] {
@@ -90,8 +91,10 @@ export function renderObsidianNoteExport(options: {
   target: GranolaExportTarget;
   transcriptRelativePath?: string;
 }): string {
-  const meetingDate = meetingDateValue(options.document);
-  const folders = foldersForDocument(options.document);
+  const meeting = buildPkmMeetingContextFromDocument(options.document);
+  const artifact = buildPkmNoteArtifact(meeting, options.note);
+  const meetingDate = meeting.meetingDate;
+  const folders = meeting.folders.map((folder) => folder.name);
   const attendees = attendeesForDocument(options.document);
   const dailyNoteRelativePath = options.target.dailyNotesDir
     ? join(options.target.dailyNotesDir, `${meetingDate}.md`)
@@ -104,15 +107,15 @@ export function renderObsidianNoteExport(options: {
     : undefined;
 
   const lines = frontmatterLines([
-    ["title", options.note.title || options.note.id],
-    ["granola_id", options.note.id],
+    ["title", artifact.title || artifact.provenance.sourceId],
+    ["granola_id", artifact.provenance.sourceId],
     ["type", "note"],
     ["meeting_date", meetingDate],
-    ["created", options.note.createdAt],
-    ["updated", options.note.updatedAt],
-    ["content_source", options.note.contentSource],
+    ["created", artifact.createdAt],
+    ["updated", artifact.updatedAt],
+    ["content_source", artifact.contentSource],
     ["folders", folders],
-    ["tags", options.note.tags],
+    ["tags", meeting.tags],
     ["attendees", attendees],
     ["transcript", transcriptLink],
     ["daily_note", dailyNoteLink],
@@ -127,8 +130,8 @@ export function renderObsidianNoteExport(options: {
     lines.push("## Related", "", ...relatedLines, "");
   }
 
-  if (options.note.content.trim()) {
-    lines.push(options.note.content.trim());
+  if (artifact.markdown) {
+    lines.push(artifact.markdown);
   }
 
   return `${lines.join("\n").trimEnd()}\n`;
@@ -140,8 +143,10 @@ export function renderObsidianTranscriptExport(options: {
   target: GranolaExportTarget;
   transcript: TranscriptExportRecord;
 }): string {
-  const meetingDate = meetingDateValue(options.document);
-  const folders = foldersForDocument(options.document);
+  const meeting = buildPkmMeetingContextFromDocument(options.document);
+  const artifact = buildPkmTranscriptArtifact(meeting, options.transcript);
+  const meetingDate = meeting.meetingDate;
+  const folders = meeting.folders.map((folder) => folder.name);
   const attendees = attendeesForDocument(options.document);
   const noteLink = options.noteRelativePath
     ? obsidianLinkForPath(options.noteRelativePath)
@@ -153,12 +158,12 @@ export function renderObsidianTranscriptExport(options: {
     ? obsidianLinkForPath(dailyNoteRelativePath)
     : undefined;
   const lines = frontmatterLines([
-    ["title", `${options.transcript.title || options.transcript.id} Transcript`],
-    ["granola_id", options.transcript.id],
+    ["title", `${artifact.title || artifact.provenance.sourceId} Transcript`],
+    ["granola_id", artifact.provenance.sourceId],
     ["type", "transcript"],
     ["meeting_date", meetingDate],
-    ["created", options.transcript.createdAt],
-    ["updated", options.transcript.updatedAt],
+    ["created", artifact.createdAt],
+    ["updated", artifact.updatedAt],
     ["folders", folders],
     ["attendees", attendees],
     ["note", noteLink],
@@ -176,16 +181,7 @@ export function renderObsidianTranscriptExport(options: {
     lines.push("");
   }
   lines.push("## Transcript", "");
-
-  if (options.transcript.segments.length === 0) {
-    lines.push("(Transcript unavailable)");
-  } else {
-    for (const segment of options.transcript.segments) {
-      lines.push(
-        `- [${segment.startTimestamp.slice(11, 19)}] **${segment.speaker}:** ${segment.text}`,
-      );
-    }
-  }
+  lines.push(artifact.markdown);
 
   return `${lines.join("\n").trimEnd()}\n`;
 }

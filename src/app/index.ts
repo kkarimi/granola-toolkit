@@ -1,9 +1,30 @@
 export { GranolaApp, createGranolaApp } from "./core.ts";
+export {
+  buildMeetingPkmArtifactBundle,
+  buildPkmAutomationArtefactProjection,
+  buildPkmEntityArtifactsFromDocument,
+  buildPkmMeetingContextFromDocument,
+  buildPkmNoteArtifact,
+  buildPkmTranscriptArtifact,
+} from "../pkm-artifacts.ts";
 export type {
   GranolaAgentHarness,
   GranolaAgentHarnessMatch,
   GranolaAgentHarnessMatchExplanation,
 } from "../agent-harnesses.ts";
+export type {
+  GranPkmActionItemArtifact,
+  GranPkmArtifactBundle,
+  GranPkmArtifactProvenance,
+  GranPkmDecisionArtifact,
+  GranPkmEntityArtifact,
+  GranPkmEntityKind,
+  GranPkmMeetingContext,
+  GranPkmNoteArtifact,
+  GranPkmProvenanceSource,
+  GranPkmReviewStatus,
+  GranPkmTranscriptArtifact,
+} from "../pkm-artifacts.ts";
 export type {
   FolderRecord,
   FolderSummaryRecord,

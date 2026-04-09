@@ -89,6 +89,7 @@ import {
   defaultPluginEnabledMap,
   type GranolaPluginRegistry,
 } from "../plugin-registry.ts";
+import { buildPkmAutomationArtefactProjection } from "../pkm-artifacts.ts";
 import {
   defaultSyncEventsFilePath,
   createDefaultSyncStateStore,
@@ -1446,16 +1447,25 @@ export class GranolaApp implements GranolaAppApi {
       return "";
     }
 
+    const projection = buildPkmAutomationArtefactProjection(artefact);
+    const reviewStatus =
+      projection.decisions[0]?.provenance.reviewStatus ??
+      projection.actionItems[0]?.provenance.reviewStatus ??
+      projection.entities[0]?.provenance.reviewStatus ??
+      "generated";
     const lines = [
       "---",
       `title: ${quoteYamlString(artefact.structured.title)}`,
       `meetingId: ${quoteYamlString(match.meetingId)}`,
       `artefactId: ${quoteYamlString(artefact.id)}`,
       `artefactKind: ${quoteYamlString(artefact.kind)}`,
+      `reviewStatus: ${quoteYamlString(reviewStatus)}`,
       `ruleId: ${quoteYamlString(artefact.ruleId)}`,
       `sourceActionId: ${quoteYamlString(artefact.actionId)}`,
       `provider: ${quoteYamlString(artefact.provider)}`,
       `model: ${quoteYamlString(artefact.model)}`,
+      `decisionCount: ${quoteYamlString(String(projection.decisions.length))}`,
+      `actionItemCount: ${quoteYamlString(String(projection.actionItems.length))}`,
       "tags:",
       ...match.tags.map((tag) => `  - ${quoteYamlString(tag)}`),
       "folders:",
