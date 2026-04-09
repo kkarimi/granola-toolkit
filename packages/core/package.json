@@ -1,8 +1,8 @@
 {
-  "name": "@kkarimi/gran-sdk",
+  "name": "@kkarimi/gran-core",
   "version": "0.67.0",
-  "description": "Node and TypeScript SDK for Gran 👵🏻",
-  "homepage": "https://kkarimi.github.io/gran/docs/sdk",
+  "description": "Headless runtime and shared library surface for Gran 👵🏻",
+  "homepage": "https://kkarimi.github.io/gran/",
   "bugs": {
     "url": "https://github.com/kkarimi/gran/issues"
   },
@@ -34,8 +34,5 @@
     "check": "rm -rf dist && vp check",
     "test": "vp test",
     "typecheck": "vp exec tsc --noEmit"
-  },
-  "dependencies": {
-    "@kkarimi/gran-core": "0.67.0"
   }
 }

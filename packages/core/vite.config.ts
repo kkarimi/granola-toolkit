@@ -1,13 +1,6 @@
-import { fileURLToPath } from "node:url";
-
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
-  resolve: {
-    alias: {
-      "@kkarimi/gran-core": fileURLToPath(new URL("../core/src/index.ts", import.meta.url)),
-    },
-  },
   pack: {
     clean: true,
     dts: true,

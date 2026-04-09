@@ -2,7 +2,7 @@ import {
   createGranolaServerClient,
   GranolaServerClient,
   type GranolaServerClientOptions,
-} from "../../../src/server/client.ts";
+} from "@kkarimi/gran-core";
 
 export async function connectGranService(
   serverUrl: string | URL,

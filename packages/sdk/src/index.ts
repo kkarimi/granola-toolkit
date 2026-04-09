@@ -2,30 +2,34 @@ import {
   buildObsidianOpenFileUri,
   buildObsidianSearchUri,
   createGranolaApp,
-  type FolderRecord,
-  type GranolaApp,
-  type GranolaAppApi,
-  type GranolaAppSurface,
-  type GranolaExportTarget,
-  type GranolaExportTargetKind,
-  type GranolaNotesExportResult,
-  type GranolaTranscriptsExportResult,
-  type NoteOutputFormat,
-  type TranscriptOutputFormat,
-} from "../../../src/app/index.ts";
-import { loadConfig, type FlagValues } from "../../../src/config.ts";
-import {
   createDefaultGranolaApiClient,
   createDefaultGranolaAuth,
   createDefaultGranolaAuthController,
   createDefaultGranolaRuntime,
+  type FolderRecord,
+  type GranolaAgentProviderKind,
+  type GranolaApp,
+  type GranolaAppApi,
+  type GranolaAppSurface,
+  type GranolaDocument,
+  type GranolaExportTarget,
+  type GranolaExportTargetKind,
+  type GranolaFolder,
+  type GranolaNotesExportResult,
+  type GranolaTranscriptsExportResult,
   inspectDefaultGranolaAuth,
+  loadConfig,
   loadOptionalGranolaCache,
+  type NoteOutputFormat,
+  type AppConfig,
   type DefaultGranolaAuthController,
   type DefaultGranolaAuthInfo,
   type DefaultGranolaClient,
   type DefaultGranolaRuntime,
-} from "../../../src/client/default.ts";
+  type FlagValues,
+  type TranscriptSegment,
+  type TranscriptOutputFormat,
+} from "@kkarimi/gran-core";
 import {
   connectGranService,
   createGranolaServerClient,
@@ -42,13 +46,6 @@ import {
   type GranSdkArchiveExportOptions,
   type GranSdkArchiveExportResult,
 } from "./exports.ts";
-import type {
-  AppConfig,
-  GranolaAgentProviderKind,
-  GranolaDocument,
-  GranolaFolder,
-  TranscriptSegment,
-} from "../../../src/types.ts";
 
 export interface LoadGranConfigOptions {
   apiKey?: string;

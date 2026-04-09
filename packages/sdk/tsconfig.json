@@ -1,7 +1,10 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
+    "paths": {
+      "@kkarimi/gran-core": ["../core/src/index.ts"]
+    },
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "test/**/*.test.ts", "../../src/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.test.ts"]
 }

@@ -10,7 +10,7 @@ import type {
   GranolaTranscriptsExportResult,
   NoteOutputFormat,
   TranscriptOutputFormat,
-} from "../../../src/app/index.ts";
+} from "@kkarimi/gran-core";
 import {
   defaultExportTargetNotesFormat,
   defaultExportTargetNotesSubdir,
@@ -18,7 +18,7 @@ import {
   defaultExportTargetTranscriptsSubdir,
   listGranolaExportTargetDefinitions,
   type GranolaExportTargetDefinition,
-} from "../../../src/export-target-registry.ts";
+} from "@kkarimi/gran-core";
 
 type GranSdkExportTargetApi = Pick<GranolaAppApi, "listExportTargets" | "saveExportTargets">;
 
