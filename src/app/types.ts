@@ -264,6 +264,48 @@ export interface GranolaYazdSourceChangesResult {
   nextCursor?: string;
 }
 
+export type GranolaYazdKnowledgeBaseKind = "folder" | "obsidian-vault";
+export type GranolaYazdPublishAction = "delete" | "noop" | "update" | "write";
+
+export interface GranolaYazdKnowledgeBaseRef {
+  id: string;
+  kind: GranolaYazdKnowledgeBaseKind;
+  label?: string;
+  rootDir: string;
+  settings?: {
+    dailyNotesDir?: string;
+    filenameTemplate?: string;
+    folderSubdirectories?: boolean;
+    frontmatter?: boolean;
+    notesSubdir?: string;
+    transcriptsSubdir?: string;
+    vaultName?: string;
+  };
+}
+
+export interface GranolaYazdPublishPlanEntry {
+  action: GranolaYazdPublishAction;
+  artifactId: string;
+  artifactKind: GranolaYazdArtifact["kind"] | "daily-note";
+  openUrl?: string;
+  path: string;
+  reason?: string;
+}
+
+export interface GranolaYazdKnowledgeBasePublishInput {
+  bundle: GranolaYazdArtifactBundle;
+  knowledgeBase: GranolaYazdKnowledgeBaseRef;
+}
+
+export interface GranolaYazdKnowledgeBasePublishPreview extends GranolaYazdKnowledgeBaseRef {
+  entries: GranolaYazdPublishPlanEntry[];
+}
+
+export interface GranolaYazdKnowledgeBasePublishResult extends GranolaYazdKnowledgeBasePublishPreview {
+  publishedAt: string;
+  writtenCount: number;
+}
+
 export interface GranolaAutomationRuleWhen {
   eventKinds?: GranolaSyncEventKind[];
   folderIds?: string[];

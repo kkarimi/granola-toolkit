@@ -82,7 +82,6 @@ import {
   type MeetingIndexStore,
 } from "../meeting-index.ts";
 import { createDefaultPkmTargetStore, type PkmTargetStore } from "../pkm-targets.ts";
-import { previewMarkdownVaultTarget, syncMarkdownVaultTarget } from "../pkm-vault.ts";
 import {
   resolveGranolaIntelligencePreset,
   type GranolaIntelligencePreset,
@@ -118,6 +117,14 @@ import type {
   TranscriptOutputFormat,
 } from "../types.ts";
 import { writeTextFile } from "../utils.ts";
+import {
+  buildGranolaAutomationKnowledgeBaseBundle,
+  buildGranolaYazdKnowledgeBaseRef,
+  legacyPkmPreviewFromYazdKnowledgeBasePreview,
+  legacyPkmSyncResultFromYazdKnowledgeBasePublishResult,
+  previewGranolaYazdKnowledgeBasePublish,
+  publishGranolaYazdKnowledgeBase,
+} from "../yazd-knowledge-bases.ts";
 import {
   buildGranolaYazdArtifactBundle,
   buildGranolaYazdSourceChange,
@@ -1028,23 +1035,18 @@ export class GranolaApp implements GranolaAppApi {
     if (!selectedTarget) {
       throw new Error(`linked knowledge base not found for artefact: ${id}`);
     }
-
-    const match = (await this.#automation.listAutomationMatches({ limit: 1_000 })).matches.find(
-      (candidate) => candidate.id === artefact.matchId,
-    );
-    if (!match) {
-      throw new Error(`automation match not found for artefact: ${id}`);
-    }
-
     const bundle = await this.readMeetingBundleById(artefact.meetingId);
     return {
       artefactId: artefact.id,
-      preview: previewMarkdownVaultTarget({
-        artefact,
-        bundle,
-        match,
-        target: selectedTarget,
-      }),
+      preview: legacyPkmPreviewFromYazdKnowledgeBasePreview(
+        await previewGranolaYazdKnowledgeBasePublish({
+          bundle: buildGranolaAutomationKnowledgeBaseBundle({
+            artefact,
+            bundle,
+          }),
+          knowledgeBase: buildGranolaYazdKnowledgeBaseRef(selectedTarget),
+        }),
+      ),
       selectedTargetId: selectedTarget.id,
       targets,
     };
@@ -1624,12 +1626,15 @@ export class GranolaApp implements GranolaAppApi {
     }
 
     const bundle = await this.readMeetingBundleById(match.meetingId);
-    const result = await syncMarkdownVaultTarget({
-      artefact: context.artefact,
-      bundle,
-      match,
-      target,
-    });
+    const result = legacyPkmSyncResultFromYazdKnowledgeBasePublishResult(
+      await publishGranolaYazdKnowledgeBase({
+        bundle: buildGranolaAutomationKnowledgeBaseBundle({
+          artefact: context.artefact,
+          bundle,
+        }),
+        knowledgeBase: buildGranolaYazdKnowledgeBaseRef(target),
+      }),
+    );
 
     return {
       dailyNoteFilePath: result.dailyNoteFilePath,

@@ -1,12 +1,25 @@
 export { GranolaApp, createGranolaApp } from "./core.ts";
 export {
   GRAN_YAZD_SOURCE_ID,
+  buildGranolaYazdAutomationArtifactBundle,
   buildGranolaYazdArtifactBundle,
   buildGranolaYazdSourceChange,
   buildGranolaYazdSourceFetchResult,
   buildGranolaYazdSourceInfo,
   buildGranolaYazdSourceItemSummary,
 } from "../yazd-source.ts";
+export {
+  buildGranolaAutomationKnowledgeBaseBundle,
+  buildGranolaYazdKnowledgeBaseRef,
+  legacyPkmPreviewFromYazdKnowledgeBasePreview,
+  legacyPkmSyncResultFromYazdKnowledgeBasePublishResult,
+  listGranolaYazdKnowledgeBasePlugins,
+  previewGranolaYazdKnowledgeBasePublish,
+  previewGranolaYazdKnowledgeBasePublishSync,
+  publishGranolaYazdKnowledgeBase,
+  resolveGranolaYazdKnowledgeBasePlugin,
+} from "../yazd-knowledge-bases.ts";
+export type { GranolaYazdKnowledgeBasePlugin } from "../yazd-knowledge-bases.ts";
 export {
   buildMeetingPkmArtifactBundle,
   buildPkmAutomationArtefactProjection,
@@ -132,6 +145,13 @@ export type {
   GranolaAppDocumentsState,
   GranolaYazdArtifact,
   GranolaYazdArtifactBundle,
+  GranolaYazdKnowledgeBaseKind,
+  GranolaYazdKnowledgeBasePublishInput,
+  GranolaYazdKnowledgeBasePublishPreview,
+  GranolaYazdKnowledgeBasePublishResult,
+  GranolaYazdKnowledgeBaseRef,
+  GranolaYazdPublishAction,
+  GranolaYazdPublishPlanEntry,
   GranolaAppExportRunState,
   GranolaAppFoldersState,
   GranolaAppIndexState,

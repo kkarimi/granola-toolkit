@@ -1,14 +1,19 @@
-import { buildMeetingPkmArtifactBundle } from "./pkm-artifacts.ts";
+import {
+  buildMeetingPkmArtifactBundle,
+  buildPkmAutomationArtefactProjection,
+} from "./pkm-artifacts.ts";
 import type {
   GranPkmActionItemArtifact,
   GranPkmArtifactBundle,
   GranPkmArtifactProvenance,
+  GranPkmAutomationProjection,
   GranPkmDecisionArtifact,
   GranPkmEntityArtifact,
   GranPkmNoteArtifact,
   GranPkmTranscriptArtifact,
 } from "./pkm-artifacts.ts";
 import type {
+  GranolaAutomationArtefact,
   GranolaAppSyncEvent,
   GranolaMeetingBundle,
   GranolaYazdArtifact,
@@ -81,6 +86,35 @@ function mapNoteArtifact(artifact: GranPkmNoteArtifact): GranolaYazdArtifact {
     provenance: mapProvenance(artifact.provenance),
     text: artifact.content,
     title: artifact.title,
+  };
+}
+
+function mapAutomationNoteArtifact(
+  artefact: Pick<
+    GranolaAutomationArtefact,
+    "actionId" | "id" | "kind" | "parseMode" | "ruleId" | "structured" | "updatedAt"
+  >,
+  provenance: GranPkmAutomationProjection["provenance"],
+): GranolaYazdArtifact {
+  return {
+    id: artefact.id,
+    kind: "note",
+    markdown: artefact.structured.markdown,
+    metadata: {
+      actionId: artefact.actionId,
+      automationArtefactKind: artefact.kind,
+      parseMode: artefact.parseMode,
+      ruleId: artefact.ruleId,
+      sections: artefact.structured.sections.map((section) => ({
+        body: section.body,
+        title: section.title,
+      })),
+      summary: artefact.structured.summary,
+      updatedAt: artefact.updatedAt,
+    },
+    provenance: mapProvenance(provenance),
+    text: artefact.structured.summary?.trim() || artefact.structured.markdown,
+    title: artefact.structured.title,
   };
 }
 
@@ -261,6 +295,53 @@ export function buildGranolaYazdArtifactBundle(
   bundle: GranolaMeetingBundle,
 ): GranolaYazdArtifactBundle {
   return mapArtifactBundle(buildMeetingPkmArtifactBundle(withProjectedMeetingContext(bundle)));
+}
+
+export function buildGranolaYazdAutomationArtifactBundle(options: {
+  artefact: GranolaAutomationArtefact;
+  bundle: GranolaMeetingBundle;
+}): GranolaYazdArtifactBundle {
+  const hydratedBundle = withProjectedMeetingContext(options.bundle);
+  const meetingBundle = buildMeetingPkmArtifactBundle(hydratedBundle, {
+    artefacts: [options.artefact],
+  });
+  const projection = buildPkmAutomationArtefactProjection(options.artefact);
+  const artifacts: GranolaYazdArtifact[] = [
+    mapAutomationNoteArtifact(options.artefact, projection.provenance),
+  ];
+
+  if (meetingBundle.transcript) {
+    artifacts.push(mapTranscriptArtifact(meetingBundle.transcript));
+  }
+
+  artifacts.push(...projection.decisions.map(mapDecisionArtifact));
+  artifacts.push(...projection.actionItems.map(mapActionItemArtifact));
+  artifacts.push(
+    ...meetingBundle.entities
+      .filter((artifact) => artifact.provenance.sourceKind !== "gran-meeting")
+      .map(mapEntityArtifact),
+  );
+
+  return {
+    artifacts,
+    metadata: {
+      actionId: options.artefact.actionId,
+      artefactId: options.artefact.id,
+      artefactKind: options.artefact.kind,
+      createdAt: meetingBundle.meeting.createdAt,
+      folders: meetingBundle.meeting.folders.map((folder) => ({ ...folder })),
+      meetingDate: meetingBundle.meeting.meetingDate,
+      meetingTitle: meetingBundle.meeting.title,
+      ruleId: options.artefact.ruleId,
+      tags: [...meetingBundle.meeting.tags],
+      updatedAt: options.artefact.updatedAt,
+    },
+    sourceItemId: meetingBundle.meeting.id,
+    sourcePluginId: GRAN_YAZD_SOURCE_ID,
+    tags: [...meetingBundle.meeting.tags],
+    title: options.artefact.structured.title || meetingBundle.meeting.title,
+    updatedAt: options.artefact.updatedAt,
+  };
 }
 
 export function buildGranolaYazdSourceChange(event: GranolaAppSyncEvent): GranolaYazdSourceChange {

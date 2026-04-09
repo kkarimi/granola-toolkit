@@ -2465,6 +2465,146 @@ describe("GranolaApp", () => {
     expect(runs.runs.map((run) => run.actionId)).not.toContain("obsidian-sync");
   });
 
+  test("previews a linked knowledge base without requiring the original automation match", async () => {
+    const docsDir = await mkdtemp(join(tmpdir(), "granola-pkm-preview-no-match-"));
+    const cacheFile = join(await mkdtemp(join(tmpdir(), "granola-app-cache-")), "cache.json");
+    await writeFile(cacheFile, "{}\n", "utf8");
+
+    const app = new GranolaApp(
+      enableAutomation({
+        agents: {
+          codexCommand: "codex",
+          defaultProvider: "codex",
+          dryRun: false,
+          harnessesFile: "/tmp/agent-harnesses.json",
+          maxRetries: 1,
+          openaiBaseUrl: "https://api.openai.com/v1",
+          openrouterBaseUrl: "https://openrouter.ai/api/v1",
+          timeoutMs: 30_000,
+        },
+        automation: {
+          artefactsFile: "/tmp/automation-artefacts.json",
+          pkmTargetsFile: "/tmp/pkm-targets.json",
+          rulesFile: "/tmp/automation-rules.json",
+        },
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile,
+          output: "/tmp/transcripts",
+        },
+      }),
+      {
+        auth: {
+          mode: "supabase-file",
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: true,
+          supabasePath: "/tmp/supabase.json",
+        },
+        automationArtefacts: [
+          {
+            actionId: "pipeline-notes",
+            actionName: "Pipeline notes",
+            attempts: [],
+            createdAt: "2024-03-01T12:00:00.000Z",
+            eventId: "sync-1",
+            history: [
+              {
+                action: "generated",
+                at: "2024-03-01T12:00:00.000Z",
+              },
+            ],
+            id: "notes:sync-1:pipeline-notes",
+            kind: "notes",
+            matchId: "missing-match",
+            meetingId: "doc-alpha-1111",
+            model: "gpt-5-codex",
+            parseMode: "json",
+            prompt: "Prompt",
+            provider: "codex",
+            rawOutput: "{}",
+            ruleId: "team-transcript",
+            ruleName: "Team transcript ready",
+            runId: "sync-1:meeting-created-any:pipeline-notes",
+            status: "generated",
+            structured: {
+              actionItems: [],
+              decisions: [],
+              followUps: [],
+              highlights: [],
+              markdown: "# Previewed Notes",
+              sections: [],
+              summary: "Generated summary",
+              title: "Previewed Notes",
+            },
+            updatedAt: "2024-03-01T12:00:00.000Z",
+          },
+        ],
+        automationMatchStore: new MemoryAutomationMatchStore(),
+        automationRuleStore: new MemoryAutomationRuleStore([
+          {
+            actions: [
+              {
+                approvalMode: "manual",
+                id: "pipeline-notes",
+                kind: "agent",
+                pipeline: {
+                  kind: "notes",
+                },
+                prompt: "Write vault-ready notes",
+              },
+              {
+                id: "docs-sync",
+                kind: "pkm-sync",
+                sourceActionId: "pipeline-notes",
+                targetId: "docs-team",
+                trigger: "approval",
+              },
+            ],
+            id: "team-transcript",
+            name: "Team transcript ready",
+            when: {
+              eventKinds: ["transcript.ready"],
+              folderNames: ["Team"],
+              tags: ["team"],
+              transcriptLoaded: true,
+            },
+          },
+        ]),
+        automationRunStore: new MemoryAutomationRunStore(),
+        cacheLoader: async () => cacheData,
+        granolaClient: {
+          listDocuments: async () => documents,
+          listFolders: async () => folders,
+        },
+        pkmTargetStore: new MemoryPkmTargetStore([
+          {
+            folderSubdirectories: true,
+            id: "docs-team",
+            kind: "docs-folder",
+            name: "Team Docs",
+            outputDir: docsDir,
+          },
+        ]),
+      },
+      { surface: "server" },
+    );
+
+    const preview = await app.previewAutomationArtefactPublish("notes:sync-1:pipeline-notes");
+    expect(preview.selectedTargetId).toBe("docs-team");
+    expect(preview.preview).toEqual(
+      expect.objectContaining({
+        noteFilePath: join(docsDir, "Meetings", "Team", "Alpha Sync-notes.md"),
+        transcriptFilePath: join(docsDir, "Transcripts", "Team", "Alpha Sync-transcript.md"),
+      }),
+    );
+  });
+
   test("detects failed processing issues and recovers them", async () => {
     const runAgent = vi.fn(
       async (): Promise<GranolaAutomationAgentResult> => ({
