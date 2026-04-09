@@ -68,6 +68,8 @@ export type GranolaAutomationActionRunStatus = "completed" | "failed" | "pending
 export type GranolaAutomationWebhookPayloadFormat = "json" | "markdown" | "text";
 export type GranolaAutomationWriteFileFormat = "json" | "markdown" | "text";
 export type GranolaPkmTargetKind = "docs-folder" | "obsidian";
+export type GranolaPkmTargetTransport = "api" | "filesystem";
+export type GranolaPkmTargetReviewMode = "optional" | "recommended" | "required";
 export type GranolaExportTargetKind = "bundle-folder" | "obsidian-vault";
 export type GranolaExportScope =
   | {
@@ -316,6 +318,7 @@ export interface GranolaPkmTarget {
   kind: GranolaPkmTargetKind;
   name?: string;
   outputDir: string;
+  reviewMode?: GranolaPkmTargetReviewMode;
 }
 
 export interface GranolaExportTarget {

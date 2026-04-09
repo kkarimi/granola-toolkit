@@ -91,6 +91,10 @@ import {
 } from "../plugin-registry.ts";
 import { buildPkmAutomationArtefactProjection } from "../pkm-artifacts.ts";
 import {
+  buildGranolaPkmPublishIdentity,
+  defaultPkmTargetFrontmatterEnabled,
+} from "../pkm-target-registry.ts";
+import {
   defaultSyncEventsFilePath,
   createDefaultSyncStateStore,
   defaultSyncStateFilePath,
@@ -1435,31 +1439,28 @@ export class GranolaApp implements GranolaAppApi {
   }
 
   private pkmFrontmatterEnabled(target: GranolaPkmTarget): boolean {
-    return target.frontmatter ?? target.kind === "obsidian";
+    return target.frontmatter ?? defaultPkmTargetFrontmatterEnabled(target.kind);
   }
 
   private buildPkmFrontmatter(
     target: GranolaPkmTarget,
     artefact: GranolaAutomationArtefact,
     match: GranolaAutomationMatch,
+    publishIdentityKey?: string,
   ): string {
     if (!this.pkmFrontmatterEnabled(target)) {
       return "";
     }
 
     const projection = buildPkmAutomationArtefactProjection(artefact);
-    const reviewStatus =
-      projection.decisions[0]?.provenance.reviewStatus ??
-      projection.actionItems[0]?.provenance.reviewStatus ??
-      projection.entities[0]?.provenance.reviewStatus ??
-      "generated";
     const lines = [
       "---",
       `title: ${quoteYamlString(artefact.structured.title)}`,
       `meetingId: ${quoteYamlString(match.meetingId)}`,
       `artefactId: ${quoteYamlString(artefact.id)}`,
       `artefactKind: ${quoteYamlString(artefact.kind)}`,
-      `reviewStatus: ${quoteYamlString(reviewStatus)}`,
+      `reviewStatus: ${quoteYamlString(projection.provenance.reviewStatus)}`,
+      ...(publishIdentityKey ? [`publishIdentity: ${quoteYamlString(publishIdentityKey)}`] : []),
       `ruleId: ${quoteYamlString(artefact.ruleId)}`,
       `sourceActionId: ${quoteYamlString(artefact.actionId)}`,
       `provider: ${quoteYamlString(artefact.provider)}`,
@@ -1503,14 +1504,23 @@ export class GranolaApp implements GranolaAppApi {
       target.folderSubdirectories && folderName
         ? join(target.outputDir, sanitiseFilename(folderName, "folder"))
         : target.outputDir;
+    const publishIdentity = buildGranolaPkmPublishIdentity({
+      actionId: context.artefact.actionId,
+      artifactKind: context.artefact.kind,
+      meetingId: match.meetingId,
+      meetingTitle,
+      target,
+    });
     const fileName = target.filenameTemplate?.trim()
-      ? target.filenameTemplate
-          .replaceAll("{{meeting.title}}", meetingTitle)
-          .replaceAll("{{artefact.kind}}", context.artefact.kind)
-          .replaceAll("{{artefact.title}}", context.artefact.structured.title)
-      : `${sanitiseFilename(`${meetingTitle}-${context.artefact.kind}`)}.md`;
+      ? publishIdentity.fileName
+      : `${publishIdentity.preferredStem}.md`;
     const filePath = join(outputDir, sanitiseFilename(fileName, "meeting.md"));
-    const content = `${this.buildPkmFrontmatter(target, context.artefact, match)}${context.artefact.structured.markdown.trim()}\n`;
+    const content = `${this.buildPkmFrontmatter(
+      target,
+      context.artefact,
+      match,
+      publishIdentity.key,
+    )}${context.artefact.structured.markdown.trim()}\n`;
     await writeTextFile(filePath, content);
     return {
       filePath,

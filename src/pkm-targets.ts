@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 
 import type { GranolaPkmTarget } from "./app/index.ts";
 import { defaultGranolaToolkitPersistenceLayout } from "./persistence/layout.ts";
+import { defaultPkmTargetReviewMode, parseGranolaPkmTargetKind } from "./pkm-target-registry.ts";
 import { asRecord, parseJsonString, stringValue } from "./utils.ts";
 
 interface PkmTargetsFile {
@@ -21,8 +22,8 @@ function normaliseTarget(value: unknown): GranolaPkmTarget | undefined {
 
   const id = stringValue(record.id).trim();
   const outputDir = stringValue(record.outputDir).trim();
-  const kind = stringValue(record.kind).trim();
-  if (!id || !outputDir || (kind !== "docs-folder" && kind !== "obsidian")) {
+  const kind = parseGranolaPkmTargetKind(record.kind);
+  if (!id || !outputDir || !kind) {
     return undefined;
   }
 
@@ -35,6 +36,12 @@ function normaliseTarget(value: unknown): GranolaPkmTarget | undefined {
     kind,
     name: stringValue(record.name).trim() || undefined,
     outputDir,
+    reviewMode:
+      stringValue(record.reviewMode).trim() === "optional" ||
+      stringValue(record.reviewMode).trim() === "recommended" ||
+      stringValue(record.reviewMode).trim() === "required"
+        ? (stringValue(record.reviewMode).trim() as GranolaPkmTarget["reviewMode"])
+        : defaultPkmTargetReviewMode(kind),
   };
 }
 

@@ -2113,6 +2113,10 @@ describe("GranolaApp", () => {
     const content = await readFile(writtenFile, "utf8");
     expect(content).toContain('title: "PKM Notes"');
     expect(content).toContain('meetingId: "doc-alpha-1111"');
+    expect(content).toContain('reviewStatus: "approved"');
+    expect(content).toContain(
+      'publishIdentity: "obsidian-team:doc-alpha-1111:notes:pipeline-notes"',
+    );
     expect(content).toContain("# PKM Notes");
 
     const artefact = (await app.listAutomationArtefacts({ kind: "notes", limit: 10 })).artefacts[0];

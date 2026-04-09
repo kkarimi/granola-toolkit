@@ -108,6 +108,13 @@ export interface GranPkmArtifactBundle {
   transcript?: GranPkmTranscriptArtifact;
 }
 
+export interface GranPkmAutomationProjection {
+  actionItems: GranPkmActionItemArtifact[];
+  decisions: GranPkmDecisionArtifact[];
+  entities: GranPkmEntityArtifact[];
+  provenance: GranPkmArtifactProvenance;
+}
+
 function uniqueStrings(values: Array<string | undefined>): string[] {
   return [...new Set(values.map((value) => value?.trim()).filter(Boolean) as string[])];
 }
@@ -400,7 +407,7 @@ export function buildPkmAutomationArtefactProjection(
     GranolaAutomationArtefact,
     "actionId" | "id" | "model" | "provider" | "ruleId" | "status" | "structured" | "updatedAt"
   >,
-): Pick<GranPkmArtifactBundle, "actionItems" | "decisions" | "entities"> {
+): GranPkmAutomationProjection {
   const provenance = automationProvenance(artefact);
   const decisions = artefact.structured.decisions.map((text, index) => ({
     id: decisionId(artefact.id, text, index),
@@ -443,6 +450,7 @@ export function buildPkmAutomationArtefactProjection(
     actionItems: dedupeById(actionItems),
     decisions: dedupeById(decisions),
     entities: dedupeById([...participantEntities, ...companyEntities]),
+    provenance,
   };
 }
 

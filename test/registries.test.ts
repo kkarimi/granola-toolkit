@@ -16,6 +16,11 @@ import {
   createGranolaIntelligencePresetRegistry,
 } from "../src/intelligence-presets.ts";
 import {
+  buildGranolaPkmPublishIdentity,
+  createDefaultGranolaPkmTargetRegistry,
+  createGranolaPkmTargetRegistry,
+} from "../src/pkm-target-registry.ts";
+import {
   enabledAutomationActions,
   executeAutomationAction,
   type AutomationActionExecutionHandlers,
@@ -277,6 +282,45 @@ describe("extension registries", () => {
         label: "People",
       }),
     );
+  });
+
+  test("exposes PKM target kinds through a registry and builds stable publish identities", () => {
+    const registry = createGranolaPkmTargetRegistry().register("docs-folder", {
+      description: "Filesystem target",
+      kind: "docs-folder",
+      label: "Docs folder",
+      reviewMode: "recommended",
+      supportsFrontmatter: true,
+      transport: "filesystem",
+    });
+
+    expect(registry.resolve("docs-folder", "PKM target")).toEqual(
+      expect.objectContaining({
+        label: "Docs folder",
+        reviewMode: "recommended",
+      }),
+    );
+    expect(createDefaultGranolaPkmTargetRegistry().resolve("obsidian", "PKM target")).toEqual(
+      expect.objectContaining({
+        supportsOpenInApp: true,
+        transport: "filesystem",
+      }),
+    );
+    expect(
+      buildGranolaPkmPublishIdentity({
+        actionId: "review-notes",
+        artifactKind: "notes",
+        meetingId: "doc-alpha-1111",
+        meetingTitle: "Alpha Sync",
+        target: {
+          id: "obsidian-team",
+        },
+      }),
+    ).toEqual({
+      fileName: "Alpha Sync-notes.md",
+      key: "obsidian-team:doc-alpha-1111:notes:review-notes",
+      preferredStem: "Alpha Sync-notes",
+    });
   });
 
   test("lets the export service delegate kinds through the exporter registry", async () => {

@@ -7,6 +7,16 @@ export {
   buildPkmNoteArtifact,
   buildPkmTranscriptArtifact,
 } from "../pkm-artifacts.ts";
+export {
+  buildGranolaPkmPublishIdentity,
+  createDefaultGranolaPkmTargetRegistry,
+  createGranolaPkmTargetRegistry,
+  defaultPkmTargetFrontmatterEnabled,
+  defaultPkmTargetReviewMode,
+  listGranolaPkmTargetDefinitions,
+  parseGranolaPkmTargetKind,
+  resolveGranolaPkmTargetDefinition,
+} from "../pkm-target-registry.ts";
 export type {
   GranolaAgentHarness,
   GranolaAgentHarnessMatch,
@@ -16,6 +26,7 @@ export type {
   GranPkmActionItemArtifact,
   GranPkmArtifactBundle,
   GranPkmArtifactProvenance,
+  GranPkmAutomationProjection,
   GranPkmDecisionArtifact,
   GranPkmEntityArtifact,
   GranPkmEntityKind,
@@ -25,6 +36,12 @@ export type {
   GranPkmReviewStatus,
   GranPkmTranscriptArtifact,
 } from "../pkm-artifacts.ts";
+export type {
+  GranolaPkmPublishIdentity,
+  GranolaPkmPublishIdentityInput,
+  GranolaPkmTargetDefinition,
+  GranolaPkmTargetRegistry,
+} from "../pkm-target-registry.ts";
 export type {
   FolderRecord,
   FolderSummaryRecord,
@@ -142,5 +159,7 @@ export type {
   GranolaProcessingRecoveryResult,
   GranolaPkmTarget,
   GranolaPkmTargetKind,
+  GranolaPkmTargetReviewMode,
+  GranolaPkmTargetTransport,
   GranolaTranscriptsExportResult,
 } from "./types.ts";
