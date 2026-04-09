@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join, resolve as resolvePath } from "node:path";
+import { resolve as resolvePath } from "node:path";
 
 import {
   createDefaultAgentHarnessStore,
@@ -78,6 +78,7 @@ import {
   type MeetingIndexStore,
 } from "../meeting-index.ts";
 import { createDefaultPkmTargetStore, type PkmTargetStore } from "../pkm-targets.ts";
+import { syncMarkdownVaultTarget } from "../pkm-vault.ts";
 import {
   resolveGranolaIntelligencePreset,
   type GranolaIntelligencePreset,
@@ -89,11 +90,6 @@ import {
   defaultPluginEnabledMap,
   type GranolaPluginRegistry,
 } from "../plugin-registry.ts";
-import { buildPkmAutomationArtefactProjection } from "../pkm-artifacts.ts";
-import {
-  buildGranolaPkmPublishIdentity,
-  defaultPkmTargetFrontmatterEnabled,
-} from "../pkm-target-registry.ts";
 import {
   defaultSyncEventsFilePath,
   createDefaultSyncStateStore,
@@ -117,7 +113,7 @@ import type {
   NoteOutputFormat,
   TranscriptOutputFormat,
 } from "../types.ts";
-import { quoteYamlString, sanitiseFilename, writeTextFile } from "../utils.ts";
+import { writeTextFile } from "../utils.ts";
 
 import type {
   GranolaAppApi,
@@ -1438,46 +1434,6 @@ export class GranolaApp implements GranolaAppApi {
     return (await this.deps.pkmTargetStore.readTargets()).map((target) => ({ ...target }));
   }
 
-  private pkmFrontmatterEnabled(target: GranolaPkmTarget): boolean {
-    return target.frontmatter ?? defaultPkmTargetFrontmatterEnabled(target.kind);
-  }
-
-  private buildPkmFrontmatter(
-    target: GranolaPkmTarget,
-    artefact: GranolaAutomationArtefact,
-    match: GranolaAutomationMatch,
-    publishIdentityKey?: string,
-  ): string {
-    if (!this.pkmFrontmatterEnabled(target)) {
-      return "";
-    }
-
-    const projection = buildPkmAutomationArtefactProjection(artefact);
-    const lines = [
-      "---",
-      `title: ${quoteYamlString(artefact.structured.title)}`,
-      `meetingId: ${quoteYamlString(match.meetingId)}`,
-      `artefactId: ${quoteYamlString(artefact.id)}`,
-      `artefactKind: ${quoteYamlString(artefact.kind)}`,
-      `reviewStatus: ${quoteYamlString(projection.provenance.reviewStatus)}`,
-      ...(publishIdentityKey ? [`publishIdentity: ${quoteYamlString(publishIdentityKey)}`] : []),
-      `ruleId: ${quoteYamlString(artefact.ruleId)}`,
-      `sourceActionId: ${quoteYamlString(artefact.actionId)}`,
-      `provider: ${quoteYamlString(artefact.provider)}`,
-      `model: ${quoteYamlString(artefact.model)}`,
-      `decisionCount: ${quoteYamlString(String(projection.decisions.length))}`,
-      `actionItemCount: ${quoteYamlString(String(projection.actionItems.length))}`,
-      "tags:",
-      ...match.tags.map((tag) => `  - ${quoteYamlString(tag)}`),
-      "folders:",
-      ...match.folders.map((folder) => `  - ${quoteYamlString(folder.name)}`),
-      "---",
-      "",
-    ];
-
-    return lines.join("\n");
-  }
-
   private async runAutomationPkmSync(
     match: GranolaAutomationMatch,
     rule: GranolaAutomationRule,
@@ -1498,32 +1454,16 @@ export class GranolaApp implements GranolaAppApi {
       throw new Error(`automation PKM target not found: ${action.targetId}`);
     }
 
-    const meetingTitle = match.title || context.artefact.structured.title;
-    const folderName = match.folders[0]?.name;
-    const outputDir =
-      target.folderSubdirectories && folderName
-        ? join(target.outputDir, sanitiseFilename(folderName, "folder"))
-        : target.outputDir;
-    const publishIdentity = buildGranolaPkmPublishIdentity({
-      actionId: context.artefact.actionId,
-      artifactKind: context.artefact.kind,
-      meetingId: match.meetingId,
-      meetingTitle,
+    const bundle = await this.readMeetingBundleById(match.meetingId);
+    const result = await syncMarkdownVaultTarget({
+      artefact: context.artefact,
+      bundle,
+      match,
       target,
     });
-    const fileName = target.filenameTemplate?.trim()
-      ? publishIdentity.fileName
-      : `${publishIdentity.preferredStem}.md`;
-    const filePath = join(outputDir, sanitiseFilename(fileName, "meeting.md"));
-    const content = `${this.buildPkmFrontmatter(
-      target,
-      context.artefact,
-      match,
-      publishIdentity.key,
-    )}${context.artefact.structured.markdown.trim()}\n`;
-    await writeTextFile(filePath, content);
+
     return {
-      filePath,
+      filePath: result.filePath,
       targetId: target.id,
     };
   }

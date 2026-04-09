@@ -286,6 +286,8 @@ describe("extension registries", () => {
 
   test("exposes PKM target kinds through a registry and builds stable publish identities", () => {
     const registry = createGranolaPkmTargetRegistry().register("docs-folder", {
+      defaultNotesSubdir: "Meetings",
+      defaultTranscriptsSubdir: "Transcripts",
       description: "Filesystem target",
       kind: "docs-folder",
       label: "Docs folder",

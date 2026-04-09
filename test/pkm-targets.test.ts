@@ -32,13 +32,17 @@ describe("pkm targets", () => {
         folderSubdirectories: true,
         id: "obsidian-team",
         kind: "obsidian",
+        notesSubdir: "Meetings",
         reviewMode: "recommended",
+        transcriptsSubdir: "Meeting Transcripts",
       }),
       expect.objectContaining({
         frontmatter: false,
         id: "docs-folder",
         kind: "docs-folder",
         reviewMode: "recommended",
+        notesSubdir: "Meetings",
+        transcriptsSubdir: "Transcripts",
       }),
     ]);
     expect(await readFile(filePath, "utf8")).toContain('"obsidian-team"');

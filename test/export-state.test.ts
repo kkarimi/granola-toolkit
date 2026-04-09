@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vite-plus/test";
 
+import { syncManagedExports } from "../src/export-state.ts";
 import { writeNotes } from "../src/notes.ts";
 import { writeTranscripts } from "../src/transcripts.ts";
 
@@ -151,5 +152,56 @@ describe("export state", () => {
       entries: Record<string, unknown>;
     };
     expect(state.entries).toEqual({});
+  });
+
+  test("tracks nested relative directories and removes moved files", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "gran-managed-nested-"));
+    const firstPath = join(outputDir, "Meetings", "Team", "Alpha.md");
+    const movedPath = join(outputDir, "Meetings", "Archive", "Alpha.md");
+    const statePath = join(outputDir, ".gran-notes-state.json");
+
+    expect(
+      await syncManagedExports({
+        items: [
+          {
+            content: "# Alpha",
+            extension: ".md",
+            id: "note-1",
+            preferredStem: "Alpha",
+            relativeDir: join("Meetings", "Team"),
+            sourceUpdatedAt: "2024-01-01T00:00:00Z",
+          },
+        ],
+        kind: "notes",
+        outputDir,
+      }),
+    ).toBe(1);
+
+    expect(await exists(firstPath)).toBe(true);
+
+    expect(
+      await syncManagedExports({
+        items: [
+          {
+            content: "# Alpha",
+            extension: ".md",
+            id: "note-1",
+            preferredStem: "Alpha",
+            relativeDir: join("Meetings", "Archive"),
+            sourceUpdatedAt: "2024-01-02T00:00:00Z",
+          },
+        ],
+        kind: "notes",
+        outputDir,
+      }),
+    ).toBe(1);
+
+    expect(await exists(firstPath)).toBe(false);
+    expect(await exists(movedPath)).toBe(true);
+
+    const state = JSON.parse(await readFile(statePath, "utf8")) as {
+      entries: Record<string, { fileName: string }>;
+    };
+    expect(state.entries["note-1"]?.fileName).toBe(join("Meetings", "Archive", "Alpha.md"));
   });
 });

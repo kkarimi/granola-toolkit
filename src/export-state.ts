@@ -20,6 +20,7 @@ interface ManagedExportItem {
   extension: string;
   id: string;
   preferredStem: string;
+  relativeDir?: string;
   sourceUpdatedAt: string;
 }
 
@@ -30,6 +31,7 @@ interface ManagedExportPlan {
   fileName: string;
   fileStem: string;
   id: string;
+  relativeDir?: string;
   sourceUpdatedAt: string;
 }
 
@@ -112,10 +114,15 @@ function hashContent(content: string): string {
 }
 
 function reserveStem(
-  used: Map<string, number>,
+  usedByDirectory: Map<string, Map<string, number>>,
   preferredStem: string,
+  relativeDir: string | undefined,
   existingStem?: string,
 ): string {
+  const bucketKey = relativeDir?.trim() || ".";
+  const used = usedByDirectory.get(bucketKey) ?? new Map<string, number>();
+  usedByDirectory.set(bucketKey, used);
+
   if (existingStem && (used.get(existingStem) ?? 0) === 0) {
     used.set(existingStem, 1);
     return existingStem;
@@ -166,18 +173,28 @@ export async function syncManagedExports({
 
   const currentState = await loadExportState(outputDir, kind);
   const previousEntries = currentState.entries;
-  const used = new Map<string, number>();
+  const usedByDirectory = new Map<string, Map<string, number>>();
   const plans: ManagedExportPlan[] = items.map((item) => {
     const existing = previousEntries[item.id];
-    const fileStem = reserveStem(used, item.preferredStem, existing?.fileStem);
+    const relativeDir = item.relativeDir?.trim() || undefined;
+    const fileStem = reserveStem(
+      usedByDirectory,
+      item.preferredStem,
+      relativeDir,
+      existing?.fileStem,
+    );
+    const fileName = relativeDir
+      ? join(relativeDir, `${fileStem}${item.extension}`)
+      : `${fileStem}${item.extension}`;
 
     return {
       content: item.content,
       contentHash: hashContent(item.content),
       existing,
-      fileName: `${fileStem}${item.extension}`,
+      fileName,
       fileStem,
       id: item.id,
+      relativeDir,
       sourceUpdatedAt: item.sourceUpdatedAt,
     };
   });

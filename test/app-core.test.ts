@@ -2109,7 +2109,13 @@ describe("GranolaApp", () => {
 
     await app.sync();
 
-    const writtenFile = join(outputDir, "Team", "Alpha Sync-notes.md");
+    const writtenFile = join(outputDir, "Meetings", "Team", "Alpha Sync-notes.md");
+    const transcriptFile = join(
+      outputDir,
+      "Meeting Transcripts",
+      "Team",
+      "Alpha Sync-transcript.md",
+    );
     const content = await readFile(writtenFile, "utf8");
     expect(content).toContain('title: "PKM Notes"');
     expect(content).toContain('meetingId: "doc-alpha-1111"');
@@ -2118,6 +2124,8 @@ describe("GranolaApp", () => {
       'publishIdentity: "obsidian-team:doc-alpha-1111:notes:pipeline-notes"',
     );
     expect(content).toContain("# PKM Notes");
+    expect(content).toContain("[[Meeting Transcripts/Team/Alpha Sync-transcript]]");
+    expect(await readFile(transcriptFile, "utf8")).toContain("[[Meetings/Team/Alpha Sync-notes]]");
 
     const artefact = (await app.listAutomationArtefacts({ kind: "notes", limit: 10 })).artefacts[0];
     const runs = await app.listAutomationRuns({ limit: 10 });

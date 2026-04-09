@@ -3,7 +3,12 @@ import { dirname } from "node:path";
 
 import type { GranolaPkmTarget } from "./app/index.ts";
 import { defaultGranolaToolkitPersistenceLayout } from "./persistence/layout.ts";
-import { defaultPkmTargetReviewMode, parseGranolaPkmTargetKind } from "./pkm-target-registry.ts";
+import {
+  defaultPkmTargetNotesSubdir,
+  defaultPkmTargetReviewMode,
+  defaultPkmTargetTranscriptsSubdir,
+  parseGranolaPkmTargetKind,
+} from "./pkm-target-registry.ts";
 import { asRecord, parseJsonString, stringValue } from "./utils.ts";
 
 interface PkmTargetsFile {
@@ -35,6 +40,7 @@ function normaliseTarget(value: unknown): GranolaPkmTarget | undefined {
     id,
     kind,
     name: stringValue(record.name).trim() || undefined,
+    notesSubdir: stringValue(record.notesSubdir).trim() || defaultPkmTargetNotesSubdir(kind),
     outputDir,
     reviewMode:
       stringValue(record.reviewMode).trim() === "optional" ||
@@ -42,6 +48,8 @@ function normaliseTarget(value: unknown): GranolaPkmTarget | undefined {
       stringValue(record.reviewMode).trim() === "required"
         ? (stringValue(record.reviewMode).trim() as GranolaPkmTarget["reviewMode"])
         : defaultPkmTargetReviewMode(kind),
+    transcriptsSubdir:
+      stringValue(record.transcriptsSubdir).trim() || defaultPkmTargetTranscriptsSubdir(kind),
   };
 }
 

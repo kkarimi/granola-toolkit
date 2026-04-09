@@ -6,6 +6,8 @@ export type GranolaPkmTargetTransport = "api" | "filesystem";
 export type GranolaPkmTargetReviewMode = "optional" | "recommended" | "required";
 
 export interface GranolaPkmTargetDefinition {
+  defaultNotesSubdir: string;
+  defaultTranscriptsSubdir: string;
   description: string;
   kind: GranolaPkmTargetKind;
   label: string;
@@ -47,6 +49,8 @@ export function createGranolaPkmTargetRegistry(): GranolaPkmTargetRegistry {
 export function createDefaultGranolaPkmTargetRegistry(): GranolaPkmTargetRegistry {
   return createGranolaPkmTargetRegistry()
     .register("docs-folder", {
+      defaultNotesSubdir: "Meetings",
+      defaultTranscriptsSubdir: "Transcripts",
       description:
         "A generic local markdown/docs directory target for reviewable meeting publishing.",
       kind: "docs-folder",
@@ -57,6 +61,8 @@ export function createDefaultGranolaPkmTargetRegistry(): GranolaPkmTargetRegistr
       transport: "filesystem",
     })
     .register("obsidian", {
+      defaultNotesSubdir: "Meetings",
+      defaultTranscriptsSubdir: "Meeting Transcripts",
       description:
         "An Obsidian-friendly filesystem target with frontmatter and vault-specific publishing affordances.",
       kind: "obsidian",
@@ -99,6 +105,14 @@ export function defaultPkmTargetFrontmatterEnabled(kind: GranolaPkmTargetKind): 
 
 export function defaultPkmTargetReviewMode(kind: GranolaPkmTargetKind): GranolaPkmTargetReviewMode {
   return resolveGranolaPkmTargetDefinition(kind).reviewMode;
+}
+
+export function defaultPkmTargetNotesSubdir(kind: GranolaPkmTargetKind): string {
+  return resolveGranolaPkmTargetDefinition(kind).defaultNotesSubdir;
+}
+
+export function defaultPkmTargetTranscriptsSubdir(kind: GranolaPkmTargetKind): string {
+  return resolveGranolaPkmTargetDefinition(kind).defaultTranscriptsSubdir;
 }
 
 export function buildGranolaPkmPublishIdentity(

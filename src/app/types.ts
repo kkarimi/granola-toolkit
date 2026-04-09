@@ -317,8 +317,10 @@ export interface GranolaPkmTarget {
   id: string;
   kind: GranolaPkmTargetKind;
   name?: string;
+  notesSubdir?: string;
   outputDir: string;
   reviewMode?: GranolaPkmTargetReviewMode;
+  transcriptsSubdir?: string;
 }
 
 export interface GranolaExportTarget {
