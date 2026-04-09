@@ -3,7 +3,7 @@ import { describe, expect, test } from "vite-plus/test";
 import { buildGranolaReviewInbox, summariseGranolaReviewInbox } from "../src/review-inbox.ts";
 
 describe("buildGranolaReviewInbox", () => {
-  test("orders issues before generated artefacts and pending runs", () => {
+  test("orders recovery items before publish drafts and approval prompts", () => {
     const items = buildGranolaReviewInbox({
       artefacts: [
         {
@@ -77,6 +77,7 @@ describe("buildGranolaReviewInbox", () => {
     });
 
     expect(items.map((item) => item.kind)).toEqual(["issue", "artefact", "run"]);
+    expect(items.map((item) => item.bucket)).toEqual(["recovery", "publish", "approval"]);
     expect(items[0]?.title).toBe("Sync needs attention");
     expect(items[1]?.title).toBe("Alpha Sync Notes");
     expect(items[2]?.title).toBe("Alpha Sync");
@@ -146,9 +147,9 @@ describe("buildGranolaReviewInbox", () => {
 
     expect(items).toEqual([]);
     expect(summariseGranolaReviewInbox(items)).toEqual({
-      artefacts: 0,
-      issues: 0,
-      runs: 0,
+      approval: 0,
+      publish: 0,
+      recovery: 0,
       total: 0,
     });
   });

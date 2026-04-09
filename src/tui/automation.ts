@@ -160,7 +160,7 @@ export class GranolaTuiAutomationOverlay implements Component, Focusable {
     lines.push(
       frameLine(
         granolaTuiTheme.dim(
-          `${summary.total} items · ${summary.issues} issues · ${summary.artefacts} artefacts · ${summary.runs} approvals`,
+          `${summary.total} items · ${summary.recovery} recoveries · ${summary.publish} publish drafts · ${summary.approval} approvals`,
         ),
         bodyWidth,
       ),
@@ -194,7 +194,7 @@ export class GranolaTuiAutomationOverlay implements Component, Focusable {
 
     lines.push(
       frameLine(
-        granolaTuiTheme.dim("Issues stay first, then generated artefacts, then pending approvals."),
+        granolaTuiTheme.dim("Recoveries stay first, then publish drafts, then approval prompts."),
         bodyWidth,
       ),
     );

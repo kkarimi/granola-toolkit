@@ -9,6 +9,11 @@ export {
   buildGranolaYazdSourceItemSummary,
 } from "../yazd-source.ts";
 export {
+  buildGranolaYazdAgentPrompt,
+  createGranolaYazdAgentPlugin,
+  listGranolaYazdAgentPlugins,
+} from "../yazd-agents.ts";
+export {
   buildGranolaAutomationKnowledgeBaseBundle,
   buildGranolaYazdKnowledgeBaseRef,
   legacyPkmPreviewFromYazdKnowledgeBasePreview,

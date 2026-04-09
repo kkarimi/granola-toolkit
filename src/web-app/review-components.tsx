@@ -243,7 +243,7 @@ export function ReviewInboxPanel(props: ReviewInboxPanelProps): JSX.Element {
         <h3>Needs attention</h3>
         <p>
           {props.summary.total > 0
-            ? `${props.summary.total} items need attention: ${props.summary.issues} recoveries, ${props.summary.artefacts} publish drafts, ${props.summary.runs} approvals.`
+            ? `${props.summary.total} items need attention: ${props.summary.recovery} recoveries, ${props.summary.publish} publish drafts, ${props.summary.approval} approvals.`
             : "Everything is clear right now."}
         </p>
       </div>

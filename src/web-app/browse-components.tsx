@@ -348,7 +348,7 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
       return "Something needs recovery before the pipeline can settle.";
     }
     if (props.automationEnabled && props.reviewSummary.total > 0) {
-      return `${props.reviewSummary.issues} issues, ${props.reviewSummary.artefacts} artefacts, ${props.reviewSummary.runs} approvals.`;
+      return `${props.reviewSummary.recovery} recoveries, ${props.reviewSummary.publish} publish drafts, ${props.reviewSummary.approval} approvals.`;
     }
     if (!props.automationEnabled) {
       return "Automation is optional and currently turned off.";

@@ -1,53 +1,65 @@
+import {
+  summariseYazdReviewItems,
+  type YazdReviewItem,
+  type YazdReviewSummary,
+} from "@kkarimi/yazd-core";
+
 import type {
   GranolaAutomationActionRun,
   GranolaAutomationArtefact,
   GranolaProcessingIssue,
 } from "./app/types.ts";
 
-export type GranolaReviewInboxItem =
+type GranolaReviewInboxPayload =
   | {
       artefact: GranolaAutomationArtefact;
+      kind: "artefact";
+    }
+  | {
+      issue: GranolaProcessingIssue;
+      kind: "issue";
+    }
+  | {
+      kind: "run";
+      run: GranolaAutomationActionRun;
+    };
+
+export type GranolaReviewInboxItem =
+  | (YazdReviewItem<GranolaReviewInboxPayload> & {
+      artefact: GranolaAutomationArtefact;
+      bucket: "publish";
       key: string;
       kind: "artefact";
       meetingId: string;
-      priority: number;
-      status: string;
-      subtitle: string;
-      summary: string;
-      timestamp: string;
-      title: string;
-    }
-  | {
+      payload: {
+        artefact: GranolaAutomationArtefact;
+        kind: "artefact";
+      };
+    })
+  | (YazdReviewItem<GranolaReviewInboxPayload> & {
+      bucket: "recovery";
       issue: GranolaProcessingIssue;
       key: string;
       kind: "issue";
       meetingId?: string;
-      priority: number;
-      status: string;
-      subtitle: string;
-      summary: string;
-      timestamp: string;
-      title: string;
-    }
-  | {
+      payload: {
+        issue: GranolaProcessingIssue;
+        kind: "issue";
+      };
+    })
+  | (YazdReviewItem<GranolaReviewInboxPayload> & {
+      bucket: "approval";
       key: string;
       kind: "run";
       meetingId: string;
-      priority: number;
+      payload: {
+        kind: "run";
+        run: GranolaAutomationActionRun;
+      };
       run: GranolaAutomationActionRun;
-      status: string;
-      subtitle: string;
-      summary: string;
-      timestamp: string;
-      title: string;
-    };
+    });
 
-export interface GranolaReviewInboxSummary {
-  artefacts: number;
-  issues: number;
-  runs: number;
-  total: number;
-}
+export type GranolaReviewInboxSummary = YazdReviewSummary;
 
 function issuePriority(issue: GranolaProcessingIssue): number {
   if (issue.severity === "error" && issue.recoverable) {
@@ -78,10 +90,16 @@ export function buildGranolaReviewInbox(options: {
 
   for (const issue of options.issues) {
     items.push({
+      bucket: "recovery",
+      id: issue.id,
       issue,
       key: `issue:${issue.id}`,
       kind: "issue",
       meetingId: issue.meetingId,
+      payload: {
+        issue,
+        kind: "issue",
+      },
       priority: issuePriority(issue),
       status: issue.severity,
       subtitle: issue.kind,
@@ -98,9 +116,15 @@ export function buildGranolaReviewInbox(options: {
 
     items.push({
       artefact,
+      bucket: "publish",
+      id: artefact.id,
       key: `artefact:${artefact.id}`,
       kind: "artefact",
       meetingId: artefact.meetingId,
+      payload: {
+        artefact,
+        kind: "artefact",
+      },
       priority: artefactPriority(artefact),
       status: artefact.status,
       subtitle: `${artefact.kind} • ${artefact.ruleName}`,
@@ -117,9 +141,15 @@ export function buildGranolaReviewInbox(options: {
     }
 
     items.push({
+      bucket: "approval",
+      id: run.id,
       key: `run:${run.id}`,
       kind: "run",
       meetingId: run.meetingId,
+      payload: {
+        kind: "run",
+        run,
+      },
       priority: runPriority(run),
       run,
       status: run.status,
@@ -142,23 +172,5 @@ export function buildGranolaReviewInbox(options: {
 export function summariseGranolaReviewInbox(
   items: GranolaReviewInboxItem[],
 ): GranolaReviewInboxSummary {
-  return items.reduce<GranolaReviewInboxSummary>(
-    (summary, item) => {
-      summary.total += 1;
-      if (item.kind === "artefact") {
-        summary.artefacts += 1;
-      } else if (item.kind === "issue") {
-        summary.issues += 1;
-      } else {
-        summary.runs += 1;
-      }
-      return summary;
-    },
-    {
-      artefacts: 0,
-      issues: 0,
-      runs: 0,
-      total: 0,
-    },
-  );
+  return summariseYazdReviewItems(items);
 }
