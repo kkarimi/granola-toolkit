@@ -1,5 +1,6 @@
 import type {
   GranolaAutomationArtefactKind,
+  GranolaAutomationArtefactParseMode,
   GranolaAutomationArtefactParticipantSummary,
   GranolaAutomationArtefactStructuredOutput,
   MeetingRoleHelpersRecord,
@@ -188,7 +189,7 @@ export function parsePipelineOutput(options: {
   rawOutput: string;
   roleHelpers?: MeetingRoleHelpersRecord;
 }): {
-  parseMode: "json" | "markdown-fallback";
+  parseMode: GranolaAutomationArtefactParseMode;
   structured: GranolaAutomationArtefactStructuredOutput;
 } {
   const rawOutput = options.rawOutput.trim();

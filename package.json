@@ -87,7 +87,7 @@
     "web:restart": "npm run web:build && vp pack && node dist/cli.js web --restart"
   },
   "dependencies": {
-    "@kkarimi/yazd-core": "github:kkarimi/yazd#0be64dc",
+    "@kkarimi/yazd-core": "github:kkarimi/yazd#0b5bdf6",
     "@mariozechner/pi-tui": "^0.65.0",
     "marked": "^17.0.6",
     "node-html-markdown": "^2.0.0",

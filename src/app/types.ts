@@ -1,5 +1,7 @@
 import type {
   YazdApprovalMode,
+  YazdArtifactAttempt,
+  YazdArtifactParseMode,
   YazdAskUserWorkflowAction,
   YazdArtefactHistoryAction,
   YazdArtefactHistoryEntry,
@@ -486,13 +488,8 @@ export type GranolaAutomationArtefactParticipantSummary =
   YazdStructuredParticipantSummary<GranolaMeetingSpeakerRole>;
 export type GranolaAutomationArtefactStructuredOutput =
   YazdStructuredOutput<GranolaMeetingSpeakerRole>;
-
-export interface GranolaAutomationArtefactAttempt {
-  error?: string;
-  harnessId?: string;
-  model?: string;
-  provider?: GranolaAgentProviderKind;
-}
+export type GranolaAutomationArtefactAttempt = YazdArtifactAttempt<GranolaAgentProviderKind>;
+export type GranolaAutomationArtefactParseMode = YazdArtifactParseMode;
 
 export type GranolaAutomationArtefactHistoryEntry = YazdArtefactHistoryEntry;
 
@@ -508,7 +505,7 @@ export interface GranolaAutomationArtefact {
   matchId: string;
   meetingId: string;
   model: string;
-  parseMode: "json" | "markdown-fallback";
+  parseMode: GranolaAutomationArtefactParseMode;
   prompt: string;
   provider: GranolaAgentProviderKind;
   rawOutput: string;

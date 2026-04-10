@@ -1,7 +1,12 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import { cloneYazdStructuredOutput, normaliseYazdStructuredOutput } from "@kkarimi/yazd-core";
+import {
+  cloneYazdStructuredOutput,
+  normaliseYazdArtifactAttempt,
+  normaliseYazdArtifactParseMode,
+  normaliseYazdStructuredOutput,
+} from "@kkarimi/yazd-core";
 import type {
   GranolaAutomationArtefact,
   GranolaAutomationArtefactAttempt,
@@ -76,28 +81,9 @@ function normaliseHistoryEntry(value: unknown): GranolaAutomationArtefactHistory
 }
 
 function normaliseAttempt(value: unknown): GranolaAutomationArtefactAttempt | undefined {
-  const record = asRecord(value);
-  if (!record) {
-    return undefined;
-  }
-
-  const provider = stringValue(record.provider).trim();
-  const model = stringValue(record.model).trim();
-  const harnessId = stringValue(record.harnessId).trim();
-  const error = stringValue(record.error).trim();
-  if (!provider && !model && !harnessId && !error) {
-    return undefined;
-  }
-
-  return {
-    error: error || undefined,
-    harnessId: harnessId || undefined,
-    model: model || undefined,
-    provider:
-      provider === "codex" || provider === "openai" || provider === "openrouter"
-        ? provider
-        : undefined,
-  };
+  return normaliseYazdArtifactAttempt(value, {
+    providers: ["codex", "openai", "openrouter"] as const,
+  }) as GranolaAutomationArtefactAttempt | undefined;
 }
 
 function normaliseStructured(
@@ -131,7 +117,7 @@ function normaliseArtefact(value: unknown): GranolaAutomationArtefact | undefine
   const provider = stringValue(record.provider).trim();
   const kind = stringValue(record.kind).trim();
   const status = stringValue(record.status).trim();
-  const parseMode = stringValue(record.parseMode).trim();
+  const parseMode = normaliseYazdArtifactParseMode(record.parseMode);
   const structured = normaliseStructured(record.structured);
 
   if (
@@ -156,7 +142,7 @@ function normaliseArtefact(value: unknown): GranolaAutomationArtefact | undefine
       status !== "generated" &&
       status !== "rejected" &&
       status !== "superseded") ||
-    (parseMode !== "json" && parseMode !== "markdown-fallback")
+    !parseMode
   ) {
     return undefined;
   }

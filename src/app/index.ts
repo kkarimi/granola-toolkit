@@ -82,6 +82,7 @@ export type {
   GranolaAutomationArtefactKind,
   GranolaAutomationArtefactListOptions,
   GranolaAutomationArtefactParticipantSummary,
+  GranolaAutomationArtefactParseMode,
   GranolaAutomationArtefactsResult,
   GranolaAutomationEvaluationCase,
   GranolaAutomationEvaluationResult,

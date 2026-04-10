@@ -1,4 +1,4 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -130,5 +130,46 @@ describe("automation artefact store", () => {
         summary: "Asked for a rollout plan",
       },
     ]);
+  });
+
+  test("normalises shared artifact attempts and parse modes from disk", async () => {
+    const filePath = join(
+      await mkdtemp(join(tmpdir(), "granola-automation-artefacts-")),
+      "artefacts.json",
+    );
+    const store = new FileAutomationArtefactStore(filePath);
+
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        artefacts: [
+          {
+            ...buildArtefact("notes-1"),
+            attempts: [
+              {
+                model: "gpt-5",
+                provider: "unsupported-provider",
+              },
+            ],
+          },
+          {
+            ...buildArtefact("notes-invalid", {
+              parseMode: "json",
+            }),
+            parseMode: "xml",
+          },
+        ],
+        version: 1,
+      }),
+      "utf8",
+    );
+
+    expect((await store.readArtefact("notes-1"))?.attempts).toEqual([
+      {
+        model: "gpt-5",
+        provider: undefined,
+      },
+    ]);
+    expect(await store.readArtefact("notes-invalid")).toBeUndefined();
   });
 });
