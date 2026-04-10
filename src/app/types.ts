@@ -6,6 +6,10 @@ import type {
   YazdArtefactStatus,
   YazdCommandWorkflowAction,
   YazdSlackMessageWorkflowAction,
+  YazdStructuredActionItem,
+  YazdStructuredOutput,
+  YazdStructuredParticipantSummary,
+  YazdStructuredSection,
   YazdTriggeredWorkflowAction,
   YazdWebhookPayloadFormat,
   YazdWebhookWorkflowAction,
@@ -475,39 +479,13 @@ export interface GranolaAutomationActionRun extends YazdWorkflowRun<Record<strin
   transcriptLoaded: boolean;
 }
 
-export interface GranolaAutomationArtefactSection {
-  body: string;
-  title: string;
-}
-
-export interface GranolaAutomationArtefactActionItem {
-  dueDate?: string;
-  owner?: string;
-  ownerEmail?: string;
-  ownerOriginal?: string;
-  ownerRole?: GranolaMeetingSpeakerRole;
-  title: string;
-}
-
-export interface GranolaAutomationArtefactParticipantSummary {
-  actionItems: string[];
-  role?: GranolaMeetingSpeakerRole;
-  speaker: string;
-  summary: string;
-}
-
-export interface GranolaAutomationArtefactStructuredOutput {
-  actionItems: GranolaAutomationArtefactActionItem[];
-  decisions: string[];
-  followUps: string[];
-  highlights: string[];
-  markdown: string;
-  metadata?: Record<string, unknown>;
-  participantSummaries?: GranolaAutomationArtefactParticipantSummary[];
-  sections: GranolaAutomationArtefactSection[];
-  summary?: string;
-  title: string;
-}
+export type GranolaAutomationArtefactSection = YazdStructuredSection;
+export type GranolaAutomationArtefactActionItem =
+  YazdStructuredActionItem<GranolaMeetingSpeakerRole>;
+export type GranolaAutomationArtefactParticipantSummary =
+  YazdStructuredParticipantSummary<GranolaMeetingSpeakerRole>;
+export type GranolaAutomationArtefactStructuredOutput =
+  YazdStructuredOutput<GranolaMeetingSpeakerRole>;
 
 export interface GranolaAutomationArtefactAttempt {
   error?: string;
