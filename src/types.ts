@@ -57,6 +57,30 @@ export interface GranolaMeetingPeople {
   creator?: GranolaMeetingPerson;
 }
 
+export type GranEventHookKind = "script" | "webhook";
+
+export interface GranEventHookBase {
+  events?: string[];
+  id: string;
+  kind: GranEventHookKind;
+}
+
+export interface GranEventScriptHook extends GranEventHookBase {
+  args?: string[];
+  cwd?: string;
+  env?: Record<string, string>;
+  kind: "script";
+  run: string;
+}
+
+export interface GranEventWebhookHook extends GranEventHookBase {
+  headers?: Record<string, string>;
+  kind: "webhook";
+  url: string;
+}
+
+export type GranEventHook = GranEventScriptHook | GranEventWebhookHook;
+
 export interface GranolaDocument {
   calendarEvent?: GranolaCalendarEvent;
   content: string;
@@ -163,6 +187,9 @@ export interface AppConfig {
   debug: boolean;
   exports?: {
     targetsFile: string;
+  };
+  hooks?: {
+    items: GranEventHook[];
   };
   notes: NotesOptions;
   plugins?: {

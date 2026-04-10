@@ -61,6 +61,14 @@ look like this:
   "agent-model": "openai/gpt-5-mini",
   "agent-harnesses-file": "./agent-harnesses.json",
   "automation-rules-file": "./automation-rules.json",
+  "hooks": [
+    {
+      "id": "transcript-script",
+      "events": ["transcript.ready"],
+      "kind": "script",
+      "run": "./scripts/gran-hook.mjs"
+    }
+  ],
   "pkm-targets-file": "./pkm-targets.json",
   "output": "../exports/notes",
   "transcript-output": "../exports/transcripts"
@@ -69,6 +77,9 @@ look like this:
 
 Relative paths in the chosen config file resolve from the directory that contains that file, not
 from whatever shell directory happened to launch the command.
+
+If you want Gran to notify another local tool, add `hooks` entries here. Script hooks receive the
+event JSON on stdin; webhook hooks get the same payload via HTTP `POST`.
 
 ## Environment Variables
 

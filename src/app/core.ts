@@ -83,6 +83,7 @@ import {
   type GranolaIntelligencePreset,
 } from "../intelligence-presets.ts";
 import { createDefaultPluginSettingsStore, type PluginSettingsStore } from "../plugins.ts";
+import { createGranEventHookRunner, type GranEventHookRunner } from "../event-hooks.ts";
 import {
   applyPluginRuntimeDefaults,
   createDefaultPluginRegistry,
@@ -230,7 +231,9 @@ interface GranolaAppDependencies {
   exportTargetStore?: ExportTargetStore;
   exporterRegistry?: GranolaExporterRegistry;
   exportJobs?: GranolaAppExportJobState[];
+  eventHookRunner?: GranEventHookRunner;
   granolaClient?: GranolaCatalogClient;
+  logger?: Pick<Console, "warn">;
   meetingIndex?: MeetingSummaryRecord[];
   meetingIndexStore?: MeetingIndexStore;
   pkmTargetStore?: PkmTargetStore;
@@ -439,6 +442,11 @@ function cloneState(state: GranolaAppState): GranolaAppState {
       automation: state.config.automation ? { ...state.config.automation } : undefined,
       agents: state.config.agents ? { ...state.config.agents } : undefined,
       exports: state.config.exports ? { ...state.config.exports } : undefined,
+      hooks: state.config.hooks
+        ? {
+            items: state.config.hooks.items.map((hook) => ({ ...hook })),
+          }
+        : undefined,
       notes: { ...state.config.notes },
       plugins: state.config.plugins ? { ...state.config.plugins } : undefined,
       transcripts: { ...state.config.transcripts },
@@ -497,6 +505,11 @@ function defaultState(
       automation: config.automation ? { ...config.automation } : undefined,
       agents: config.agents ? { ...config.agents } : undefined,
       exports: config.exports ? { ...config.exports } : undefined,
+      hooks: config.hooks
+        ? {
+            items: config.hooks.items.map((hook) => ({ ...hook })),
+          }
+        : undefined,
       notes: { ...config.notes },
       plugins: config.plugins ? { ...config.plugins } : undefined,
       transcripts: { ...config.transcripts },
@@ -1614,6 +1627,15 @@ export class GranolaApp implements GranolaAppApi {
       if (events.length > 0 && this.deps.syncEventStore) {
         await this.deps.syncEventStore.appendEvents(events);
       }
+      if (events.length > 0 && this.deps.eventHookRunner) {
+        try {
+          await this.deps.eventHookRunner.runEvents(events);
+        } catch (error) {
+          this.deps.logger?.warn?.(
+            `event hook runner failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
       if (this.automationPluginEnabled()) {
         await this.#automation.processSyncEvents(events, completedAt);
       }
@@ -1987,6 +2009,10 @@ export async function createGranolaApp(
     config.plugins?.settingsFile,
     pluginRegistry.listPlugins(),
   );
+  const eventHookRunner = createGranEventHookRunner({
+    hooks: config.hooks?.items ?? [],
+    logger: options.logger,
+  });
   const searchIndexStore = createDefaultSearchIndexStore();
   const searchIndex = await searchIndexStore.readIndex();
   const syncEventStore = createDefaultSyncEventStore();
@@ -2018,8 +2044,10 @@ export async function createGranolaApp(
       exportJobs,
       exportJobStore,
       exportTargetStore,
+      eventHookRunner,
       meetingIndex,
       meetingIndexStore,
+      logger: options.logger,
       now: options.now,
       pkmTargetStore,
       pluginRegistry,

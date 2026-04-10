@@ -746,6 +746,73 @@ describe("GranolaApp", () => {
     expect((await searchIndexStore.readIndex())[0]?.id).toBe("doc-bravo-2222");
   });
 
+  test("continues syncing when an event hook runner fails", async () => {
+    const syncEventStore = new MemorySyncEventStore();
+    const syncStateStore = new MemorySyncStateStore();
+    const warn = vi.fn();
+    const eventHookRunner = {
+      runEvents: vi.fn(async () => {
+        throw new Error("hook exploded");
+      }),
+    };
+
+    const app = new GranolaApp(
+      {
+        debug: false,
+        notes: {
+          output: "/tmp/notes",
+          timeoutMs: 120_000,
+        },
+        supabase: "/tmp/supabase.json",
+        transcripts: {
+          cacheFile: "",
+          output: "/tmp/transcripts",
+        },
+      },
+      {
+        auth: {
+          mode: "supabase-file",
+          refreshAvailable: false,
+          storedSessionAvailable: false,
+          supabaseAvailable: true,
+          supabasePath: "/tmp/supabase.json",
+        },
+        cacheLoader: async () => cacheData,
+        eventHookRunner,
+        granolaClient: {
+          listDocuments: async () => documents,
+          listFolders: async () => folders,
+        },
+        logger: { warn },
+        now: () => new Date("2024-03-01T12:00:00Z"),
+        syncEventStore,
+        syncState: await syncStateStore.readState(),
+        syncStateStore,
+      },
+    );
+
+    const result = await app.sync();
+
+    expect(result.summary.meetingCount).toBe(1);
+    expect(eventHookRunner.runEvents).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "meeting.created",
+          meetingId: "doc-alpha-1111",
+        }),
+      ]),
+    );
+    expect(warn).toHaveBeenCalledWith("event hook runner failed: hook exploded");
+    await expect(app.listSyncEvents({ limit: 5 })).resolves.toEqual({
+      events: expect.arrayContaining([
+        expect.objectContaining({
+          kind: "meeting.created",
+          meetingId: "doc-alpha-1111",
+        }),
+      ]),
+    });
+  });
+
   test("matches automation rules from sync events", async () => {
     const cacheFile = join(await mkdtemp(join(tmpdir(), "granola-app-cache-")), "cache.json");
     await writeFile(cacheFile, "{}\n", "utf8");

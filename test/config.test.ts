@@ -24,6 +24,26 @@ describe("loadConfig", () => {
           "cache-file": "/tmp/cache.json",
           "codex-command": "codex-beta",
           debug: true,
+          hooks: [
+            {
+              args: ["./scripts/gran-hook.mjs"],
+              cwd: "./hooks",
+              env: {
+                PROFILE: "test",
+              },
+              events: ["transcript.ready"],
+              id: "notify-script",
+              run: "./bin/node",
+            },
+            {
+              events: ["meeting.created"],
+              headers: {
+                authorization: "Bearer token",
+              },
+              id: "notify-webhook",
+              url: "http://127.0.0.1:4124/hooks/gran",
+            },
+          ],
           output: "./notes-out",
           supabase: "/tmp/supabase.json",
           timeout: "30s",
@@ -59,6 +79,30 @@ describe("loadConfig", () => {
         timeoutMs: 45_000,
       }),
     );
+    expect(config.hooks).toEqual({
+      items: [
+        {
+          args: ["./scripts/gran-hook.mjs"],
+          cwd: join(directory, "hooks"),
+          env: {
+            PROFILE: "test",
+          },
+          events: ["transcript.ready"],
+          id: "notify-script",
+          kind: "script",
+          run: join(directory, "bin/node"),
+        },
+        {
+          events: ["meeting.created"],
+          headers: {
+            authorization: "Bearer token",
+          },
+          id: "notify-webhook",
+          kind: "webhook",
+          url: "http://127.0.0.1:4124/hooks/gran",
+        },
+      ],
+    });
   });
 
   test("throws a clean error when an explicit config file is missing", async () => {

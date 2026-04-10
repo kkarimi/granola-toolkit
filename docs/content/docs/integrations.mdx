@@ -36,6 +36,42 @@ gran events --format jsonl --limit 50
 
 `gran sync events` still works as a compatibility alias, but `gran events` is the primary command.
 
+## Run Hooks On Matching Events
+
+Gran can also run a local script or post to a webhook when matching events appear during sync.
+
+Add hooks to `~/.config/gran/config.json` or `./.gran/config.json`:
+
+```json
+{
+  "hooks": [
+    {
+      "id": "transcript-script",
+      "events": ["transcript.ready"],
+      "kind": "script",
+      "run": "./scripts/gran-hook.mjs"
+    },
+    {
+      "id": "local-bridge",
+      "events": ["meeting.created", "meeting.changed"],
+      "kind": "webhook",
+      "url": "http://127.0.0.1:4124/hooks/gran"
+    }
+  ]
+}
+```
+
+Script hooks receive:
+
+- the event payload as JSON on stdin
+- metadata in env vars like `GRAN_EVENT_KIND`, `GRAN_EVENT_ID`, and `GRAN_EVENT_MEETING_ID`
+
+Webhook hooks receive:
+
+- a JSON `POST` body with `{ source, event }`
+
+Hook failures warn and continue. They do not make the sync itself fail.
+
 ## Fetch The Affected Meeting
 
 Once your script sees an event, fetch the full meeting record in a machine-readable format:

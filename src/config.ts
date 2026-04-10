@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve as resolvePath } from "node:path";
 
 import type { AppConfig } from "./types.ts";
+import type { GranEventHook } from "./types.ts";
 import {
   defaultGranolaToolkitConfigFile,
   defaultGranolaToolkitPersistenceLayout,
@@ -43,6 +44,32 @@ function pickNumber(value: unknown): number | undefined {
   }
 
   return undefined;
+}
+
+function pickStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const entries = value.map((entry) => pickString(entry));
+  if (entries.some((entry) => entry === undefined)) {
+    return undefined;
+  }
+
+  return entries as string[];
+}
+
+function pickStringRecord(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const entries = Object.entries(value).map(([key, entry]) => [key, pickString(entry)] as const);
+  if (entries.some(([, entry]) => entry === undefined)) {
+    return undefined;
+  }
+
+  return Object.fromEntries(entries) as Record<string, string>;
 }
 
 function pickEnvString(
@@ -186,6 +213,91 @@ function resolveConfigPath(
   return resolvePath(dirname(configPath), value);
 }
 
+function resolveHook(value: unknown, index: number, configPath?: string): GranEventHook {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`invalid hook at index ${index}: expected an object`);
+  }
+
+  const record = value as Record<string, unknown>;
+  const id = pickString(record.id) ?? `hook-${index + 1}`;
+  const kind = pickString(record.kind);
+  const events = pickStringArray(record.events);
+
+  if (record.events !== undefined && !events) {
+    throw new Error(`invalid hook ${id}: events must be an array of strings`);
+  }
+
+  const inferredScript = kind === "script" || (!kind && pickString(record.run));
+  const inferredWebhook = kind === "webhook" || (!kind && pickString(record.url));
+
+  if (inferredScript) {
+    const run = resolveConfigPath(configPath, pickString(record.run));
+    if (!run) {
+      throw new Error(`invalid hook ${id}: script hooks require a run path`);
+    }
+
+    const args = pickStringArray(record.args);
+    if (record.args !== undefined && !args) {
+      throw new Error(`invalid hook ${id}: args must be an array of strings`);
+    }
+
+    const env = pickStringRecord(record.env);
+    if (record.env !== undefined && !env) {
+      throw new Error(`invalid hook ${id}: env must be an object of strings`);
+    }
+
+    const cwd = resolveConfigPath(configPath, pickString(record.cwd));
+    return {
+      args,
+      cwd,
+      env,
+      events,
+      id,
+      kind: "script",
+      run,
+    };
+  }
+
+  if (inferredWebhook) {
+    const url = pickString(record.url);
+    if (!url) {
+      throw new Error(`invalid hook ${id}: webhook hooks require a url`);
+    }
+
+    const headers = pickStringRecord(record.headers);
+    if (record.headers !== undefined && !headers) {
+      throw new Error(`invalid hook ${id}: headers must be an object of strings`);
+    }
+
+    return {
+      events,
+      headers,
+      id,
+      kind: "webhook",
+      url,
+    };
+  }
+
+  throw new Error(`invalid hook ${id}: expected a script run path or webhook url`);
+}
+
+function resolveHooksConfig(
+  configPath: string | undefined,
+  configValues: Record<string, unknown>,
+): NonNullable<AppConfig["hooks"]> | undefined {
+  if (configValues.hooks === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(configValues.hooks)) {
+    throw new Error("hooks must be an array");
+  }
+
+  return {
+    items: configValues.hooks.map((hook, index) => resolveHook(hook, index, configPath)),
+  };
+}
+
 export async function loadConfig(options: {
   env?: NodeJS.ProcessEnv;
   globalFlags: FlagValues;
@@ -322,6 +434,7 @@ export async function loadConfig(options: {
         ) ??
         defaultGranolaToolkitPersistenceLayout().exportTargetsFile,
     },
+    hooks: resolveHooksConfig(configPath, configValues),
     notes: {
       output:
         pickString(options.subcommandFlags.output) ??
