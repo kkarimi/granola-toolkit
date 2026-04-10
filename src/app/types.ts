@@ -1,4 +1,12 @@
 import type {
+  YazdReviewIssue,
+  YazdReviewIssueSeverity,
+  YazdWorkflowRun,
+  YazdWorkflowRunStatus,
+  YazdWorkflowTrigger,
+} from "@kkarimi/yazd-core";
+
+import type {
   FolderRecord,
   FolderSummaryRecord,
   GranolaMeetingSpeakerRole,
@@ -40,7 +48,7 @@ export type GranolaAutomationArtefactHistoryAction =
   | "rejected"
   | "rerun";
 export type GranolaAutomationArtefactStatus = "approved" | "generated" | "rejected" | "superseded";
-export type GranolaAutomationActionTrigger = "approval" | "match";
+export type GranolaAutomationActionTrigger = YazdWorkflowTrigger;
 export type GranolaAutomationApprovalMode = "auto" | "manual";
 export type GranolaProcessingIssueKind =
   | "artefact-stale"
@@ -48,7 +56,7 @@ export type GranolaProcessingIssueKind =
   | "pipeline-missing"
   | "sync-stale"
   | "transcript-missing";
-export type GranolaProcessingIssueSeverity = "error" | "warning";
+export type GranolaProcessingIssueSeverity = YazdReviewIssueSeverity;
 export type GranolaSyncEventKind =
   | "meeting.changed"
   | "meeting.created"
@@ -64,7 +72,7 @@ export type GranolaAutomationActionKind =
   | "slack-message"
   | "webhook"
   | "write-file";
-export type GranolaAutomationActionRunStatus = "completed" | "failed" | "pending" | "skipped";
+export type GranolaAutomationActionRunStatus = YazdWorkflowRunStatus;
 export type GranolaAutomationWebhookPayloadFormat = "json" | "markdown" | "text";
 export type GranolaAutomationWriteFileFormat = "json" | "markdown" | "text";
 export type GranolaPkmTargetKind = "docs-folder" | "obsidian";
@@ -502,28 +510,20 @@ export interface GranolaAutomationMatch {
   transcriptLoaded: boolean;
 }
 
-export interface GranolaAutomationActionRun {
+export interface GranolaAutomationActionRun extends YazdWorkflowRun<Record<string, unknown>> {
   actionId: string;
   actionKind: GranolaAutomationActionKind;
   actionName: string;
   artefactIds?: string[];
-  error?: string;
   eventId: string;
   eventKind: GranolaSyncEventKind;
   folders: FolderSummaryRecord[];
-  finishedAt?: string;
-  id: string;
   matchId: string;
   matchedAt: string;
   meetingId: string;
-  meta?: Record<string, unknown>;
-  prompt?: string;
-  result?: string;
   rerunOfId?: string;
   ruleId: string;
   ruleName: string;
-  startedAt: string;
-  status: GranolaAutomationActionRunStatus;
   tags: string[];
   title: string;
   transcriptLoaded: boolean;
@@ -872,17 +872,11 @@ export interface GranolaAutomationArtefactUpdate {
   title?: string;
 }
 
-export interface GranolaProcessingIssue {
+export interface GranolaProcessingIssue extends YazdReviewIssue {
   actionId?: string;
-  detail: string;
-  detectedAt: string;
-  id: string;
   kind: GranolaProcessingIssueKind;
   meetingId?: string;
-  recoverable: boolean;
   ruleId?: string;
-  severity: GranolaProcessingIssueSeverity;
-  title: string;
 }
 
 export interface GranolaProcessingIssuesResult {

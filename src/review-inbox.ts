@@ -1,5 +1,6 @@
 import {
   summariseYazdReviewItems,
+  sortYazdReviewItems,
   type YazdReviewItem,
   type YazdReviewSummary,
 } from "@kkarimi/yazd-core";
@@ -160,13 +161,7 @@ export function buildGranolaReviewInbox(options: {
     });
   }
 
-  return items.sort(
-    (left, right) =>
-      left.priority - right.priority ||
-      right.timestamp.localeCompare(left.timestamp) ||
-      left.title.localeCompare(right.title) ||
-      left.key.localeCompare(right.key),
-  );
+  return sortYazdReviewItems(items);
 }
 
 export function summariseGranolaReviewInbox(
