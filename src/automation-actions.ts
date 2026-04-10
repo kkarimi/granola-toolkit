@@ -17,6 +17,11 @@ import type {
   GranolaExportScope,
 } from "./app/index.ts";
 import {
+  buildYazdApprovalWorkflowRunId,
+  buildYazdWorkflowRunId,
+  yazdWorkflowActionName,
+} from "@kkarimi/yazd-core";
+import {
   createDefaultGranolaAutomationActionRegistry,
   type GranolaAutomationActionRegistry,
 } from "./automation-action-registry.ts";
@@ -24,7 +29,7 @@ import {
 const defaultAutomationActionRegistry = createDefaultGranolaAutomationActionRegistry();
 
 export function automationActionName(action: GranolaAutomationAction): string {
-  return action.name || action.id;
+  return yazdWorkflowActionName(action);
 }
 
 export function automationActionTrigger(
@@ -38,14 +43,14 @@ export function buildAutomationActionRunId(
   match: GranolaAutomationMatch,
   actionId: string,
 ): string {
-  return `${match.id}:${actionId}`;
+  return buildYazdWorkflowRunId(match.id, actionId);
 }
 
 export function buildAutomationApprovalActionRunId(
   artefact: GranolaAutomationArtefact,
   actionId: string,
 ): string {
-  return `approval:${artefact.id}:${actionId}`;
+  return buildYazdApprovalWorkflowRunId(artefact.id, actionId);
 }
 
 export function enabledAutomationActions(
