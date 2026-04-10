@@ -120,29 +120,29 @@ export class GranolaTuiAutomationOverlay implements Component, Focusable {
       if (this.selected?.kind === "issue" && this.selected.issue.recoverable) {
         void this.options.onRecoverIssue(this.selected.issue.id);
       }
-      if (this.selected?.kind === "run" && this.selected.run.status === "pending") {
-        void this.options.onApproveRun(this.selected.run.id);
+      if (this.selected?.kind === "run" && this.selected.request.status === "pending") {
+        void this.options.onApproveRun(this.selected.request.id);
       }
-      if (this.selected?.kind === "artefact" && this.selected.artefact.status !== "superseded") {
-        void this.options.onApproveArtefact(this.selected.artefact.id);
+      if (this.selected?.kind === "artefact" && this.selected.draft.status !== "superseded") {
+        void this.options.onApproveArtefact(this.selected.draft.id);
       }
       return;
     }
 
     if (matchesKey(data, "r")) {
-      if (this.selected?.kind === "run" && this.selected.run.status === "pending") {
-        void this.options.onRejectRun(this.selected.run.id);
+      if (this.selected?.kind === "run" && this.selected.request.status === "pending") {
+        void this.options.onRejectRun(this.selected.request.id);
         return;
       }
-      if (this.selected?.kind === "artefact" && this.selected.artefact.status !== "superseded") {
-        void this.options.onRejectArtefact(this.selected.artefact.id);
+      if (this.selected?.kind === "artefact" && this.selected.draft.status !== "superseded") {
+        void this.options.onRejectArtefact(this.selected.draft.id);
       }
       return;
     }
 
     if (matchesKey(data, "e")) {
       if (this.selected?.kind === "artefact") {
-        void this.options.onRerunArtefact(this.selected.artefact.id);
+        void this.options.onRerunArtefact(this.selected.draft.id);
       }
     }
   }
@@ -176,8 +176,8 @@ export class GranolaTuiAutomationOverlay implements Component, Focusable {
           item.kind === "issue"
             ? issueSeverityLabel(item.issue)
             : item.kind === "artefact"
-              ? artefactStatusLabel(item.artefact)
-              : statusLabel(item.run)
+              ? artefactStatusLabel(item.draft)
+              : statusLabel(item.request)
         }`;
         lines.push(frameLine(selected ? granolaTuiTheme.selected(title) : title, bodyWidth));
         lines.push(

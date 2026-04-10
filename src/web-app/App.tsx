@@ -485,11 +485,8 @@ export function App() {
       setState("selectedReviewInboxKey", nextKey);
     }
 
-    if (
-      current?.kind === "artefact" &&
-      current.artefact.id !== state.selectedAutomationArtefactId
-    ) {
-      reviewController.applySelectedArtefactDrafts(current.artefact);
+    if (current?.kind === "artefact" && current.draft.id !== state.selectedAutomationArtefactId) {
+      reviewController.applySelectedArtefactDrafts(current.draft);
     }
   });
 

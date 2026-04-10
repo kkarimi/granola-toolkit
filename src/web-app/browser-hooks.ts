@@ -554,7 +554,7 @@ export function useReviewController({
 
   const selectedReviewRun = () => {
     const item = selectedReviewInboxItem();
-    return item?.kind === "run" ? item.run : null;
+    return item?.kind === "run" ? item.request : null;
   };
 
   const selectedAutomationArtefact = () =>
@@ -564,7 +564,7 @@ export function useReviewController({
 
   const selectedReviewArtefact = () => {
     const item = selectedReviewInboxItem();
-    return item?.kind === "artefact" ? item.artefact : selectedAutomationArtefact();
+    return item?.kind === "artefact" ? item.draft : selectedAutomationArtefact();
   };
 
   const selectAutomationArtefactPublishTarget = async (targetId: string | null) => {
@@ -732,7 +732,7 @@ export function useReviewController({
 
     try {
       if (item.kind === "artefact") {
-        await selectAutomationArtefact(item.artefact.id, {
+        await selectAutomationArtefact(item.draft.id, {
           loadMeeting: options.loadMeeting,
         });
         return;

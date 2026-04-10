@@ -1,7 +1,9 @@
 import {
+  type YazdApprovalReviewItem,
+  type YazdIssueReviewItem,
+  type YazdPublishReviewItem,
   summariseYazdReviewItems,
   sortYazdReviewItems,
-  type YazdReviewItem,
   type YazdReviewSummary,
 } from "@kkarimi/yazd-core";
 
@@ -11,54 +13,10 @@ import type {
   GranolaProcessingIssue,
 } from "./app/types.ts";
 
-type GranolaReviewInboxPayload =
-  | {
-      artefact: GranolaAutomationArtefact;
-      kind: "artefact";
-    }
-  | {
-      issue: GranolaProcessingIssue;
-      kind: "issue";
-    }
-  | {
-      kind: "run";
-      run: GranolaAutomationActionRun;
-    };
-
 export type GranolaReviewInboxItem =
-  | (YazdReviewItem<GranolaReviewInboxPayload> & {
-      artefact: GranolaAutomationArtefact;
-      bucket: "publish";
-      key: string;
-      kind: "artefact";
-      meetingId: string;
-      payload: {
-        artefact: GranolaAutomationArtefact;
-        kind: "artefact";
-      };
-    })
-  | (YazdReviewItem<GranolaReviewInboxPayload> & {
-      bucket: "recovery";
-      issue: GranolaProcessingIssue;
-      key: string;
-      kind: "issue";
-      meetingId?: string;
-      payload: {
-        issue: GranolaProcessingIssue;
-        kind: "issue";
-      };
-    })
-  | (YazdReviewItem<GranolaReviewInboxPayload> & {
-      bucket: "approval";
-      key: string;
-      kind: "run";
-      meetingId: string;
-      payload: {
-        kind: "run";
-        run: GranolaAutomationActionRun;
-      };
-      run: GranolaAutomationActionRun;
-    });
+  | YazdIssueReviewItem<GranolaProcessingIssue, "issue">
+  | YazdPublishReviewItem<GranolaAutomationArtefact, "artefact">
+  | YazdApprovalReviewItem<GranolaAutomationActionRun, "run">;
 
 export type GranolaReviewInboxSummary = YazdReviewSummary;
 
@@ -116,14 +74,14 @@ export function buildGranolaReviewInbox(options: {
     }
 
     items.push({
-      artefact,
       bucket: "publish",
+      draft: artefact,
       id: artefact.id,
       key: `artefact:${artefact.id}`,
       kind: "artefact",
       meetingId: artefact.meetingId,
       payload: {
-        artefact,
+        draft: artefact,
         kind: "artefact",
       },
       priority: artefactPriority(artefact),
@@ -149,10 +107,10 @@ export function buildGranolaReviewInbox(options: {
       meetingId: run.meetingId,
       payload: {
         kind: "run",
-        run,
+        request: run,
       },
       priority: runPriority(run),
-      run,
+      request: run,
       status: run.status,
       subtitle: `${run.actionName} • ${run.ruleName}`,
       summary: run.prompt || run.result || run.error || run.eventKind,
