@@ -5,6 +5,7 @@ import {
   type AgentHarnessStore,
   type GranolaAgentHarness,
 } from "../agent-harnesses.ts";
+import { cloneYazdStructuredOutput } from "@kkarimi/yazd-core";
 import {
   createDefaultAutomationAgentRunner,
   type GranolaAutomationAgentRequest,
@@ -261,21 +262,7 @@ export class GranolaAutomationService {
       ...artefact,
       attempts: artefact.attempts.map((attempt) => ({ ...attempt })),
       history: artefact.history.map((entry) => ({ ...entry })),
-      structured: {
-        ...artefact.structured,
-        actionItems: artefact.structured.actionItems.map((item) => ({ ...item })),
-        decisions: [...artefact.structured.decisions],
-        followUps: [...artefact.structured.followUps],
-        highlights: [...artefact.structured.highlights],
-        metadata: artefact.structured.metadata
-          ? structuredClone(artefact.structured.metadata)
-          : undefined,
-        participantSummaries: artefact.structured.participantSummaries?.map((summary) => ({
-          ...summary,
-          actionItems: [...summary.actionItems],
-        })),
-        sections: artefact.structured.sections.map((section) => ({ ...section })),
-      },
+      structured: cloneYazdStructuredOutput(artefact.structured),
     };
   }
 

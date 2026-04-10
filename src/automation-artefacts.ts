@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import { cloneYazdStructuredOutput } from "@kkarimi/yazd-core";
 import type {
   GranolaAutomationArtefact,
   GranolaAutomationArtefactActionItem,
@@ -33,36 +34,12 @@ function cloneHistoryEntry(
   return { ...entry };
 }
 
-function cloneSection(section: GranolaAutomationArtefactSection): GranolaAutomationArtefactSection {
-  return { ...section };
-}
-
-function cloneActionItem(
-  actionItem: GranolaAutomationArtefactActionItem,
-): GranolaAutomationArtefactActionItem {
-  return { ...actionItem };
-}
-
-function cloneStructured(
-  structured: GranolaAutomationArtefactStructuredOutput,
-): GranolaAutomationArtefactStructuredOutput {
-  return {
-    ...structured,
-    actionItems: structured.actionItems.map((item) => cloneActionItem(item)),
-    decisions: [...structured.decisions],
-    followUps: [...structured.followUps],
-    highlights: [...structured.highlights],
-    metadata: structured.metadata ? structuredClone(structured.metadata) : undefined,
-    sections: structured.sections.map((section) => cloneSection(section)),
-  };
-}
-
 function cloneArtefact(artefact: GranolaAutomationArtefact): GranolaAutomationArtefact {
   return {
     ...artefact,
     attempts: artefact.attempts.map((attempt) => cloneAttempt(attempt)),
     history: artefact.history.map((entry) => cloneHistoryEntry(entry)),
-    structured: cloneStructured(artefact.structured),
+    structured: cloneYazdStructuredOutput(artefact.structured),
   };
 }
 
