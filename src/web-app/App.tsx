@@ -601,7 +601,7 @@ export function App() {
     try {
       const nextPlugin = await client.setPluginEnabled(id, enabled);
       replacePluginState(nextPlugin);
-      setState("settingsTab", "plugins");
+      setState("settingsTab", "diagnostics");
 
       if (pluginExposesAutomationCapability(nextPlugin) && !enabled) {
         setState("activePage", "settings");
@@ -898,7 +898,6 @@ export function App() {
                     }}
                     password={state.serverPassword}
                     plugins={plugins()}
-                    preferredProvider={state.preferredProvider}
                     processingIssues={state.processingIssues}
                     currentExportScopeLabel={currentExportScopeLabel()}
                     defaultArchiveSummary={defaultArchiveSummary()}
@@ -926,7 +925,7 @@ export function App() {
                     selectedMeeting={state.selectedMeeting}
                     serverInfo={state.serverInfo}
                     serverLocked={state.serverLocked}
-                    settingsTab="plugins"
+                    settingsTab="diagnostics"
                     setSettingsTab={(tab) => {
                       setState("settingsTab", tab);
                     }}
@@ -1086,7 +1085,6 @@ export function App() {
                 }}
                 password={state.serverPassword}
                 plugins={plugins()}
-                preferredProvider={state.preferredProvider}
                 processingIssues={state.processingIssues}
                 currentExportScopeLabel={currentExportScopeLabel()}
                 defaultArchiveSummary={defaultArchiveSummary()}

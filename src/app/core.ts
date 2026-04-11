@@ -83,9 +83,7 @@ import {
   type SyncStateStore,
 } from "../sync-state.ts";
 import { createDefaultSyncEventStore, type SyncEventStore } from "../sync-events.ts";
-import { buildSyncEvents, diffMeetingSummaries } from "../sync.ts";
 import {
-  buildSearchIndex,
   createDefaultSearchIndexStore,
   type GranolaSearchIndexEntry,
   type SearchIndexStore,
@@ -124,10 +122,7 @@ import type {
   GranolaAppPluginsResult,
   GranolaAgentHarnessesResult,
   GranolaAgentHarnessExplanationsResult,
-  GranolaAppSyncChange,
-  GranolaAppSyncEvent,
   GranolaAppSyncEventsResult,
-  GranolaAppSyncRun,
   GranolaAppSyncResult,
   GranolaAppSyncState,
   GranolaYazdArtifactBundle,
@@ -179,6 +174,7 @@ import type { GranolaExporterRegistry } from "./export-registry.ts";
 import { GranolaIndexService } from "./index-service.ts";
 import { GranolaAutomationService } from "./automation-service.ts";
 import { GranolaAutomationRuntime } from "./automation-runtime.ts";
+import { cloneSyncState, GranolaSyncService } from "./sync-service.ts";
 import { GranolaYazdService } from "./yazd-service.ts";
 
 interface GranolaAppDependencies {
@@ -275,31 +271,6 @@ function deriveFolderSummariesFromMeetings(
       documentCount: Math.max(folder.documentCount, meetingIds.size),
     }))
     .sort((left, right) => left.name.localeCompare(right.name));
-}
-
-function cloneSyncChange(change: GranolaAppSyncChange): GranolaAppSyncChange {
-  return { ...change };
-}
-
-function cloneSyncRun(run: GranolaAppSyncRun): GranolaAppSyncRun {
-  return {
-    ...run,
-    changes: run.changes.map(cloneSyncChange),
-    summary: run.summary ? { ...run.summary } : undefined,
-  };
-}
-
-function cloneSyncState(state: GranolaAppSyncState): GranolaAppSyncState {
-  return {
-    ...state,
-    lastChanges: state.lastChanges.map(cloneSyncChange),
-    recentRuns: (state.recentRuns ?? []).map(cloneSyncRun),
-    summary: state.summary ? { ...state.summary } : undefined,
-  };
-}
-
-function cloneSyncEvent(event: GranolaAppSyncEvent): GranolaAppSyncEvent {
-  return { ...event };
 }
 
 function cloneMeetingSummary(meeting: MeetingSummaryRecord): MeetingSummaryRecord {
@@ -436,6 +407,7 @@ export class GranolaApp implements GranolaAppApi {
   #index: GranolaIndexService;
   #listeners = new Set<(event: GranolaAppStateEvent) => void>();
   readonly #pluginRegistry: GranolaPluginRegistry;
+  readonly #sync: GranolaSyncService;
   readonly #state: GranolaAppState;
   readonly #yazd: GranolaYazdService;
 
@@ -586,6 +558,26 @@ export class GranolaApp implements GranolaAppApi {
       readMeetingBundleById: async (id, options) => await this.readMeetingBundleById(id, options),
       state: this.#state,
     });
+    this.#sync = new GranolaSyncService({
+      automationPluginEnabled: () => this.automationPluginEnabled(),
+      buildFoldersByDocumentId: (folders) => this.buildFoldersByDocumentId(folders),
+      emitStateUpdate: () => {
+        this.emitStateUpdate();
+      },
+      eventHookRunner: deps.eventHookRunner,
+      getAutomationArtefacts: () => this.#automation.artefacts(),
+      indexMeetings: () => this.#index.meetings(),
+      liveMeetingSnapshot: async (options) => await this.liveMeetingSnapshot(options),
+      logger: deps.logger,
+      nowIso: () => this.nowIso(),
+      persistMeetingIndex: async (meetings) => await this.#index.persistMeetingIndex(meetings),
+      persistSearchIndex: async (entries) => await this.#index.persistSearchIndex(entries),
+      processSyncEvents: async (events, matchedAt) =>
+        await this.#automation.processSyncEvents(events, matchedAt),
+      state: this.#state.sync,
+      syncEventStore: deps.syncEventStore,
+      syncStateStore: deps.syncStateStore,
+    });
     this.#yazd = new GranolaYazdService({
       automationActionRegistry: deps.automationActionRegistry,
       getAutomationArtefact: async (id) => await this.#automation.getAutomationArtefact(id),
@@ -596,9 +588,9 @@ export class GranolaApp implements GranolaAppApi {
       readMeetingBundleById: async (id, options) => await this.readMeetingBundleById(id, options),
     });
     this.#state.index.filePath = defaultMeetingIndexFilePath();
-    this.#state.sync = {
-      ...this.#state.sync,
-      ...cloneSyncState(
+    Object.assign(
+      this.#state.sync,
+      cloneSyncState(
         deps.syncState ?? {
           eventCount: 0,
           eventsFile: defaultSyncEventsFilePath(),
@@ -608,7 +600,7 @@ export class GranolaApp implements GranolaAppApi {
           running: false,
         },
       ),
-    };
+    );
   }
 
   getState(): GranolaAppState {
@@ -644,16 +636,8 @@ export class GranolaApp implements GranolaAppApi {
 
   private assertAutomationPluginEnabled(): void {
     if (!this.automationPluginEnabled()) {
-      throw new Error("automation plugin is disabled. Enable it in Settings -> Automation first.");
+      throw new Error("automation plugin is disabled. Enable it in Settings -> Advanced first.");
     }
-  }
-
-  private async persistSyncState(): Promise<void> {
-    if (!this.deps.syncStateStore) {
-      return;
-    }
-
-    await this.deps.syncStateStore.writeState(this.#state.sync);
   }
 
   private async currentMeetingSummariesForProcessing(): Promise<MeetingSummaryRecord[]> {
@@ -665,19 +649,6 @@ export class GranolaApp implements GranolaAppApi {
       forceRefresh: false,
     });
     return snapshot.meetings.map((meeting) => cloneMeetingSummary(meeting));
-  }
-
-  private createSyncRunId(timestamp = this.nowIso()): string {
-    return `sync-${timestamp.replaceAll(/[-:.]/g, "").replace("T", "").replace("Z", "")}`;
-  }
-
-  private recordSyncRun(run: GranolaAppSyncRun): GranolaAppSyncRun[] {
-    return [
-      cloneSyncRun(run),
-      ...(this.#state.sync.recentRuns ?? []).filter((entry) => entry.id !== run.id),
-    ]
-      .slice(0, 25)
-      .map(cloneSyncRun);
   }
 
   private async liveMeetingSnapshot(
@@ -792,19 +763,11 @@ export class GranolaApp implements GranolaAppApi {
   }
 
   async inspectSync(): Promise<GranolaAppSyncState> {
-    return cloneSyncState(this.#state.sync);
+    return await this.#sync.inspectSync();
   }
 
   async listSyncEvents(options: { limit?: number } = {}): Promise<GranolaAppSyncEventsResult> {
-    if (!this.deps.syncEventStore) {
-      return {
-        events: [],
-      };
-    }
-
-    return {
-      events: (await this.deps.syncEventStore.readEvents(options.limit)).map(cloneSyncEvent),
-    };
+    return await this.#sync.listSyncEvents(options);
   }
 
   async listAutomationArtefacts(
@@ -995,121 +958,10 @@ export class GranolaApp implements GranolaAppApi {
     return await this.#catalog.maybeReadMeetingBundleById(id, options);
   }
 
-  private async runSync(options: {
-    forceRefresh?: boolean;
-    foreground: boolean;
-  }): Promise<GranolaAppSyncResult> {
-    const previousMeetings = this.#index.meetings();
-    const startedAt = this.nowIso();
-    const runId = this.createSyncRunId(startedAt);
-    this.#state.sync = {
-      ...this.#state.sync,
-      lastError: undefined,
-      lastRunId: runId,
-      lastStartedAt: startedAt,
-      running: true,
-    };
-    this.emitStateUpdate();
-
-    try {
-      const snapshot = await this.liveMeetingSnapshot({
-        forceRefresh: options.forceRefresh ?? true,
-      });
-      await this.#index.persistMeetingIndex(snapshot.meetings);
-      await this.#index.persistSearchIndex(
-        buildSearchIndex(snapshot.documents, {
-          artefacts: this.automationPluginEnabled() ? this.#automation.artefacts() : [],
-          cacheData: snapshot.cacheData,
-          foldersByDocumentId: this.buildFoldersByDocumentId(snapshot.folders),
-        }),
-      );
-      const { changes, summary } = diffMeetingSummaries(
-        previousMeetings,
-        snapshot.meetings,
-        snapshot.folders?.length ?? 0,
-      );
-      const completedAt = this.nowIso();
-      const events = buildSyncEvents(
-        runId,
-        completedAt,
-        changes,
-        previousMeetings,
-        snapshot.meetings,
-      );
-      if (events.length > 0 && this.deps.syncEventStore) {
-        await this.deps.syncEventStore.appendEvents(events);
-      }
-      if (events.length > 0 && this.deps.eventHookRunner) {
-        try {
-          await this.deps.eventHookRunner.runEvents(events);
-        } catch (error) {
-          this.deps.logger?.warn?.(
-            `event hook runner failed: ${error instanceof Error ? error.message : String(error)}`,
-          );
-        }
-      }
-      if (this.automationPluginEnabled()) {
-        await this.#automation.processSyncEvents(events, completedAt);
-      }
-      this.#state.sync = {
-        ...this.#state.sync,
-        eventCount: this.#state.sync.eventCount + events.length,
-        lastChanges: changes.slice(0, 50).map(cloneSyncChange),
-        lastCompletedAt: completedAt,
-        lastError: undefined,
-        lastRunId: runId,
-        recentRuns: this.recordSyncRun({
-          changeCount: changes.length,
-          changes: changes.slice(0, 20).map(cloneSyncChange),
-          completedAt,
-          id: runId,
-          startedAt,
-          status: "succeeded",
-          summary: { ...summary },
-        }),
-        running: false,
-        summary: { ...summary },
-      };
-      await this.persistSyncState();
-      this.emitStateUpdate();
-
-      return {
-        changes: changes.map(cloneSyncChange),
-        state: cloneSyncState(this.#state.sync),
-        summary: { ...summary },
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const failedAt = this.nowIso();
-      this.#state.sync = {
-        ...this.#state.sync,
-        lastError: message,
-        lastFailedAt: failedAt,
-        lastRunId: runId,
-        recentRuns: this.recordSyncRun({
-          changeCount: 0,
-          changes: [],
-          error: message,
-          failedAt,
-          id: runId,
-          startedAt,
-          status: "failed",
-        }),
-        running: false,
-      };
-      await this.persistSyncState();
-      this.emitStateUpdate();
-      throw error;
-    }
-  }
-
   async sync(
     options: { forceRefresh?: boolean; foreground?: boolean } = {},
   ): Promise<GranolaAppSyncResult> {
-    return await this.runSync({
-      forceRefresh: options.forceRefresh,
-      foreground: options.foreground ?? true,
-    });
+    return await this.#sync.sync(options);
   }
 
   async listDocuments(options: { forceRefresh?: boolean } = {}): Promise<GranolaDocument[]> {
@@ -1218,7 +1070,7 @@ export class GranolaApp implements GranolaAppApi {
       if (!(options.folderId && meetings.length === 0)) {
         this.#index.triggerBackgroundRefresh(async () => {
           try {
-            await this.runSync({ foreground: false });
+            await this.#sync.sync({ foreground: false });
           } catch {
             // Opportunistic background sync should not break the foreground view.
           }

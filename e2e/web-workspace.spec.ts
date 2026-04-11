@@ -107,7 +107,7 @@ test.describe("toolkit web workspace", () => {
       .locator(".primary-nav")
       .getByRole("button", { name: /Settings/i })
       .click();
-    await page.locator(".settings-shell").getByRole("button", { name: "Automation" }).click();
+    await page.locator(".settings-shell").getByRole("button", { name: "Advanced" }).click();
     await expect(
       page
         .locator(".auth-panel")
@@ -118,10 +118,6 @@ test.describe("toolkit web workspace", () => {
     await expect(page.getByRole("button", { name: "Disable markdown viewer" })).toBeVisible();
     await page.locator(".settings-shell").getByRole("button", { name: "Knowledge bases" }).click();
     await expect(page.getByRole("heading", { name: "Knowledge bases" })).toBeVisible();
-    await expect(page.getByText("More destinations live in Yazd")).toBeVisible();
-    await expect(
-      page.locator(".knowledge-base-ecosystem__item").getByText("Notion", { exact: true }),
-    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Export archive" })).toBeVisible();
     await expect(page.getByText("All meetings", { exact: true })).toBeVisible();
     await page.locator(".settings-shell").getByRole("button", { name: "Advanced" }).click();
@@ -158,7 +154,7 @@ test.describe("toolkit web workspace", () => {
     await expect(page.getByRole("link", { name: "Open" }).first()).toBeVisible();
   });
 
-  test("configures and tests automation from Settings -> Automation while keeping the selected meeting", async ({
+  test("configures and tests automation from Settings -> Advanced while keeping the selected meeting", async ({
     page,
   }) => {
     await page.goto(server.url);
@@ -183,7 +179,7 @@ test.describe("toolkit web workspace", () => {
       .locator(".primary-nav")
       .getByRole("button", { name: /Settings/i })
       .click();
-    await page.locator(".settings-shell").getByRole("button", { name: "Automation" }).click();
+    await page.locator(".settings-shell").getByRole("button", { name: "Advanced" }).click();
     await expect(page.getByRole("heading", { name: "Harness Editor" })).toBeVisible();
     await expect(page.getByText("Team Notes").first()).toBeVisible();
     await expect(page.getByText("Run Team Notes against Alpha Sync.")).toBeVisible({
@@ -252,10 +248,10 @@ test.describe("toolkit web workspace", () => {
         .locator(".primary-nav")
         .getByRole("button", { name: /Settings/i })
         .click();
-      await page.locator(".settings-shell").getByRole("button", { name: "Automation" }).click();
+      await page.locator(".settings-shell").getByRole("button", { name: "Advanced" }).click();
       await expect(
         page.getByText(
-          "Turn shipped capabilities on only when you want them, then configure the automation flows you actually use.",
+          "Turn optional capabilities on only when you need them, then adjust the local runtime tools that sit behind Gran.",
         ),
       ).toBeVisible();
       await page.getByRole("button", { name: "Enable automation" }).click();

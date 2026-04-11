@@ -12,7 +12,6 @@ import type {
   GranolaAppSyncRun,
 } from "../app/index.ts";
 import { pluginStateStatusDetail } from "../app/plugin-state.ts";
-import { granolaAgentProviderLabel } from "../agent-defaults.ts";
 import { granolaAuthModeLabel, granolaAuthRecommendation } from "../auth-summary.ts";
 import {
   defaultExportTargetNotesSubdir,
@@ -20,8 +19,6 @@ import {
   resolveGranolaExportTargetDefinition,
 } from "../export-target-registry.ts";
 import type { GranolaLocalPathInfo, GranolaServerInfo } from "../transport.ts";
-import type { GranolaAgentProviderKind } from "../types.ts";
-import { listGranolaYazdKnowledgeBasePluginDefinitions } from "../yazd-kb-plugin-definitions.ts";
 import { describeAuthStatus, describeSyncStatus } from "../web/client-state.ts";
 import type { GranolaWebExportMode } from "./types.ts";
 
@@ -32,7 +29,6 @@ import {
   formatBytesLabel,
   formatDateTimeLabel,
   pathLeafLabel,
-  providerSetupHint,
   relativeTimeLabel,
   scopeLabel,
   syncCadenceLabel,
@@ -48,7 +44,6 @@ interface AuthPanelProps {
   onRefresh: () => void;
   onSaveApiKey: () => void;
   onSwitchMode: (mode: GranolaAppAuthState["mode"]) => void;
-  preferredProvider: GranolaAgentProviderKind;
 }
 
 interface KnowledgeBasesPanelProps {
@@ -513,7 +508,7 @@ export function DiagnosticsPanel(props: {
       {
         detail: props.appState?.config.configFileUsed
           ? "Custom config file currently in use."
-          : "No custom config file found. Change values from the Connection, Automation, and Knowledge bases tabs, or add a project .gran/config.json later.",
+          : "No custom config file found. Change values from the Connection, Knowledge bases, and Advanced tabs, or add a project .gran/config.json later.",
         fallbackPath: props.appState?.config.configFileUsed || undefined,
         file: props.serverInfo?.files?.config,
         label: "Config file",
@@ -851,12 +846,6 @@ export function AuthPanel(props: AuthPanelProps): JSX.Element {
                         : "No fallbacks ready"
                     }
                   />
-                  <DiagnosticsMetricCard
-                    detail={providerSetupHint(props.preferredProvider)}
-                    label="Preferred agent provider"
-                    meta="Runtime environment"
-                    title={granolaAgentProviderLabel(props.preferredProvider)}
-                  />
                 </div>
                 <div class="auth-detail-list">
                   <div class="auth-detail-row">
@@ -1082,10 +1071,10 @@ export function PluginsPanel(props: PluginsPanelProps): JSX.Element {
   return (
     <section class="auth-panel">
       <div class="auth-panel__head">
-        <h3>Automation</h3>
+        <h3>Advanced capabilities</h3>
         <p>
-          Turn shipped capabilities on only when you want them, then configure the automation flows
-          you actually use.
+          Turn optional capabilities on only when you need them, then adjust the local runtime tools
+          that sit behind Gran.
         </p>
       </div>
       <div class="auth-panel__body">
@@ -1112,9 +1101,6 @@ export function KnowledgeBasesPanel(props: KnowledgeBasesPanelProps): JSX.Elemen
   const [draftError, setDraftError] = createSignal("");
   const [draft, setDraft] = createSignal<KnowledgeBaseDraft>(
     createKnowledgeBaseDraft("obsidian-vault"),
-  );
-  const ecosystemKnowledgeBases = listGranolaYazdKnowledgeBasePluginDefinitions().filter(
-    (definition) => definition.managedBy === "yazd",
   );
   const selectedKnowledgeBase = () =>
     props.targets.find((candidate) => candidate.id === props.selectedTargetId) ?? null;
@@ -1173,31 +1159,6 @@ export function KnowledgeBasesPanel(props: KnowledgeBasesPanelProps): JSX.Elemen
               </span>
             </article>
           </div>
-          <section class="auth-card knowledge-base-ecosystem">
-            <div class="auth-section-head">
-              <h4>More destinations live in Yazd</h4>
-              <p>
-                Gran manages local folders and Obsidian vaults here. API-backed destinations stay in
-                Yazd so Gran can stay focused on the Granola source and local workspace.
-              </p>
-            </div>
-            <div class="knowledge-base-ecosystem__list">
-              <For each={ecosystemKnowledgeBases}>
-                {(definition) => (
-                  <article class="knowledge-base-ecosystem__item">
-                    <div>
-                      <strong>{definition.label}</strong>
-                      <div class="auth-card__meta">{definition.description}</div>
-                    </div>
-                    <div class="auth-card__meta">
-                      {definition.transport === "api" ? "Managed in Yazd" : "Local plugin"} ·{" "}
-                      {definition.setupHint}
-                    </div>
-                  </article>
-                )}
-              </For>
-            </div>
-          </section>
           <section class="knowledge-base-shell">
             <div class="knowledge-base-list">
               <button
@@ -1288,7 +1249,7 @@ export function KnowledgeBasesPanel(props: KnowledgeBasesPanelProps): JSX.Elemen
                 <h4>{editingId() ? "Edit knowledge base" : "Add knowledge base"}</h4>
                 <p>
                   Start with an Obsidian vault, or point Gran at a plain folder when you just want a
-                  durable local archive. Notion, Capacities, and Tana stay in Yazd.
+                  durable local archive.
                 </p>
               </div>
               <div class="toolbar-actions">

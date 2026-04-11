@@ -23,7 +23,6 @@ import type {
 } from "../app/index.ts";
 import type { GranolaReviewInboxItem, GranolaReviewInboxSummary } from "../review-inbox.ts";
 import type { GranolaServerInfo } from "../transport.ts";
-import type { GranolaAgentProviderKind } from "../types.ts";
 import type { WebWorkspaceRecentMeeting, WorkspaceTab } from "../web/client-state.ts";
 import type { GranolaWebExportMode } from "./types.ts";
 
@@ -426,7 +425,6 @@ export function SettingsPageController(props: {
   onUnlock: () => void;
   onRemoveKnowledgeBase: (id: string) => void;
   password: string;
-  preferredProvider: GranolaAgentProviderKind;
   processingIssues: import("../app/index.ts").GranolaProcessingIssue[];
   plugins: GranolaAppPluginState[];
   selectedExportTargetId: string | null;
@@ -441,7 +439,6 @@ export function SettingsPageController(props: {
 }) {
   const settingsTabs: Array<{ id: WebSettingsSection; label: string }> = [
     { id: "auth", label: "Connection" },
-    { id: "plugins", label: "Automation" },
     { id: "knowledge", label: "Knowledge bases" },
     { id: "diagnostics", label: "Advanced" },
   ];
@@ -449,7 +446,7 @@ export function SettingsPageController(props: {
   return (
     <>
       <PageHeader
-        description="Manage how Gran connects, publishes into local knowledge bases, automates, and stores local state."
+        description="Manage how Gran connects, publishes into local knowledge bases, and handles advanced local runtime controls."
         eyebrow="Settings"
         title="Settings"
       />
@@ -488,10 +485,26 @@ export function SettingsPageController(props: {
                 onRefresh={() => props.onRefreshAuth()}
                 onSaveApiKey={() => props.onSaveApiKey()}
                 onSwitchMode={(mode) => props.onSwitchMode(mode)}
-                preferredProvider={props.preferredProvider}
               />
             </Match>
-            <Match when={props.settingsTab === "plugins"}>
+            <Match when={props.settingsTab === "knowledge"}>
+              <KnowledgeBasesPanel
+                currentScopeLabel={props.currentExportScopeLabel}
+                defaultArchiveSummary={props.defaultArchiveSummary}
+                exportDestinationSummary={props.exportDestinationSummary}
+                exportMode={props.exportMode}
+                jobs={props.appState?.exports.jobs || []}
+                onExportModeChange={(mode) => props.onExportModeChange(mode)}
+                onRemoveKnowledgeBase={(id) => props.onRemoveKnowledgeBase(id)}
+                onRerun={(jobId) => props.onRerunJob(jobId)}
+                onRunExport={() => props.onRunExport()}
+                onSaveKnowledgeBase={(target) => props.onSaveKnowledgeBase(target)}
+                onSelectTarget={(id) => props.onSelectExportTarget(id)}
+                selectedTargetId={props.selectedExportTargetId}
+                targets={props.exportTargets}
+              />
+            </Match>
+            <Match when={props.settingsTab === "diagnostics"}>
               <PluginsPanel
                 onTogglePlugin={(id, enabled) => props.onTogglePlugin(id, enabled)}
                 plugins={props.plugins}
@@ -525,25 +538,6 @@ export function SettingsPageController(props: {
                 testKind={props.harnessTestKind}
                 testResult={props.harnessTestResult}
               />
-            </Match>
-            <Match when={props.settingsTab === "knowledge"}>
-              <KnowledgeBasesPanel
-                currentScopeLabel={props.currentExportScopeLabel}
-                defaultArchiveSummary={props.defaultArchiveSummary}
-                exportDestinationSummary={props.exportDestinationSummary}
-                exportMode={props.exportMode}
-                jobs={props.appState?.exports.jobs || []}
-                onExportModeChange={(mode) => props.onExportModeChange(mode)}
-                onRemoveKnowledgeBase={(id) => props.onRemoveKnowledgeBase(id)}
-                onRerun={(jobId) => props.onRerunJob(jobId)}
-                onRunExport={() => props.onRunExport()}
-                onSaveKnowledgeBase={(target) => props.onSaveKnowledgeBase(target)}
-                onSelectTarget={(id) => props.onSelectExportTarget(id)}
-                selectedTargetId={props.selectedExportTargetId}
-                targets={props.exportTargets}
-              />
-            </Match>
-            <Match when={props.settingsTab === "diagnostics"}>
               <DiagnosticsPanel
                 appState={props.appState}
                 serverInfo={props.serverInfo}
