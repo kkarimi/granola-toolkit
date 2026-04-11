@@ -23,6 +23,7 @@ import type {
   GranolaAgentHarnessExplanationsResult,
   GranolaAgentHarnessesResult,
   GranolaAppState,
+  GranolaAppSyncEvent,
   GranolaAutomationAgentAction,
   GranolaAutomationActionRun,
   GranolaAutomationArtefact,
@@ -186,6 +187,16 @@ export class GranolaAutomationService {
     runs: GranolaAutomationActionRun[];
   }> {
     return await this.#execution.runIntelligencePreset(options);
+  }
+
+  async processSyncEvents(
+    events: GranolaAppSyncEvent[],
+    matchedAt: string,
+  ): Promise<{
+    matches: GranolaAutomationMatch[];
+    runs: GranolaAutomationActionRun[];
+  }> {
+    return await this.#execution.processSyncEvents(events, matchedAt);
   }
 
   async getAutomationArtefact(id: string): Promise<GranolaAutomationArtefact> {

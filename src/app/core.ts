@@ -1,85 +1,23 @@
-import {
-  createDefaultAgentHarnessStore,
-  type GranolaAgentHarness,
-  type AgentHarnessStore,
-} from "../agent-harnesses.ts";
-import {
-  createDefaultAutomationArtefactStore,
-  defaultAutomationArtefactsFilePath,
-  type AutomationArtefactStore,
-} from "../automation-artefacts.ts";
-import {
-  createDefaultAutomationAgentRunner,
-  type GranolaAutomationAgentRunner,
-} from "../agents.ts";
-import type { GranolaAgentProviderRegistry } from "../agent-provider-registry.ts";
-import type { GranolaAutomationActionRegistry } from "../automation-action-registry.ts";
-import {
-  createDefaultAutomationMatchStore,
-  defaultAutomationMatchesFilePath,
-  type AutomationMatchStore,
-} from "../automation-matches.ts";
-import {
-  createDefaultAutomationRunStore,
-  defaultAutomationRunsFilePath,
-  type AutomationRunStore,
-} from "../automation-runs.ts";
-import {
-  createDefaultAutomationRuleStore,
-  defaultAutomationRulesFilePath,
-  type AutomationRuleStore,
-} from "../automation-rules.ts";
-import {
-  createDefaultGranolaAuthController,
-  createDefaultGranolaRuntime,
-  inspectDefaultGranolaAuth,
-  loadOptionalGranolaCache,
-  type DefaultGranolaAuthController,
-  type DefaultGranolaAuthInfo,
-  type GranolaSyncAdapterRegistry,
-} from "../client/default.ts";
-import {
-  createDefaultCatalogSnapshotStore,
-  type CatalogSnapshotStore,
-  type GranolaCatalogSnapshot,
-} from "../catalog-snapshot.ts";
-import {
-  createDefaultExportJobStore,
-  createExportJobId,
-  type ExportJobStore,
-} from "../export-jobs.ts";
-import { createDefaultExportTargetStore, type ExportTargetStore } from "../export-targets.ts";
+import { type GranolaAgentHarness } from "../agent-harnesses.ts";
+import { defaultAutomationArtefactsFilePath } from "../automation-artefacts.ts";
+import { defaultAutomationMatchesFilePath } from "../automation-matches.ts";
+import { defaultAutomationRunsFilePath } from "../automation-runs.ts";
+import { defaultAutomationRulesFilePath } from "../automation-rules.ts";
+import { type DefaultGranolaAuthInfo } from "../client/default.ts";
+import { createExportJobId } from "../export-jobs.ts";
 import type { GranolaFolder } from "../types.ts";
-import {
-  createDefaultMeetingIndexStore,
-  defaultMeetingIndexFilePath,
-  type MeetingIndexStore,
-} from "../meeting-index.ts";
-import { createDefaultPkmTargetStore, type PkmTargetStore } from "../pkm-targets.ts";
+import { defaultMeetingIndexFilePath } from "../meeting-index.ts";
 import {
   resolveGranolaIntelligencePreset,
   type GranolaIntelligencePreset,
 } from "../intelligence-presets.ts";
-import { createDefaultPluginSettingsStore, type PluginSettingsStore } from "../plugins.ts";
-import { createGranEventHookRunner, type GranEventHookRunner } from "../event-hooks.ts";
 import {
   applyPluginRuntimeDefaults,
   createDefaultPluginRegistry,
   defaultPluginEnabledMap,
   type GranolaPluginRegistry,
 } from "../plugin-registry.ts";
-import {
-  defaultSyncEventsFilePath,
-  createDefaultSyncStateStore,
-  defaultSyncStateFilePath,
-  type SyncStateStore,
-} from "../sync-state.ts";
-import { createDefaultSyncEventStore, type SyncEventStore } from "../sync-events.ts";
-import {
-  createDefaultSearchIndexStore,
-  type GranolaSearchIndexEntry,
-  type SearchIndexStore,
-} from "../search-index.ts";
+import { defaultSyncEventsFilePath, defaultSyncStateFilePath } from "../sync-state.ts";
 import {} from "../processing-health.ts";
 import type {
   AppConfig,
@@ -101,14 +39,12 @@ import type {
   GranolaAutomationArtefactUpdate,
   GranolaAutomationEvaluationCase,
   GranolaAutomationEvaluationResult,
-  GranolaAutomationMatch,
   GranolaAutomationRule,
   GranolaAutomationMatchesResult,
   GranolaAutomationRulesResult,
   GranolaAutomationRunsResult,
   GranolaAppAuthMode,
   GranolaAppAuthState,
-  GranolaAppExportJobState,
   GranolaAppPluginId,
   GranolaAppPluginState,
   GranolaAppPluginsResult,
@@ -145,120 +81,19 @@ import type {
   GranolaTranscriptsExportResult,
 } from "./types.ts";
 import type { FolderRecord, FolderSummaryRecord, MeetingSummaryRecord } from "./models.ts";
-import {
-  buildPluginState,
-  buildPluginsState,
-  clonePluginsState,
-  isPluginCapabilityEnabled,
-} from "./plugin-state.ts";
-import {
-  GranolaCatalogService,
-  type GranolaCatalogClient,
-  type GranolaCatalogLiveSnapshot,
-} from "./catalog.ts";
+import type { GranolaAppDependencies } from "./app-dependencies.ts";
+import { loadDefaultGranolaAppDependencies } from "./app-bootstrap.ts";
+import { cloneMeetingSummary, cloneState } from "./app-state.ts";
+import { buildPluginState, buildPluginsState, isPluginCapabilityEnabled } from "./plugin-state.ts";
+import { GranolaCatalogService, type GranolaCatalogLiveSnapshot } from "./catalog.ts";
 import { GranolaAuthService } from "./auth-service.ts";
-import {
-  cloneGranolaExportJobState,
-  cloneGranolaExportRunState,
-  GranolaExportService,
-} from "./export-service.ts";
-import type { GranolaExporterRegistry } from "./export-registry.ts";
+import { cloneGranolaExportJobState, GranolaExportService } from "./export-service.ts";
 import { GranolaIndexService } from "./index-service.ts";
 import { GranolaAutomationService } from "./automation-service.ts";
 import { GranolaAutomationRuntime } from "./automation-runtime.ts";
 import { cloneSyncState, GranolaSyncService } from "./sync-service.ts";
 import { GranolaWorkspaceService } from "./workspace-service.ts";
 import { GranolaYazdService } from "./yazd-service.ts";
-
-interface GranolaAppDependencies {
-  agentHarnessStore?: AgentHarnessStore;
-  agentProviderRegistry?: GranolaAgentProviderRegistry;
-  agentRunner?: GranolaAutomationAgentRunner;
-  auth: GranolaAppAuthState;
-  authController?: DefaultGranolaAuthController;
-  automationActionRegistry?: GranolaAutomationActionRegistry;
-  automationArtefactStore?: AutomationArtefactStore;
-  automationArtefacts?: GranolaAutomationArtefact[];
-  automationMatchStore?: AutomationMatchStore;
-  automationMatches?: GranolaAutomationMatch[];
-  automationRunStore?: AutomationRunStore;
-  automationRuns?: GranolaAutomationActionRun[];
-  automationRuleStore?: AutomationRuleStore;
-  automationRules?: GranolaAutomationRule[];
-  catalogSnapshot?: GranolaCatalogSnapshot;
-  catalogSnapshotStore?: CatalogSnapshotStore;
-  cacheLoader: (cacheFile?: string) => Promise<CacheData | undefined>;
-  createGranolaClient?: (mode?: GranolaAppAuthMode) => Promise<{
-    auth: GranolaAppAuthState;
-    client: GranolaCatalogClient;
-  }>;
-  exportJobStore?: ExportJobStore;
-  exportTargetStore?: ExportTargetStore;
-  exporterRegistry?: GranolaExporterRegistry;
-  exportJobs?: GranolaAppExportJobState[];
-  eventHookRunner?: GranEventHookRunner;
-  granolaClient?: GranolaCatalogClient;
-  logger?: Pick<Console, "warn">;
-  meetingIndex?: MeetingSummaryRecord[];
-  meetingIndexStore?: MeetingIndexStore;
-  pkmTargetStore?: PkmTargetStore;
-  pluginRegistry?: GranolaPluginRegistry;
-  pluginSettingsStore?: PluginSettingsStore;
-  now?: () => Date;
-  searchIndex?: GranolaSearchIndexEntry[];
-  searchIndexStore?: SearchIndexStore;
-  syncAdapterRegistry?: GranolaSyncAdapterRegistry;
-  syncEventStore?: SyncEventStore;
-  syncState?: GranolaAppSyncState;
-  syncStateStore?: SyncStateStore;
-}
-
-function cloneFolderSummary(folder: FolderSummaryRecord): FolderSummaryRecord {
-  return { ...folder };
-}
-
-function cloneMeetingSummary(meeting: MeetingSummaryRecord): MeetingSummaryRecord {
-  return {
-    ...meeting,
-    folders: Array.isArray(meeting.folders)
-      ? meeting.folders.map((folder) => cloneFolderSummary(folder))
-      : [],
-    tags: [...meeting.tags],
-  };
-}
-
-function cloneState(state: GranolaAppState): GranolaAppState {
-  return {
-    auth: { ...state.auth },
-    automation: { ...state.automation },
-    cache: { ...state.cache },
-    config: {
-      ...state.config,
-      automation: state.config.automation ? { ...state.config.automation } : undefined,
-      agents: state.config.agents ? { ...state.config.agents } : undefined,
-      exports: state.config.exports ? { ...state.config.exports } : undefined,
-      hooks: state.config.hooks
-        ? {
-            items: state.config.hooks.items.map((hook) => ({ ...hook })),
-          }
-        : undefined,
-      notes: { ...state.config.notes },
-      plugins: state.config.plugins ? { ...state.config.plugins } : undefined,
-      transcripts: { ...state.config.transcripts },
-    },
-    documents: { ...state.documents },
-    folders: { ...state.folders },
-    exports: {
-      jobs: state.exports.jobs.map((job) => cloneGranolaExportJobState(job)),
-      notes: cloneGranolaExportRunState(state.exports.notes),
-      transcripts: cloneGranolaExportRunState(state.exports.transcripts),
-    },
-    index: { ...state.index },
-    plugins: clonePluginsState(state.plugins),
-    sync: cloneSyncState(state.sync),
-    ui: { ...state.ui },
-  };
-}
 
 function defaultState(
   config: AppConfig,
@@ -1072,85 +907,9 @@ export async function createGranolaApp(
     surface?: GranolaAppSurface;
   } = {},
 ): Promise<GranolaApp> {
-  const auth = await inspectDefaultGranolaAuth(config);
-  const catalogSnapshotStore = createDefaultCatalogSnapshotStore();
-  const catalogSnapshot = await catalogSnapshotStore.readSnapshot();
-  const automationArtefactStore = createDefaultAutomationArtefactStore(
-    config.automation?.artefactsFile,
-  );
-  const automationArtefacts = await automationArtefactStore.readArtefacts({ limit: 0 });
-  const automationMatchStore = createDefaultAutomationMatchStore();
-  const automationMatches = await automationMatchStore.readMatches(0);
-  const automationRunStore = createDefaultAutomationRunStore();
-  const automationRuns = await automationRunStore.readRuns({ limit: 0 });
-  const automationRuleStore = createDefaultAutomationRuleStore(
-    config.automation?.rulesFile ?? defaultAutomationRulesFilePath(),
-  );
-  const automationRules = await automationRuleStore.readRules();
-  const agentHarnessStore = createDefaultAgentHarnessStore(config.agents?.harnessesFile);
-  const authController = createDefaultGranolaAuthController(config);
-  const exportJobStore = createDefaultExportJobStore();
-  const exportJobs = await exportJobStore.readJobs();
-  const exportTargetStore = createDefaultExportTargetStore(config.exports?.targetsFile);
-  const meetingIndexStore = createDefaultMeetingIndexStore();
-  const meetingIndex = await meetingIndexStore.readIndex();
-  const pkmTargetStore = createDefaultPkmTargetStore(config.automation?.pkmTargetsFile);
-  const pluginRegistry = createDefaultPluginRegistry();
-  const pluginSettingsStore = createDefaultPluginSettingsStore(
-    config.plugins?.settingsFile,
-    pluginRegistry.listPlugins(),
-  );
-  const eventHookRunner = createGranEventHookRunner({
-    hooks: config.hooks?.items ?? [],
-    logger: options.logger,
-  });
-  const searchIndexStore = createDefaultSearchIndexStore();
-  const searchIndex = await searchIndexStore.readIndex();
-  const syncEventStore = createDefaultSyncEventStore();
-  const syncStateStore = createDefaultSyncStateStore();
-  const syncState = await syncStateStore.readState();
+  const deps = await loadDefaultGranolaAppDependencies(config, options);
 
-  return new GranolaApp(
-    config,
-    {
-      auth,
-      agentRunner: createDefaultAutomationAgentRunner(config),
-      agentHarnessStore,
-      authController,
-      automationArtefactStore,
-      automationArtefacts,
-      automationMatches,
-      automationMatchStore,
-      automationRunStore,
-      automationRuns,
-      automationRules,
-      automationRuleStore,
-      catalogSnapshot,
-      catalogSnapshotStore,
-      cacheLoader: loadOptionalGranolaCache,
-      createGranolaClient: async (mode) =>
-        await createDefaultGranolaRuntime(config, options.logger, {
-          preferredMode: mode,
-        }),
-      exportJobs,
-      exportJobStore,
-      exportTargetStore,
-      eventHookRunner,
-      meetingIndex,
-      meetingIndexStore,
-      logger: options.logger,
-      now: options.now,
-      pkmTargetStore,
-      pluginRegistry,
-      pluginSettingsStore,
-      searchIndex,
-      searchIndexStore,
-      syncEventStore,
-      syncState,
-      syncStateStore,
-    },
-    { surface: options.surface },
-  );
+  return new GranolaApp(config, deps, { surface: options.surface });
 }
 
 export type { DefaultGranolaAuthInfo };
