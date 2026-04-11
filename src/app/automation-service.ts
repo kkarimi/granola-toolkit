@@ -5,7 +5,6 @@ import {
   type AgentHarnessStore,
   type GranolaAgentHarness,
 } from "../agent-harnesses.ts";
-import { cloneYazdStructuredOutput } from "@kkarimi/yazd-core";
 import {
   createDefaultAutomationAgentRunner,
   type GranolaAutomationAgentRequest,
@@ -23,10 +22,7 @@ import {
 } from "../automation-actions.ts";
 import type { GranolaAutomationActionRegistry } from "../automation-action-registry.ts";
 import type { AutomationArtefactStore } from "../automation-artefacts.ts";
-import {
-  defaultAutomationMatchesFilePath,
-  type AutomationMatchStore,
-} from "../automation-matches.ts";
+import type { AutomationMatchStore } from "../automation-matches.ts";
 import type { AutomationRunStore } from "../automation-runs.ts";
 import { matchAutomationRules, type AutomationRuleStore } from "../automation-rules.ts";
 import {
@@ -39,6 +35,13 @@ import { parsePipelineOutput } from "../processing.ts";
 import type { AppConfig } from "../types.ts";
 
 import type { MeetingSummaryRecord } from "./models.ts";
+import {
+  cloneAutomationArtefact,
+  cloneAutomationMatch,
+  cloneAutomationRun,
+  type GranolaAutomationStateRepository,
+  GranolaAutomationStateRepository as AutomationStateRepository,
+} from "./automation-state.ts";
 import type {
   GranolaAgentHarnessExplanationsResult,
   GranolaAgentHarnessesResult,
@@ -171,205 +174,45 @@ function buildAutomationArtefactId(runId: string, kind: GranolaAutomationArtefac
 }
 
 export class GranolaAutomationService {
-  #automationActionRuns: GranolaAutomationActionRun[];
-  #automationArtefacts: GranolaAutomationArtefact[];
-  #automationMatches: GranolaAutomationMatch[];
-  #automationRules: GranolaAutomationRule[];
+  #automationState: GranolaAutomationStateRepository;
 
   constructor(private readonly deps: GranolaAutomationServiceDependencies) {
-    this.#automationArtefacts = (deps.automationArtefacts ?? []).map((artefact) =>
-      this.cloneAutomationArtefact(artefact),
-    );
-    this.#automationMatches = (deps.automationMatches ?? []).map((match) =>
-      this.cloneAutomationMatch(match),
-    );
-    this.#automationActionRuns = (deps.automationRuns ?? []).map((run) =>
-      this.cloneAutomationRun(run),
-    );
-    this.#automationRules = (deps.automationRules ?? []).map((rule) =>
-      this.cloneAutomationRule(rule),
-    );
-    this.refreshAutomationState();
+    this.#automationState = new AutomationStateRepository({
+      automationArtefactStore: deps.automationArtefactStore,
+      automationArtefacts: deps.automationArtefacts,
+      automationMatchStore: deps.automationMatchStore,
+      automationMatches: deps.automationMatches,
+      automationRunStore: deps.automationRunStore,
+      automationRuns: deps.automationRuns,
+      automationRuleStore: deps.automationRuleStore,
+      automationRules: deps.automationRules,
+      config: deps.config,
+      emitStateUpdate: deps.emitStateUpdate,
+      onArtefactsChanged: deps.onArtefactsChanged,
+      state: deps.state,
+    });
   }
 
   artefacts(): GranolaAutomationArtefact[] {
-    return this.#automationArtefacts.map((artefact) => this.cloneAutomationArtefact(artefact));
-  }
-
-  private cloneAutomationRule(rule: GranolaAutomationRule): GranolaAutomationRule {
-    return {
-      ...rule,
-      actions: rule.actions?.map((action) => {
-        switch (action.kind) {
-          case "agent":
-            return { ...action };
-          case "ask-user":
-            return { ...action };
-          case "command":
-            return {
-              ...action,
-              args: action.args ? [...action.args] : undefined,
-              env: action.env ? { ...action.env } : undefined,
-            };
-          case "export-notes":
-          case "export-transcript":
-            return { ...action };
-          case "pkm-sync":
-            return { ...action };
-          case "slack-message":
-            return { ...action };
-          case "webhook":
-            return {
-              ...action,
-              headers: action.headers ? { ...action.headers } : undefined,
-            };
-          case "write-file":
-            return { ...action };
-        }
-      }),
-      when: {
-        ...rule.when,
-        eventKinds: rule.when.eventKinds ? [...rule.when.eventKinds] : undefined,
-        folderIds: rule.when.folderIds ? [...rule.when.folderIds] : undefined,
-        folderNames: rule.when.folderNames ? [...rule.when.folderNames] : undefined,
-        meetingIds: rule.when.meetingIds ? [...rule.when.meetingIds] : undefined,
-        tags: rule.when.tags ? [...rule.when.tags] : undefined,
-        titleIncludes: rule.when.titleIncludes ? [...rule.when.titleIncludes] : undefined,
-      },
-    };
-  }
-
-  private cloneAutomationMatch(match: GranolaAutomationMatch): GranolaAutomationMatch {
-    return {
-      ...match,
-      folders: match.folders.map((folder) => ({ ...folder })),
-      tags: [...match.tags],
-    };
-  }
-
-  private cloneAutomationRun(run: GranolaAutomationActionRun): GranolaAutomationActionRun {
-    return {
-      ...run,
-      artefactIds: run.artefactIds ? [...run.artefactIds] : undefined,
-      folders: run.folders.map((folder) => ({ ...folder })),
-      meta: run.meta ? structuredClone(run.meta) : undefined,
-      tags: [...run.tags],
-    };
-  }
-
-  private cloneAutomationArtefact(artefact: GranolaAutomationArtefact): GranolaAutomationArtefact {
-    return {
-      ...artefact,
-      attempts: artefact.attempts.map((attempt) => ({ ...attempt })),
-      history: artefact.history.map((entry) => ({ ...entry })),
-      structured: cloneYazdStructuredOutput(artefact.structured),
-    };
-  }
-
-  private refreshAutomationState(): void {
-    const latestMatch = this.#automationMatches.reduce<GranolaAutomationMatch | undefined>(
-      (current, candidate) =>
-        !current || candidate.matchedAt.localeCompare(current.matchedAt) > 0 ? candidate : current,
-      undefined,
-    );
-    const latestRun = this.#automationActionRuns.reduce<GranolaAutomationActionRun | undefined>(
-      (current, candidate) => {
-        const candidateTime = candidate.finishedAt ?? candidate.startedAt;
-        const currentTime = current ? (current.finishedAt ?? current.startedAt) : undefined;
-        return !currentTime || candidateTime.localeCompare(currentTime) > 0 ? candidate : current;
-      },
-      undefined,
-    );
-
-    this.deps.state.automation = {
-      ...this.deps.state.automation,
-      artefactCount: this.#automationArtefacts.length,
-      artefactsFile:
-        this.deps.config.automation?.artefactsFile ?? this.deps.state.automation.artefactsFile,
-      lastMatchedAt: latestMatch?.matchedAt ?? this.deps.state.automation.lastMatchedAt,
-      lastRunAt:
-        latestRun?.finishedAt ?? latestRun?.startedAt ?? this.deps.state.automation.lastRunAt,
-      loaded: true,
-      matchCount: this.#automationMatches.length,
-      matchesFile: defaultAutomationMatchesFilePath(),
-      pendingArtefactCount: this.#automationArtefacts.filter(
-        (artefact) => artefact.status === "generated",
-      ).length,
-      pendingRunCount: this.#automationActionRuns.filter((run) => run.status === "pending").length,
-      ruleCount: this.#automationRules.length,
-      rulesFile: this.deps.config.automation?.rulesFile ?? this.deps.state.automation.rulesFile,
-      runCount: this.#automationActionRuns.length,
-      runsFile: this.deps.state.automation.runsFile,
-    };
+    return this.#automationState.artefacts();
   }
 
   private async loadAutomationRules(
     options: { forceRefresh?: boolean } = {},
   ): Promise<GranolaAutomationRule[]> {
-    if (this.#automationRules.length > 0 && !options.forceRefresh) {
-      return this.#automationRules.map((rule) => this.cloneAutomationRule(rule));
-    }
-
-    if (!this.deps.automationRuleStore) {
-      return [];
-    }
-
-    this.#automationRules = (await this.deps.automationRuleStore.readRules()).map((rule) =>
-      this.cloneAutomationRule(rule),
-    );
-    this.refreshAutomationState();
-    this.deps.emitStateUpdate();
-    return this.#automationRules.map((rule) => this.cloneAutomationRule(rule));
+    return await this.#automationState.loadRules(options);
   }
 
   private async appendAutomationMatches(matches: GranolaAutomationMatch[]): Promise<void> {
-    if (matches.length === 0) {
-      return;
-    }
-
-    if (this.deps.automationMatchStore) {
-      await this.deps.automationMatchStore.appendMatches(matches);
-    }
-
-    this.#automationMatches.push(...matches.map((match) => this.cloneAutomationMatch(match)));
-    this.refreshAutomationState();
+    await this.#automationState.appendMatches(matches);
   }
 
   private async appendAutomationRuns(runs: GranolaAutomationActionRun[]): Promise<void> {
-    if (runs.length === 0) {
-      return;
-    }
-
-    if (this.deps.automationRunStore) {
-      await this.deps.automationRunStore.appendRuns(runs);
-    }
-
-    for (const run of runs) {
-      const index = this.#automationActionRuns.findIndex((candidate) => candidate.id === run.id);
-      if (index >= 0) {
-        this.#automationActionRuns[index] = this.cloneAutomationRun(run);
-      } else {
-        this.#automationActionRuns.push(this.cloneAutomationRun(run));
-      }
-    }
-
-    this.#automationActionRuns.sort((left, right) =>
-      (right.finishedAt ?? right.startedAt).localeCompare(left.finishedAt ?? left.startedAt),
-    );
-    this.refreshAutomationState();
+    await this.#automationState.appendRuns(runs);
   }
 
   private async writeAutomationArtefacts(artefacts: GranolaAutomationArtefact[]): Promise<void> {
-    this.#automationArtefacts = artefacts
-      .map((artefact) => this.cloneAutomationArtefact(artefact))
-      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
-
-    if (this.deps.automationArtefactStore) {
-      await this.deps.automationArtefactStore.writeArtefacts(this.#automationArtefacts);
-    }
-
-    await this.deps.onArtefactsChanged(this.#automationArtefacts);
-    this.refreshAutomationState();
+    await this.#automationState.writeArtefacts(artefacts);
   }
 
   private buildAutomationArtefactHistoryEntry(
@@ -386,11 +229,7 @@ export class GranolaAutomationService {
   private async readAutomationArtefactById(
     id: string,
   ): Promise<GranolaAutomationArtefact | undefined> {
-    return (
-      (this.deps.automationArtefactStore
-        ? await this.deps.automationArtefactStore.readArtefact(id)
-        : undefined) ?? this.#automationArtefacts.find((artefact) => artefact.id === id)
-    );
+    return await this.#automationState.readArtefactById(id);
   }
 
   private assertMutableAutomationArtefact(artefact: GranolaAutomationArtefact): void {
@@ -402,17 +241,7 @@ export class GranolaAutomationService {
   private async replaceAutomationArtefact(
     nextArtefact: GranolaAutomationArtefact,
   ): Promise<GranolaAutomationArtefact> {
-    const nextArtefacts = [
-      this.cloneAutomationArtefact(nextArtefact),
-      ...this.#automationArtefacts
-        .filter((artefact) => artefact.id !== nextArtefact.id)
-        .map((artefact) => this.cloneAutomationArtefact(artefact)),
-    ];
-    await this.writeAutomationArtefacts(nextArtefacts);
-    this.deps.emitStateUpdate();
-    return this.cloneAutomationArtefact(
-      this.#automationArtefacts.find((artefact) => artefact.id === nextArtefact.id) ?? nextArtefact,
-    );
+    return await this.#automationState.replaceArtefact(nextArtefact);
   }
 
   private createRecoveryRunId(match: GranolaAutomationMatch, actionId: string): string {
@@ -451,13 +280,11 @@ export class GranolaAutomationService {
       this.loadAutomationRules(),
     ]);
     return buildProcessingIssues({
-      artefacts: this.#automationArtefacts.map((artefact) =>
-        this.cloneAutomationArtefact(artefact),
-      ),
+      artefacts: this.#automationState.artefacts(),
       meetings,
       nowIso: this.deps.nowIso(),
       rules,
-      runs: this.#automationActionRuns.map((run) => this.cloneAutomationRun(run)),
+      runs: this.#automationState.runs(),
       syncState: cloneSyncState(this.deps.state.sync),
     });
   }
@@ -470,7 +297,7 @@ export class GranolaAutomationService {
     for (const context of contexts) {
       runs.push(
         await executeAutomationAction(
-          this.cloneAutomationMatch(context.match),
+          cloneAutomationMatch(context.match),
           context.rule,
           context.action,
           this.automationActionHandlers(),
@@ -484,36 +311,15 @@ export class GranolaAutomationService {
 
     await this.appendAutomationRuns(runs);
     this.deps.emitStateUpdate();
-    return runs.map((run) => this.cloneAutomationRun(run));
+    return runs.map((run) => cloneAutomationRun(run));
   }
 
   async listAutomationArtefacts(
     options: GranolaAutomationArtefactListOptions = {},
   ): Promise<GranolaAutomationArtefactsResult> {
-    const limit = options.limit ?? 20;
-    const artefacts = this.deps.automationArtefactStore
-      ? await this.deps.automationArtefactStore.readArtefacts({
-          kind: options.kind,
-          limit,
-          meetingId: options.meetingId,
-          status: options.status,
-        })
-      : this.#automationArtefacts
-          .filter((artefact) => {
-            if (options.kind && artefact.kind !== options.kind) {
-              return false;
-            }
-            if (options.meetingId && artefact.meetingId !== options.meetingId) {
-              return false;
-            }
-            if (options.status && artefact.status !== options.status) {
-              return false;
-            }
-            return true;
-          })
-          .slice(0, limit);
+    const artefacts = await this.#automationState.listArtefacts(options);
     return {
-      artefacts: artefacts.map((artefact) => this.cloneAutomationArtefact(artefact)),
+      artefacts,
     };
   }
 
@@ -726,15 +532,16 @@ export class GranolaAutomationService {
     await this.appendAutomationRuns(runs);
     this.deps.emitStateUpdate();
 
+    const allArtefacts = this.#automationState.artefacts();
     const artefacts = runs
       .flatMap((run) => run.artefactIds ?? [])
-      .map((id) => this.#automationArtefacts.find((artefact) => artefact.id === id))
+      .map((id) => allArtefacts.find((artefact) => artefact.id === id))
       .filter((artefact): artefact is GranolaAutomationArtefact => Boolean(artefact))
-      .map((artefact) => this.cloneAutomationArtefact(artefact));
+      .map((artefact) => cloneAutomationArtefact(artefact));
 
     return {
       artefacts,
-      runs: runs.map((run) => this.cloneAutomationRun(run)),
+      runs: runs.map((run) => cloneAutomationRun(run)),
     };
   }
 
@@ -744,7 +551,7 @@ export class GranolaAutomationService {
       throw new Error(`automation artefact not found: ${id}`);
     }
 
-    return this.cloneAutomationArtefact(artefact);
+    return cloneAutomationArtefact(artefact);
   }
 
   async listProcessingIssues(
@@ -775,52 +582,32 @@ export class GranolaAutomationService {
   async listAutomationRules(): Promise<GranolaAutomationRulesResult> {
     const rules = await this.loadAutomationRules({ forceRefresh: true });
     return {
-      rules: rules.map((rule) => this.cloneAutomationRule(rule)),
+      rules,
     };
   }
 
   async saveAutomationRules(rules: GranolaAutomationRule[]): Promise<GranolaAutomationRulesResult> {
-    if (!this.deps.automationRuleStore) {
-      throw new Error("automation rule store is not configured");
-    }
-
-    await this.deps.automationRuleStore.writeRules(
-      rules.map((rule) => this.cloneAutomationRule(rule)),
-    );
-    this.#automationRules = rules.map((rule) => this.cloneAutomationRule(rule));
-    this.refreshAutomationState();
-    this.deps.emitStateUpdate();
+    const savedRules = await this.#automationState.saveRules(rules);
     return {
-      rules: this.#automationRules.map((rule) => this.cloneAutomationRule(rule)),
+      rules: savedRules,
     };
   }
 
   async listAutomationMatches(
     options: { limit?: number } = {},
   ): Promise<GranolaAutomationMatchesResult> {
-    const limit = options.limit ?? 20;
-    const matches = this.deps.automationMatchStore
-      ? await this.deps.automationMatchStore.readMatches(limit)
-      : this.#automationMatches.slice(-limit).reverse();
+    const matches = await this.#automationState.listMatches(options);
     return {
-      matches: matches.map((match) => this.cloneAutomationMatch(match)),
+      matches,
     };
   }
 
   async listAutomationRuns(
     options: { limit?: number; status?: GranolaAutomationActionRun["status"] } = {},
   ): Promise<GranolaAutomationRunsResult> {
-    const limit = options.limit ?? 20;
-    const runs = this.deps.automationRunStore
-      ? await this.deps.automationRunStore.readRuns({
-          limit,
-          status: options.status,
-        })
-      : this.#automationActionRuns
-          .filter((run) => (options.status ? run.status === options.status : true))
-          .slice(0, limit);
+    const runs = await this.#automationState.listRuns(options);
     return {
-      runs: runs.map((run) => this.cloneAutomationRun(run)),
+      runs,
     };
   }
 
@@ -829,9 +616,7 @@ export class GranolaAutomationService {
     decision: "approve" | "reject",
     options: { note?: string } = {},
   ): Promise<GranolaAutomationActionRun> {
-    const current =
-      (this.deps.automationRunStore ? await this.deps.automationRunStore.readRun(id) : undefined) ??
-      this.#automationActionRuns.find((run) => run.id === id);
+    const current = await this.#automationState.readRunById(id);
     if (!current) {
       throw new Error(`automation run not found: ${id}`);
     }
@@ -842,7 +627,7 @@ export class GranolaAutomationService {
 
     const finishedAt = this.deps.nowIso();
     const resolved: GranolaAutomationActionRun = {
-      ...this.cloneAutomationRun(current),
+      ...cloneAutomationRun(current),
       finishedAt,
       meta: {
         ...(current.meta ? structuredClone(current.meta) : {}),
@@ -858,17 +643,11 @@ export class GranolaAutomationService {
 
     await this.appendAutomationRuns([resolved]);
     this.deps.emitStateUpdate();
-    return this.cloneAutomationRun(resolved);
+    return cloneAutomationRun(resolved);
   }
 
   private async readAutomationMatchById(id: string): Promise<GranolaAutomationMatch | undefined> {
-    return (
-      (this.deps.automationMatchStore
-        ? (await this.deps.automationMatchStore.readMatches(0)).find(
-            (candidate) => candidate.id === id,
-          )
-        : undefined) ?? this.#automationMatches.find((candidate) => candidate.id === id)
-    );
+    return await this.#automationState.readMatchById(id);
   }
 
   private pipelineApprovalMode(
@@ -918,7 +697,7 @@ export class GranolaAutomationService {
       return [];
     }
 
-    const existingRunIds = new Set(this.#automationActionRuns.map((run) => run.id));
+    const existingRunIds = new Set(this.#automationState.runs().map((run) => run.id));
     const runs: GranolaAutomationActionRun[] = [];
 
     for (const action of actions) {
@@ -934,13 +713,13 @@ export class GranolaAutomationService {
       existingRunIds.add(runId);
       runs.push(
         await executeAutomationAction(
-          this.cloneAutomationMatch(match),
+          cloneAutomationMatch(match),
           rule,
           action,
           this.automationActionHandlers(),
           {
             context: {
-              artefact: this.cloneAutomationArtefact(artefact),
+              artefact: cloneAutomationArtefact(artefact),
               decision: options.decision,
               note: options.note,
               trigger: "approval",
@@ -954,7 +733,7 @@ export class GranolaAutomationService {
 
     await this.appendAutomationRuns(runs);
     this.deps.emitStateUpdate();
-    return runs.map((run) => this.cloneAutomationRun(run));
+    return runs.map((run) => cloneAutomationRun(run));
   }
 
   async resolveAutomationArtefact(
@@ -971,7 +750,7 @@ export class GranolaAutomationService {
     const shouldRunPostApproval = decision === "approve" && current.status !== "approved";
 
     const nextArtefact: GranolaAutomationArtefact = {
-      ...this.cloneAutomationArtefact(current),
+      ...cloneAutomationArtefact(current),
       history: [
         ...current.history.map((entry) => ({ ...entry })),
         this.buildAutomationArtefactHistoryEntry(
@@ -1014,7 +793,7 @@ export class GranolaAutomationService {
     }
 
     const nextArtefact: GranolaAutomationArtefact = {
-      ...this.cloneAutomationArtefact(current),
+      ...cloneAutomationArtefact(current),
       history: [
         ...current.history.map((entry) => ({ ...entry })),
         this.buildAutomationArtefactHistoryEntry("edited", patch.note),
@@ -1080,7 +859,8 @@ export class GranolaAutomationService {
     }
 
     if (parsed.kind === "artefact-stale" && parsed.ruleId && parsed.actionId) {
-      const latestArtefact = this.#automationArtefacts
+      const latestArtefact = this.#automationState
+        .artefacts()
         .filter(
           (artefact) =>
             artefact.meetingId === parsed.meetingId &&
@@ -1149,7 +929,7 @@ export class GranolaAutomationService {
     }
 
     const nextRun = await executeAutomationAction(
-      this.cloneAutomationMatch(match),
+      cloneAutomationMatch(match),
       rule,
       action,
       this.automationActionHandlers(),
@@ -1163,14 +943,15 @@ export class GranolaAutomationService {
     await this.appendAutomationRuns([nextRun]);
 
     const nextArtefactId = nextRun.artefactIds?.[0];
+    const currentArtefacts = this.#automationState.artefacts();
     const nextArtefact = nextArtefactId
-      ? this.#automationArtefacts.find((artefact) => artefact.id === nextArtefactId)
+      ? currentArtefacts.find((artefact) => artefact.id === nextArtefactId)
       : undefined;
     if (!nextArtefact) {
       throw new Error(`rerun did not produce an automation artefact: ${id}`);
     }
 
-    const updatedArtefacts = this.#automationArtefacts.map((artefact) =>
+    const updatedArtefacts = currentArtefacts.map((artefact) =>
       artefact.id === current.id
         ? {
             ...artefact,
@@ -1186,9 +967,7 @@ export class GranolaAutomationService {
     );
     await this.writeAutomationArtefacts(updatedArtefacts);
     this.deps.emitStateUpdate();
-    return this.cloneAutomationArtefact(
-      this.#automationArtefacts.find((artefact) => artefact.id === nextArtefact.id) ?? nextArtefact,
-    );
+    return await this.getAutomationArtefact(nextArtefact.id);
   }
 
   private async runAutomationAgent(
@@ -1295,7 +1074,7 @@ export class GranolaAutomationService {
             structured: parsed.structured,
             updatedAt: createdAt,
           };
-          await this.writeAutomationArtefacts([artefact, ...this.#automationArtefacts]);
+          await this.writeAutomationArtefacts([artefact, ...this.#automationState.artefacts()]);
           const finalArtefact =
             this.pipelineApprovalMode(action) === "auto"
               ? await this.resolveAutomationArtefact(artefact.id, "approve", {
@@ -1354,7 +1133,7 @@ export class GranolaAutomationService {
     matches: GranolaAutomationMatch[],
   ): Promise<GranolaAutomationActionRun[]> {
     const rulesById = new Map(rules.map((rule) => [rule.id, rule] as const));
-    const existingRunIds = new Set(this.#automationActionRuns.map((run) => run.id));
+    const existingRunIds = new Set(this.#automationState.runs().map((run) => run.id));
     const runs: GranolaAutomationActionRun[] = [];
 
     for (const match of matches) {
@@ -1381,7 +1160,7 @@ export class GranolaAutomationService {
     }
 
     await this.appendAutomationRuns(runs);
-    return runs.map((run) => this.cloneAutomationRun(run));
+    return runs.map((run) => cloneAutomationRun(run));
   }
 
   async processSyncEvents(
@@ -1396,7 +1175,7 @@ export class GranolaAutomationService {
     await this.appendAutomationMatches(automationMatches);
     const runs = await this.runAutomationActions(rules, automationMatches);
     return {
-      matches: automationMatches.map((match) => this.cloneAutomationMatch(match)),
+      matches: automationMatches.map((match) => cloneAutomationMatch(match)),
       runs,
     };
   }
