@@ -133,25 +133,13 @@ test.describe("toolkit web workspace", () => {
         .getByText("No custom config file", { exact: true })
         .first(),
     ).toBeVisible();
-    await page
-      .locator(".primary-nav")
-      .getByRole("button", { name: /Review/i })
-      .click();
-    await expect(page.getByText("Needs attention")).toBeVisible();
-    await page
-      .locator(".jobs-list")
-      .getByRole("button", { name: /Team Notes/i })
-      .first()
-      .click();
-    await expect(page.getByRole("heading", { name: "Ready to publish" })).toBeVisible();
-    await expect(page.getByText("Destination")).toBeVisible();
-    await expect(page.getByRole("combobox")).toHaveValue("team-vault");
-    await expect(page.locator(".publish-preview-list")).toContainText("Meeting note");
-    await expect(page.locator(".publish-preview-list")).toContainText(
-      "Meetings/Team/Alpha Sync-notes.md",
-    );
-    await expect(page.locator(".publish-preview-list")).toContainText("Daily/2024-01-01.md");
-    await expect(page.getByRole("link", { name: "Open" }).first()).toBeVisible();
+    await expect(
+      page.locator(".primary-nav").getByRole("button", { name: /^Review$/i }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "Advanced drafts and recoveries" }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open drafts and recoveries" })).toBeVisible();
   });
 
   test("configures and tests automation from Settings -> Advanced while keeping the selected meeting", async ({
@@ -261,7 +249,11 @@ test.describe("toolkit web workspace", () => {
       await expect(page.getByRole("button", { name: "New Harness" })).toBeVisible();
       await expect(
         page.locator(".primary-nav").getByRole("button", { name: /Review/i }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole("heading", { name: "Advanced drafts and recoveries" }),
       ).toBeVisible();
+      await expect(page.getByRole("button", { name: "Open drafts and recoveries" })).toBeVisible();
     } finally {
       await page.close();
       await coldServer.close();

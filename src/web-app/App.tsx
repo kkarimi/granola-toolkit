@@ -503,6 +503,7 @@ export function App() {
       apiKeyDraft={state.apiKeyDraft}
       appState={state.appState}
       auth={state.appState?.auth}
+      automationEnabled={automationEnabled()}
       automationRuns={state.automationRuns}
       currentExportScopeLabel={settingsController.currentExportScopeLabel()}
       defaultArchiveSummary={settingsController.defaultArchiveSummary()}
@@ -542,6 +543,11 @@ export function App() {
       onNewHarness={harnessController.createHarness}
       onOpenMeeting={(meetingId) => {
         void browseController.openMeetingFromPage(meetingId, "settings");
+      }}
+      onOpenReviewPage={() => {
+        if (automationEnabled()) {
+          void browseController.openPage("review");
+        }
       }}
       onPasswordChange={(value) => {
         setState("serverPassword", value);
@@ -602,6 +608,7 @@ export function App() {
       password={state.serverPassword}
       plugins={plugins()}
       processingIssues={state.processingIssues}
+      reviewSummary={reviewController.reviewInboxSummary()}
       selectedExportTargetId={state.selectedExportTargetId}
       selectedHarness={harnessController.selectedHarness()}
       selectedHarnessId={state.selectedHarnessId}

@@ -312,9 +312,9 @@ export function ReviewPageController(props: {
             Refresh
           </button>
         }
-        description="Handle recoveries, approvals, and publish-ready drafts in one calm inbox."
-        eyebrow="Review"
-        title="Review"
+        description="Advanced drafts and recoveries for generated notes, approvals, and broken automation runs."
+        eyebrow="Advanced"
+        title="Drafts and recoveries"
       />
       <div class="review-layout">
         <section class="review-layout__sidebar">
@@ -382,6 +382,7 @@ export function SettingsPageController(props: {
   appState: GranolaAppState | null;
   auth: GranolaAppAuthState | undefined;
   automationRuns: GranolaAutomationActionRun[];
+  automationEnabled: boolean;
   harnessDirty: boolean;
   harnessError: string;
   harnessExplanations: GranolaAgentHarnessMatchExplanation[];
@@ -404,6 +405,7 @@ export function SettingsPageController(props: {
   onLogout: () => void;
   onNewHarness: () => void;
   onOpenMeeting: (meetingId: string) => void;
+  onOpenReviewPage: () => void;
   onPasswordChange: (value: string) => void;
   onRecover: (issueId: string) => void;
   onRefreshAuth: () => void;
@@ -427,6 +429,7 @@ export function SettingsPageController(props: {
   password: string;
   processingIssues: import("../app/index.ts").GranolaProcessingIssue[];
   plugins: GranolaAppPluginState[];
+  reviewSummary: ReviewSummary;
   selectedExportTargetId: string | null;
   selectedHarness: GranolaAgentHarness | null;
   selectedHarnessId: string | null;
@@ -540,6 +543,9 @@ export function SettingsPageController(props: {
               />
               <DiagnosticsPanel
                 appState={props.appState}
+                automationEnabled={props.automationEnabled}
+                onOpenReviewPage={() => props.onOpenReviewPage()}
+                reviewSummary={props.reviewSummary}
                 serverInfo={props.serverInfo}
                 statusLabel={props.statusLabel}
               />

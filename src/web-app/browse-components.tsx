@@ -478,7 +478,7 @@ export function HomeDashboardPanel(props: HomeDashboardPanelProps): JSX.Element 
                 }}
                 type="button"
               >
-                Open Review Inbox
+                Open drafts and recoveries
               </button>
             </Show>
           </Show>

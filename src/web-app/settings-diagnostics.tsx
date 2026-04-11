@@ -3,6 +3,7 @@
 import { createEffect, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
 
 import type { GranolaAppState, GranolaAppSyncRun } from "../app/index.ts";
+import type { GranolaReviewInboxSummary } from "../review-inbox.ts";
 import { describeAuthStatus, describeSyncStatus } from "../web/client-state.ts";
 import type { GranolaServerInfo } from "../transport.ts";
 
@@ -13,6 +14,7 @@ import {
   formatDateTimeLabel,
   pathLeafLabel,
   relativeTimeLabel,
+  reviewSummaryLabel,
   syncCadenceLabel,
 } from "./component-helpers.ts";
 
@@ -357,6 +359,9 @@ function SyncRunHistoryPanel(props: { runs?: GranolaAppSyncRun[] }): JSX.Element
 
 export function DiagnosticsPanel(props: {
   appState?: GranolaAppState | null;
+  automationEnabled: boolean;
+  onOpenReviewPage: () => void;
+  reviewSummary: GranolaReviewInboxSummary;
   serverInfo?: GranolaServerInfo | null;
   statusLabel: string;
 }): JSX.Element {
@@ -573,6 +578,52 @@ export function DiagnosticsPanel(props: {
           </div>
         </section>
         <SyncRunHistoryPanel runs={sync()?.recentRuns} />
+        <section class="detail-section">
+          <h2>Advanced drafts and recoveries</h2>
+          <div class="diagnostic-card-grid diagnostic-card-grid--metrics">
+            <DiagnosticsMetricCard
+              detail={
+                props.automationEnabled
+                  ? props.reviewSummary.total > 0
+                    ? `${props.reviewSummary.recovery} recoveries · ${props.reviewSummary.publish} publish drafts · ${props.reviewSummary.approval} approvals`
+                    : "Nothing is waiting right now."
+                  : "Enable automation above if you want Gran to generate drafts and recovery work."
+              }
+              label="Attention"
+              meta={
+                props.automationEnabled && props.reviewSummary.total > 0
+                  ? reviewSummaryLabel(props.reviewSummary)
+                  : undefined
+              }
+              title={
+                props.automationEnabled
+                  ? props.reviewSummary.total > 0
+                    ? `${props.reviewSummary.total} advanced item${props.reviewSummary.total === 1 ? "" : "s"}`
+                    : "No advanced items waiting"
+                  : "Automation disabled"
+              }
+            />
+            <DiagnosticsMetricCard
+              detail={
+                props.automationEnabled
+                  ? "Use the advanced review space when you need to approve, reject, rerun, or recover generated work."
+                  : "Gran’s main product path stays simpler when these workflows are left off."
+              }
+              label="Where it lives"
+              title="Advanced only"
+            />
+          </div>
+          <div class="toolbar-actions">
+            <button
+              class="button button--secondary"
+              disabled={!props.automationEnabled}
+              onClick={() => props.onOpenReviewPage()}
+              type="button"
+            >
+              Open drafts and recoveries
+            </button>
+          </div>
+        </section>
         <section class="detail-section">
           <h2>Local files</h2>
           <div class="diagnostic-file-list">

@@ -43,21 +43,19 @@ export function PrimaryNav(props: PrimaryNavProps): JSX.Element {
     badge?: string;
     id: WebNavigationPage;
     label: string;
-  }> => [
-    { id: "home", label: "Home" },
-    { id: "folders", label: "Folders" },
-    { id: "search", label: "Search" },
-    ...(props.reviewEnabled
-      ? ([
-          {
-            badge: props.reviewSummary.total > 0 ? String(props.reviewSummary.total) : undefined,
-            id: "review",
-            label: "Review",
-          },
-        ] as const)
-      : []),
-    { id: "settings", label: "Settings" },
-  ];
+  }> => {
+    const settingsBadge =
+      props.reviewEnabled && props.reviewSummary.total > 0
+        ? String(props.reviewSummary.total)
+        : undefined;
+
+    return [
+      { id: "home", label: "Home" },
+      { id: "folders", label: "Folders" },
+      { id: "search", label: "Search" },
+      { badge: settingsBadge, id: "settings", label: "Settings" },
+    ];
+  };
 
   return (
     <aside class="pane primary-nav">
