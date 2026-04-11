@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-description: Install the toolkit, create a local project, connect Granola once, and start from a real workspace instead of raw files.
+description: Install Gran, connect Granola once, import your archive, and land in a real local workspace.
 ---
 
 ## Install
@@ -22,14 +22,6 @@ If you prefer not to use npm at all, each GitHub release also ships standalone a
 arm64, Linux x64, and Windows x64. Extract the archive and run `gran` (or `gran.exe` on
 Windows).
 
-If you use Pi/OpenClaw, install Gran into Pi directly:
-
-```bash
-pi install npm:@kkarimi/gran
-```
-
-The repo also still ships the local skill directory at `skills/openclaw-gran/SKILL.md`.
-
 ## First Run
 
 Create your default Gran setup first:
@@ -44,10 +36,10 @@ That writes:
 - local support files under `~/.config/gran/`
 
 The generated files are intentionally local and editable. They give you a user-level home for
-config, knowledge-base profiles, and future integrations without forcing you to reverse-engineer the
-JSON shape first.
+config, knowledge-base profiles, and integrations without forcing you to reverse-engineer the JSON
+shape first.
 
-In an interactive terminal, `gran init` now offers guided setup immediately:
+In an interactive terminal, `gran init` offers guided setup immediately:
 
 1. connect Granola
 2. import meetings into the local archive
@@ -68,7 +60,7 @@ Use `gran tui` later when you want the keyboard-first terminal workspace.
 
 If you do want repo-local config instead, run `gran init --project`.
 
-## Choose A Surface
+## Default Surface
 
 ### Browser Workspace
 
@@ -76,8 +68,8 @@ If you do want repo-local config instead, run `gran init --project`.
 gran web
 ```
 
-Use this when you want the calmest first-run path and the easiest place to inspect sync state,
-folders, knowledge bases, and diagnostics.
+This is the normal first-run path. Use it when you want the easiest place to inspect sync state,
+folders, meetings, and knowledge bases.
 
 ### Terminal Workspace
 
@@ -85,8 +77,8 @@ folders, knowledge bases, and diagnostics.
 gran tui
 ```
 
-Use this when you want a keyboard-first workspace on the same shared local runtime. If you start
-from `gran init`, the guided setup can land you here directly.
+Use this later when you want a keyboard-first workspace on the same shared local runtime. If you
+start from `gran init`, the guided setup can land you here directly.
 
 ### Headless Local Runtime
 
@@ -122,10 +114,10 @@ gran meeting list --limit 10
 ## Common Next Steps
 
 - `gran export` when you want notes and transcripts in durable local files
-- `gran kb add ...` when you want a named destination like an Obsidian vault
+- `gran kb add ...` when you want a saved destination like an Obsidian vault
+- `gran folder list` and `gran meeting list` when you want quick local verification from the CLI
 - `gran events --format jsonl --follow` when you want to feed another local tool
-- `gran attach` when you want to reuse the running service in the terminal
-- `Settings -> Advanced` when you want the deeper automation and diagnostics surfaces
+- `Settings -> Advanced` only when you want deeper diagnostics or the advanced automation layer
 
 For concrete examples, see [`Workflows`](/docs/workflows).
 
@@ -137,8 +129,8 @@ For concrete examples, see [`Workflows`](/docs/workflows).
   <Card title="Integrations" href="/docs/integrations" />
   <Card title="Shared local runtime" href="/docs/server-web-and-tui" />
   <Card title="SDK" href="/docs/sdk" />
-  <Card title="Agent skills" href="/docs/agent-skills" />
   <Card title="Auth and configuration" href="/docs/auth-and-configuration" />
-  <Card title="Automation" href="/docs/automation" />
   <Card title="Search, meetings, and folders" href="/docs/meetings-and-folders" />
+  <Card title="Advanced automation" href="/docs/automation" />
+  <Card title="Agent skills" href="/docs/agent-skills" />
 </Cards>

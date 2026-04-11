@@ -1,29 +1,27 @@
 ---
 title: Overview
-description: "Local-first workspace for Granola: sync locally, browse anywhere, export into knowledge bases you own, and connect external tools when needed."
+description: "Local-first workspace for Granola: sync locally, browse anywhere, publish into folders or Obsidian, and connect external tools when needed."
 ---
 
-Gran 👵🏻 is an unofficial open-source toolkit for getting more out of Granola than the
-desktop app and official exports expose on their own.
+Gran 👵🏻 is the local workspace for your Granola archive.
 
-Think of it as the Granola source app and local workspace. Gran owns local sync, browsing,
-exports, and stable source-side seams. Higher-level PKM automation can sit on top through scripts,
-webhooks, SDK code, or tools like Yazd.
+Think of it as the piece Granola itself does not give you:
 
-It gives you a local-first workbench for your Granola archive:
+- a local archive you can browse and search
+- a browser and terminal workspace on top of that archive
+- durable exports into folders and Obsidian vaults you own
+- clean local seams when you want another tool to build on top
+
+Gran is best when it stays simple:
 
 - sync meetings, notes, transcripts, folders, and change history into a local runtime
 - browse that state from the CLI, browser workspace, and terminal UI
 - export notes and transcripts without getting trapped in a closed format
-- keep local folder and Obsidian publishing inside Gran while handing more opinionated automation
-  and remote destinations off to external tools when needed
-- reuse the same local-first core from a Node and TypeScript SDK
-- connect the archive to scripts, webhooks, and external tools through clean local seams
-- keep the whole thing open, local, and hackable in plain TypeScript and local files
+- publish into local folders and Obsidian without depending on a remote integration layer
+- connect the archive to scripts, webhooks, or SDK code only when you need more
 
-The fastest way to start is `gran init`. In an interactive terminal, it now guides you through
-connection, first import, and opening the browser workspace by default before you need to think
-about advanced automation at all.
+The fastest way to start is `gran init`. In an interactive terminal, it guides you through
+connection, first import, and opening the browser workspace by default.
 
 It has three user-facing surfaces on one shared TypeScript core:
 
@@ -36,8 +34,9 @@ It has three user-facing surfaces on one shared TypeScript core:
 - keeping a local index, local snapshot, and sync loop around your Granola archive
 - opening the same meetings from scripts, the browser, and the terminal
 - exporting notes and transcripts into durable local files
+- publishing into local folders and Obsidian vaults
 - giving you an open-source seam when Granola itself is missing a feature you need
-- feeding external tools through events, hooks, and machine-readable fetch commands
+- feeding external tools through events, hooks, machine-readable fetch commands, and the SDK
 
 ## Start Here
 
@@ -50,7 +49,7 @@ It has three user-facing surfaces on one shared TypeScript core:
   <Card title="Shared local runtime" href="/docs/server-web-and-tui" />
   <Card title="Auth and configuration" href="/docs/auth-and-configuration" />
   <Card title="SDK and integrations" href="/docs/sdk" />
-  <Card title="Automation and BYOA" href="/docs/automation" />
+  <Card title="Advanced automation" href="/docs/automation" />
   <Card title="Agent skills" href="/docs/agent-skills" />
   <Card title="Architecture" href="/docs/architecture" />
   <Card title="Development" href="/docs/development" />
@@ -58,8 +57,8 @@ It has three user-facing surfaces on one shared TypeScript core:
 </Cards>
 
 If you want practical setups first, open [`Workflows`](/docs/workflows). If you want to wire Gran
-into other local tools, open [`Integrations`](/docs/integrations). If you want advanced reviewable
-pipelines later, open [`Automation`](/docs/automation).
+into other local tools, open [`Integrations`](/docs/integrations). If you want the optional
+advanced review-first layer later, open [`Automation`](/docs/automation).
 
 ## Core Ideas
 
@@ -69,7 +68,7 @@ Gran 👵🏻 is built around the idea that your meeting archive should be usabl
 runtime you control, with an explicit sync loop, a local index, local snapshots, search, exports,
 and background work.
 
-### Open integrations
+### Open integrations when needed
 
 Gran exposes local seams on purpose. Events, hooks, machine-readable fetch commands, and the SDK
 let you connect the meeting archive to whatever else you want to run on top.

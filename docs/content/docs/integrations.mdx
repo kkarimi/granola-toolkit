@@ -1,11 +1,12 @@
 ---
 title: Integrations
-description: Treat Gran as a local-first source app for scripts, webhooks, SDK code, or external automation tools.
+description: Treat Gran as a local-first source app for scripts, webhooks, SDK code, or another local tool.
 ---
 
 Gran works best as the local source of truth for your Granola archive.
 
-This is the preferred advanced extension path for external tools, including future Yazd workflows.
+This is the preferred advanced extension path when another tool should build on top of Gran instead
+of Gran doing everything itself.
 
 That means the cleanest integration model is:
 
@@ -106,7 +107,7 @@ This model works well when you want:
 - a local script that watches transcript-ready events
 - a webhook bridge to another local service
 - a Node app built on the SDK
-- an external automation tool such as Yazd
+- another local app that reacts to Gran events
 
 The important part is that Gran does not need to know the downstream tool's internal contracts.
 
@@ -146,7 +147,6 @@ Gran should own:
 Downstream tools should own:
 
 - cross-source automation logic
-- agent orchestration
 - remote publishing APIs
 - complex review pipelines
 

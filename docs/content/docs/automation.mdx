@@ -3,9 +3,10 @@ title: Advanced Local Automation
 description: Advanced Gran features for local rules, prompts, review queues, and side effects on top of the synced meeting archive.
 ---
 
-Gran's primary job is to be the local Granola workspace and source runtime.
+Most people should stop at: local sync, local browsing, and local publishing into folders or
+Obsidian.
 
-This page is for the advanced local automation layer inside Gran itself. If you want a broader
+This page is for the optional advanced automation layer inside Gran itself. If you want a broader
 toolchain to consume Gran through events, hooks, and machine-readable fetch commands, start with
 [`Integrations`](/docs/integrations) instead.
 
@@ -125,7 +126,7 @@ Each rule can contain zero or more actions. Current action kinds are:
 - `webhook`
 - `slack-message`
 
-`agent` actions run BYOA prompts against OpenRouter, OpenAI-compatible APIs, or the local `codex`
+`agent` actions run your own prompts against OpenRouter, OpenAI-compatible APIs, or the local `codex`
 CLI. They append structured meeting context automatically, so a prompt file can stay focused on
 instructions such as “turn this transcript into follow-up notes”.
 
@@ -198,7 +199,7 @@ Approval-triggered actions are how you send reviewed notes into the rest of your
 - `slack-message` posts a simple text payload to an incoming Slack webhook
 
 If you want API-backed destinations like Notion, Capacities, or Tana, treat Gran as the source app
-and let Yazd own those knowledge-base plugins instead of teaching Gran every remote publish API.
+and let another tool own those remote knowledge-base plugins instead of teaching Gran every publish API.
 
 Delivery payloads include the artefact’s structured arrays too, so downstream actions can use:
 

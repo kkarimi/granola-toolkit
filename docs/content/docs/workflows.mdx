@@ -1,6 +1,6 @@
 ---
 title: Workflows
-description: Start from real goals like local browsing, Obsidian publishing, raw exports, local integrations, terminal-first use, and SDK embedding.
+description: Start from real goals like local browsing, Obsidian publishing, raw exports, terminal-first use, and local integrations.
 ---
 
 This page is the practical version of the docs.
@@ -13,8 +13,8 @@ Instead of learning Gran feature by feature, start from the outcome you want.
 gran init
 ```
 
-Use this path when you mostly want a better Granola browser with a local index, sync loop, and
-export access.
+Use this path when you want a better local Granola workspace with a sync loop, fast search, and
+durable exports.
 
 What you end up with:
 
@@ -39,9 +39,8 @@ Obsidian vault publishing supports:
 - note/transcript backlinks
 - optional daily-note placement
 
-If you want API-backed destinations like Notion, Capacities, or Tana, treat Gran as the source app
-and hand those publish flows off to an external automation tool instead of expecting Gran to own
-them directly.
+If you want API-backed destinations like Notion, Capacities, or Tana, keep Gran as the source app
+and hand those publish flows off to another tool instead of expecting Gran to own every remote API.
 
 ## I Want Raw Exports I Control
 
@@ -52,7 +51,7 @@ gran export --folder Team
 gran exports list
 ```
 
-Use this when you want durable local files without enabling any automation yet.
+Use this when you want durable local files without touching any advanced automation.
 
 `gran export` is the normal path because it writes notes and transcripts together unless you ask for
 only one of them.
@@ -75,7 +74,7 @@ gran events --format jsonl --follow
 ```
 
 Use this when Gran should act as the local source app and something else should do the downstream
-automation.
+work.
 
 This is the simplest universal seam:
 
@@ -108,13 +107,13 @@ Then:
 
 Use this path when you want Gran to help produce notes, but you still want human approval before
 they are written into a vault or downstream system. This is an advanced Gran workflow, not the
-default product path.
+default Gran story.
 
 ## Which Page Next?
 
 - Open [`Getting started`](/docs/getting-started) if you have not run `gran init` yet.
 - Open [`Exporting`](/docs/exporting) if you want to publish into folders or Obsidian vaults.
 - Open [`Integrations`](/docs/integrations) if you want scripts, event followers, or external
-  automation tools on top of Gran.
+  tools on top of Gran.
 - Open [`SDK`](/docs/sdk) if you want to embed Gran in local scripts or apps.
 - Open [`Automation`](/docs/automation) if you want Gran's advanced local review-first note flows.

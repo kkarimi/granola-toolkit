@@ -1,34 +1,34 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, Bot, Code2, Globe, RefreshCw, Zap } from "lucide-react";
+import { ArrowRight, BookOpen, Code2, Globe, RefreshCw, Zap } from "lucide-react";
 
 const surfaces = [
   {
     title: "Start from a real workflow",
     description:
-      "Open the practical paths first: local workspace, Obsidian publishing, review-first notes, and terminal-first use.",
+      "Open the practical paths first: local workspace, Obsidian publishing, raw exports, and terminal-first use.",
     href: "/docs/workflows",
     icon: BookOpen,
   },
   {
-    title: "Sync and own your archive",
+    title: "Own your archive locally",
     description:
       "Keep a local Granola runtime warm, sync once, and stop depending on a single brittle app path.",
     href: "/docs/server-web-and-tui",
     icon: RefreshCw,
   },
   {
-    title: "Bring your own agents",
+    title: "Publish into your knowledge base",
     description:
-      "Run your own prompts, harnesses, and reviewable pipelines against Granola transcripts with OpenRouter, OpenAI-compatible APIs, or Codex.",
-    href: "/docs/automation",
-    icon: Bot,
+      "Send meetings into folders you control or straight into an Obsidian vault without leaving Gran.",
+    href: "/docs/exporting",
+    icon: Globe,
   },
   {
     title: "Work anywhere locally",
     description:
       "Use the same local meeting state from the CLI, browser workspace, terminal UI, and attached clients.",
     href: "/docs/getting-started",
-    icon: Globe,
+    icon: RefreshCw,
   },
   {
     title: "Build with the SDK",
@@ -40,7 +40,7 @@ const surfaces = [
   {
     title: "Pipe Gran into other tools",
     description:
-      "Follow the local event stream and fetch meeting payloads without tightly coupling Gran to another automation runtime.",
+      "Follow the local event stream and fetch meeting payloads without tightly coupling Gran to another local tool.",
     href: "/docs/integrations",
     icon: Zap,
   },
@@ -56,12 +56,11 @@ export default function HomePage() {
           </p>
           <div className="space-y-4">
             <h1 className="max-w-4xl text-4xl font-semibold tracking-tight text-fd-foreground sm:text-6xl">
-              The unofficial open-source Swiss army knife for Granola.
+              The local workspace for your Granola archive.
             </h1>
             <p className="max-w-3xl text-lg leading-8 text-fd-muted-foreground">
-              Gran 👵🏻 gives you a local-first way to sync, search, export, review, and automate
-              Granola meetings with your own tools and your own agents instead of living inside one
-              closed workflow.
+              Gran 👵🏻 syncs your meetings locally, gives you a browser and terminal workspace, and
+              lets you publish them into folders or Obsidian vaults you control.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -87,23 +86,21 @@ export default function HomePage() {
           </p>
           <ul className="mt-4 space-y-4 text-sm text-fd-muted-foreground">
             <li>
-              <strong className="block text-fd-foreground">Local-first control</strong>
-              Keep a local copy of your meeting archive, not just whatever the Granola app exposes
-              today.
+              <strong className="block text-fd-foreground">Local archive</strong>
+              Keep a usable local copy of your meetings, notes, transcripts, and folders.
             </li>
             <li>
-              <strong className="block text-fd-foreground">BYOA pipelines</strong>
-              Turn transcripts into reviewable notes and follow-ups with your own prompts and
-              providers.
+              <strong className="block text-fd-foreground">Fast browsing and search</strong>
+              Open the same archive from the browser, terminal, or CLI without re-fetching
+              everything every time.
             </li>
             <li>
-              <strong className="block text-fd-foreground">Three surfaces, one core</strong>
-              CLI, browser, and TUI all ride on the same local runtime instead of drifting apart.
+              <strong className="block text-fd-foreground">Durable exports</strong>
+              Publish notes and transcripts into folders and Obsidian vaults you own.
             </li>
             <li>
-              <strong className="block text-fd-foreground">Open-source escape hatch</strong>
-              Exports, folders, search, automation, and integrations live in one hackable TypeScript
-              codebase.
+              <strong className="block text-fd-foreground">Clean local seams</strong>
+              Events, hooks, and JSON fetch commands are there when you want to build on top.
             </li>
           </ul>
         </aside>

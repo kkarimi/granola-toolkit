@@ -5,10 +5,10 @@
 [![Docs](https://img.shields.io/badge/docs-live-0f766e)](https://kkarimi.github.io/gran/)
 [![License](https://img.shields.io/github/license/kkarimi/gran)](https://github.com/kkarimi/gran/blob/main/LICENSE)
 
-Local-first workspace for Granola.
+Local-first workspace for your Granola archive.
 
-Sync your meeting archive locally, browse it in the browser or terminal, export it into knowledge
-bases you own, and connect it to other tools when you need more automation.
+Sync your meetings locally, browse them in the browser or terminal, and publish them into folders
+or Obsidian vaults you own.
 
 ## Install
 
