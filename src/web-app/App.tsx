@@ -31,8 +31,8 @@ import {
   browserConfig,
   useHarnessController,
   useMeetingBrowserController,
-  useWebClientController,
 } from "./browser-hooks.ts";
+import { useWebClientController } from "./browser-session.ts";
 import { useReviewController } from "./browser-review.ts";
 import { useSettingsController } from "./browser-settings.ts";
 import {
