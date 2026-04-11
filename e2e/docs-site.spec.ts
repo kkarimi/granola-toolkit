@@ -17,14 +17,14 @@ test.describe("docs site", () => {
     await page.goto(server.url);
 
     await expect(
-      page.getByRole("heading", { name: /swiss army knife for granola/i }),
+      page.getByRole("heading", { name: /local workspace for your granola archive/i }),
     ).toBeVisible();
     await expect(
-      page.getByText(/sync, search, export, review, and automate granola meetings/i),
+      page.getByText(/syncs your meetings locally, gives you a browser and terminal workspace/i),
     ).toBeVisible();
     await page.getByRole("link", { name: "Start here" }).click();
     await expect(page).toHaveURL(/\/docs\/getting-started/);
     await expect(page.getByRole("heading", { name: "Getting Started" })).toBeVisible();
-    await expect(page.getByText("Store a Granola Personal API key once:")).toBeVisible();
+    await expect(page.getByText("Create your default Gran setup first:")).toBeVisible();
   });
 });
