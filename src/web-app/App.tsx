@@ -27,13 +27,10 @@ import {
   type WebMainPage,
   type WebStatusTone,
 } from "./components.tsx";
-import {
-  browserConfig,
-  useHarnessController,
-  useMeetingBrowserController,
-} from "./browser-hooks.ts";
+import { browserConfig, useHarnessController } from "./browser-hooks.ts";
 import { useWebClientController } from "./browser-session.ts";
 import { useReviewController } from "./browser-review.ts";
+import { useMeetingBrowserController } from "./browser-browse.ts";
 import { useSettingsController } from "./browser-settings.ts";
 import {
   folderFreshnessNote,
