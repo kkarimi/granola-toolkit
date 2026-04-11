@@ -37,9 +37,9 @@ import {
   browserConfig,
   useHarnessController,
   useMeetingBrowserController,
-  useReviewController,
   useWebClientController,
 } from "./browser-hooks.ts";
+import { useReviewController } from "./browser-review.ts";
 import {
   folderFreshnessNote,
   meetingContextSummary,
@@ -48,7 +48,6 @@ import {
 } from "./component-helpers.ts";
 import {
   clearAutomationCapabilityState,
-  loadAutomationCapabilityState,
   pluginExposesAutomationCapability,
 } from "./plugin-effects.ts";
 import { deriveOnboardingState, OnboardingPanel } from "./onboarding.tsx";
@@ -201,9 +200,22 @@ export function App() {
   const loadReviewPanels = async () => {
     await Promise.all([
       reviewController.loadAutomationRuns(),
+      reviewController.loadAutomationRules(),
+      reviewController.loadProcessingIssues(),
+    ]);
+  };
+
+  const advancedAutomationVisible = () =>
+    automationEnabled() &&
+    (state.activePage === "review" ||
+      (state.activePage === "settings" && state.settingsTab === "diagnostics"));
+
+  const loadAdvancedAutomationPanels = async () => {
+    automationPanelsHydrated = true;
+    await Promise.all([
       reviewController.loadAutomationArtefacts(),
       reviewController.loadPkmTargets(),
-      reviewController.loadProcessingIssues(),
+      harnessController.loadHarnesses(),
     ]);
   };
 
@@ -392,17 +404,12 @@ export function App() {
     ];
 
     if (automationEnabled()) {
-      refreshTasks.push(
-        loadAutomationCapabilityState({
-          loadAutomationArtefacts: reviewController.loadAutomationArtefacts,
-          loadPkmTargets: reviewController.loadPkmTargets,
-          loadAutomationRules: reviewController.loadAutomationRules,
-          loadAutomationRuns: reviewController.loadAutomationRuns,
-          loadHarnesses: harnessController.loadHarnesses,
-          loadProcessingIssues: reviewController.loadProcessingIssues,
-        }),
-      );
+      refreshTasks.push(loadReviewPanels());
+      if (advancedAutomationVisible() || automationPanelsHydrated) {
+        refreshTasks.push(loadAdvancedAutomationPanels());
+      }
     } else {
+      automationPanelsHydrated = false;
       clearAutomationCapabilityState(setState);
     }
 
@@ -462,14 +469,15 @@ export function App() {
       return;
     }
 
+    if (!advancedAutomationVisible()) {
+      return;
+    }
+
     if (automationPanelsHydrated) {
       return;
     }
 
-    automationPanelsHydrated = true;
-    void reviewController.loadAutomationRuns();
-    void reviewController.loadAutomationArtefacts();
-    void reviewController.loadProcessingIssues();
+    void loadAdvancedAutomationPanels();
   });
 
   createEffect(() => {
@@ -606,19 +614,16 @@ export function App() {
       if (pluginExposesAutomationCapability(nextPlugin) && !enabled) {
         setState("activePage", "settings");
         clearAutomationCapabilityState(setState);
+        automationPanelsHydrated = false;
         setStatus(`${pluginLabel} disabled`, "ok");
         return;
       }
 
       if (pluginExposesAutomationCapability(nextPlugin) && enabled) {
-        await loadAutomationCapabilityState({
-          loadAutomationArtefacts: reviewController.loadAutomationArtefacts,
-          loadPkmTargets: reviewController.loadPkmTargets,
-          loadAutomationRules: reviewController.loadAutomationRules,
-          loadAutomationRuns: reviewController.loadAutomationRuns,
-          loadHarnesses: harnessController.loadHarnesses,
-          loadProcessingIssues: reviewController.loadProcessingIssues,
-        });
+        await loadReviewPanels();
+        if (advancedAutomationVisible()) {
+          await loadAdvancedAutomationPanels();
+        }
       }
       setStatus(`${pluginLabel} ${enabled ? "enabled" : "disabled"}`, "ok");
     } catch (error) {
